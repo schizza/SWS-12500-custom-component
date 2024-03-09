@@ -4,11 +4,10 @@ from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
-    SensorEntityDescription,
     SensorEntity,
+    SensorEntityDescription,
     SensorStateClass,
 )
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     UnitOfIrradiance,
@@ -17,7 +16,6 @@ from homeassistant.const import (
     UnitOfSpeed,
     UnitOfTemperature,
 )
-
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo

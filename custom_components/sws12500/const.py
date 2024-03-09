@@ -10,10 +10,12 @@ ICON = "mdi:weather"
 
 API_KEY = "API_KEY"
 API_ID = "API_ID"
+
+DEV_DBG: Final = "dev_debug_checkbox"
+
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-
 WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
 WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
 WINDY_SUCCESS: Final = (
