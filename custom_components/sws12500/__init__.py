@@ -11,8 +11,8 @@ from homeassistant.exceptions import InvalidStateError, PlatformNotReady
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import API_ID, API_KEY, DEFAULT_URL, DOMAIN, WINDY_ENABLED
-from .utils import remap_items
+from .const import API_ID, API_KEY, DEFAULT_URL, DEV_DBG, DOMAIN, WINDY_ENABLED
+from .utils import anonymize, remap_items
 from .windy_func import WindyPush
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,8 +57,10 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         self.async_set_updated_data(remap_items(data))
 
-        response = response if response else "OK"
+        if self.config_entry.options.get(DEV_DBG):
+            _LOGGER.info("Dev log: %s", anonymize(data))
 
+        response = response if response else "OK"
         return aiohttp.web.Response(body=f"{response}", status=200)
 
 

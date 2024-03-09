@@ -20,6 +20,17 @@ def update_options(
     hass.config_entries.async_update_entry(entry, options=conf)
 
 
+def anonymize(data):
+    """Anoynimize recieved data."""
+
+    anonym = {}
+    for k in data:
+        if k not in ("ID", "PASSWORD"):
+            anonym[k] = data[k]
+
+    return anonym
+
+
 def remap_items(entities):
     """Remap items in query."""
     items = {}
