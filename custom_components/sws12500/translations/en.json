@@ -10,7 +10,7 @@
         "data": {
           "API_ID": "API ID / Station ID",
           "API_KEY": "API KEY / Password",
-          "dev_debug_checkbox": "Developer"
+          "dev_debug_checkbox": "Developer log"
         },
         "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
         "title": "Configure access for Weather Station",
@@ -32,12 +32,11 @@
         "data": {
           "API_ID": "API ID / Station ID",
           "API_KEY": "API KEY / Password",
-          "dev_debug_checkbox": "Developer"
+          "dev_debug_checkbox": "Developer log"
         },
         "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
         "title": "Configure credentials",
         "data_description": {
-          "api_id": "data desc.",
           "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
         }
       },
@@ -58,6 +57,26 @@
         "description": "Resend weather data to your Windy stations.",
         "title": "Configure Windy"
       }
+    }
+  },
+
+  "entity": {
+    "sensor": {
+      "indoor_temp": { "name": "Indoor temperature" },
+      "indoor_humidity": { "name": "Indoor humidity" },
+      "outside_temp": { "name": "Outside Temperature" },
+      "outside_humidity": { "name": "Outside humidity" },
+      "uv": { "name": "UV index" },
+      "baro_pressure": { "name": "Barometric pressure" },
+      "dew_point": { "name": "Dew point" },
+      "wind_speed": { "name": "Wind speed" },
+      "wind_dir": { "name": "Wind direction" },
+      "wind_gust": { "name": "Wind gust" },
+      "rain": { "name": "Rain" },
+      "daily_rain": { "name": "Daily precipitation" },
+      "solar_radiation": { "name": "Solar irradiance" },
+      "ch2_temp": { "name": "Channel 2 temperature" },
+      "ch2_humidity": { "name": "Channel 2 humidity" }
     }
   }
 }

@@ -58,5 +58,25 @@
         "title": "Configure Windy"
       }
     }
+  },
+
+  "entity": {
+    "sensor": {
+      "indoor_temp": { "name": "Indoor temperature" },
+      "indoor_humidity": { "name": "Indoor humidity" },
+      "outside_temp": { "name": "Outside Temperature" },
+      "outside_humidity": { "name": "Outside humidity" },
+      "uv": { "name": "UV index" },
+      "baro_pressure": { "name": "Barometric pressure" },
+      "dew_point": { "name": "Dew point" },
+      "wind_speed": { "name": "Wind speed" },
+      "wind_dir": { "name": "Wind direction" },
+      "wind_gust": { "name": "Wind gust" },
+      "rain": { "name": "Rain" },
+      "daily_rain": { "name": "Daily precipitation" },
+      "solar_radiation": { "name": "Solar irradiance" },
+      "ch2_temp": { "name": "Channel 2 temperature" },
+      "ch2_humidity": { "name": "Channel 2 humidity" }
+    }
   }
 }
