@@ -1,0 +1,81 @@
+{
+  "config": {
+    "error": {
+      "valid_credentials_api": "Vyplňte platné API ID.",
+      "valid_credentials_key": "Vyplňte platný API KEY.",
+      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "API_ID": "API ID / ID stanice",
+          "API_KEY": "API KEY / Heslo",
+          "dev_debug_checkbox": "Developer log"
+        },
+        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
+        "title": "Nastavení přístpu pro metostanici",
+        "data_description": {
+          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "valid_credentials_api": "Vyplňte platné API ID",
+      "valid_credentials_key": "Vyplňte platný API KEY",
+      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "windy_key_required": "Je vyžadován Windy API key, pokud chcete aktivovat přeposílání dat na Windy"
+    },
+    "step": {
+      "basic": {
+        "data": {
+          "API_ID": "API ID / ID Stanice",
+          "API_KEY": "API KEY / Heslo",
+          "dev_debug_checkbox": "Developer log"
+        },
+        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
+        "title": "Nastavení přihlášení",
+        "data_description": {
+          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+        }
+      },
+      "init": {
+        "description": "Vyberte, co chcete konfigurovat. Zda přihlašovací údaje nebo nastavení pro přeposílání dat na Windy.",
+        "menu_options": {
+          "basic": "Základní - přístupové údaje (úřihlášení)",
+          "windy": "Nastavení pro přeposílání dat na Windy"
+        },
+        "title": "Nastavení integrace SWS12500"
+      },
+      "windy": {
+        "data": {
+          "WINDY_API_KEY": "Klíč API KEY získaný z Windy",
+          "windy_enabled_checkbox": "Povolit přeposílání dat na Windy",
+          "windy_logger_checkbox": "Logovat data a odpovědi z Windy"
+        },
+        "description": "Přeposílání dat z metostanice na Windy",
+        "title": "Konfigurace Windy"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "indoor_temp": { "name": "Vnitřní teplota" },
+      "indoor_humidity": { "name": "Vnitřní vlhkost vzduchu" },
+      "outside_temp": { "name": "Venkovní teplota" },
+      "outside_humidity": { "name": "Venkovní vlhkost vzduchu" },
+      "uv": { "name": "UV index" },
+      "baro_pressure": { "name": "Tlak vzduchu" },
+      "dew_point": { "name": "Rosný bod" },
+      "wind_speed": { "name": "Rychlost větrtu" },
+      "wind_dir": { "name": "Směr větru" },
+      "wind_gust": { "name": "Poryvy větru" },
+      "rain": { "name": "Srážky" },
+      "daily_rain": { "name": "Denní úhrn srážek" },
+      "solar_radiation": { "name": "Sluneční osvit" },
+      "ch2_temp": { "name": "Teplota senzoru 2" },
+      "ch2_humidity": { "name": "Vlhkost sensoru 2" }
+    }
+  }
+}
