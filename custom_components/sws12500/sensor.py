@@ -1,5 +1,7 @@
 """Sensors definition for SWS12500."""
 from dataclasses import dataclass
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,9 +13,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     UnitOfIrradiance,
     UnitOfPrecipitationDepth,
+    UnitOfVolumetricFlux,
     UnitOfPressure,
     UnitOfSpeed,
     UnitOfTemperature,
+    DEGREE,
+    UV_INDEX,
+    PERCENTAGE
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -47,6 +53,8 @@ from .const import (
 class WeatherSensorEntityDescription(SensorEntityDescription):
     """Describe Weather Sensor entities."""
 
+    attr_fn: Callable[[dict[str, Any]], dict[str, StateType]] = lambda _: {}
+    unit_fn: Callable[[bool], str | None] = lambda _: None
 
 SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -55,11 +63,11 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
-        translation_key=f"{INDOOR_TEMP}",
+        translation_key=INDOOR_TEMP,
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_HUMIDITY,
-        native_unit_of_measurement="%",
+        native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
@@ -75,7 +83,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_HUMIDITY,
-        native_unit_of_measurement="%",
+        native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
@@ -118,8 +126,9 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=WIND_DIR,
-        native_unit_of_measurement="°",
+        native_unit_of_measurement=DEGREE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=None,
         icon="mdi:sign-direction",
         translation_key=WIND_DIR,
     ),
@@ -135,10 +144,10 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=DAILY_RAIN,
-        native_unit_of_measurement="in/d",
+        native_unit_of_measurement=UnitOfVolumetricFlux.INCHES_PER_DAY,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
-        suggested_unit_of_measurement="mm/h",
+        suggested_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_DAY,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=DAILY_RAIN,
@@ -154,7 +163,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=UV,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="",
+        native_unit_of_measurement=UV_INDEX,
         icon="mdi:sunglasses",
         translation_key=UV,
     ),
@@ -225,11 +234,6 @@ class WeatherSensor(CoordinatorEntity[WeatherDataUpdateCoordinator], SensorEntit
     def state_class(self) -> str:
         """Return stateClass."""
         return str(self.entity_description.state_class)
-
-    @property
-    def suggested_unit_of_measurement(self) -> str:
-        """Return sugestet_unit_of_measurement."""
-        return str(self.entity_description.suggested_unit_of_measurement)
 
     @property
     def device_info(self) -> DeviceInfo:
