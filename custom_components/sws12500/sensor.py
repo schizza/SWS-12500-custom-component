@@ -1,9 +1,11 @@
 """Sensors definition for SWS12500."""
-from dataclasses import dataclass
 from collections.abc import Callable
-from typing import Any
+from dataclasses import dataclass
+import logging
+from typing import Any, cast
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -11,21 +13,20 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    DEGREE,
+    PERCENTAGE,
+    UV_INDEX,
     UnitOfIrradiance,
     UnitOfPrecipitationDepth,
-    UnitOfVolumetricFlux,
     UnitOfPressure,
     UnitOfSpeed,
     UnitOfTemperature,
-    DEGREE,
-    UV_INDEX,
-    PERCENTAGE
+    UnitOfVolumetricFlux,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WeatherDataUpdateCoordinator
@@ -48,13 +49,15 @@ from .const import (
     WIND_SPEED,
 )
 
+_LOGGER = logging.getLogger(__name__)
 
-@dataclass
+
+@dataclass(frozen=True, kw_only=True)
 class WeatherSensorEntityDescription(SensorEntityDescription):
     """Describe Weather Sensor entities."""
 
-    attr_fn: Callable[[dict[str, Any]], dict[str, StateType]] = lambda _: {}
-    unit_fn: Callable[[bool], str | None] = lambda _: None
+    value_fn: Callable[[Any], int | float | str | None]
+
 
 SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -64,6 +67,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=INDOOR_TEMP,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_HUMIDITY,
@@ -72,6 +76,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
         translation_key=INDOOR_HUMIDITY,
+        value_fn=lambda data: cast(int, data),
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_TEMP,
@@ -80,6 +85,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=OUTSIDE_TEMP,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_HUMIDITY,
@@ -88,6 +94,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
         translation_key=OUTSIDE_HUMIDITY,
+        value_fn=lambda data: cast(int, data),
     ),
     WeatherSensorEntityDescription(
         key=DEW_POINT,
@@ -96,6 +103,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer-lines",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=DEW_POINT,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=BARO_PRESSURE,
@@ -105,6 +113,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ATMOSPHERIC_PRESSURE,
         suggested_unit_of_measurement=UnitOfPressure.HPA,
         translation_key=BARO_PRESSURE,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=WIND_SPEED,
@@ -114,6 +123,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         icon="mdi:weather-windy",
         translation_key=WIND_SPEED,
+        value_fn=lambda data: cast(int, data),
     ),
     WeatherSensorEntityDescription(
         key=WIND_GUST,
@@ -123,6 +133,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         icon="mdi:windsock",
         translation_key=WIND_GUST,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=WIND_DIR,
@@ -131,6 +142,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=None,
         icon="mdi:sign-direction",
         translation_key=WIND_DIR,
+        value_fn=lambda data: cast(int, data),
     ),
     WeatherSensorEntityDescription(
         key=RAIN,
@@ -141,6 +153,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=RAIN,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=DAILY_RAIN,
@@ -151,6 +164,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=DAILY_RAIN,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=SOLAR_RADIATION,
@@ -159,6 +173,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.IRRADIANCE,
         icon="mdi:weather-sunny",
         translation_key=SOLAR_RADIATION,
+        value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
         key=UV,
@@ -166,6 +181,28 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         native_unit_of_measurement=UV_INDEX,
         icon="mdi:sunglasses",
         translation_key=UV,
+        value_fn=lambda data: cast(float, data),
+    ),
+    WeatherSensorEntityDescription(
+        key=CH2_TEMP,
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        icon="mdi:weather-sunny",
+        translation_key=CH2_TEMP,
+        entity_registry_visible_default=False,
+        value_fn=lambda data: cast(float, data),
+    ),
+    WeatherSensorEntityDescription(
+        key=CH2_HUMIDITY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.HUMIDITY,
+        icon="mdi:weather-sunny",
+        translation_key=CH2_HUMIDITY,
+        entity_registry_visible_default=False,
+        value_fn=lambda data: cast(int, data),
     ),
 )
 
@@ -174,7 +211,6 @@ async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info=None,
 ) -> None:
     """Set up Weather Station sensors."""
 
@@ -185,7 +221,9 @@ async def async_setup_entry(
     async_add_entities(sensors)
 
 
-class WeatherSensor(CoordinatorEntity[WeatherDataUpdateCoordinator], SensorEntity):
+class WeatherSensor(
+    CoordinatorEntity[WeatherDataUpdateCoordinator], RestoreSensor, SensorEntity
+):
     """Implementation of Weather Sensor entity."""
 
     entity_description: WeatherSensorEntityDescription
@@ -203,32 +241,35 @@ class WeatherSensor(CoordinatorEntity[WeatherDataUpdateCoordinator], SensorEntit
         self.hass = hass
         self.coordinator = coordinator
         self.entity_description = description
-        self._state: StateType = None
-        self._available = False
-        self._attr_unique_id = f"{DOMAIN}.{description.key}"
+        self._attr_unique_id = description.key
+        self._data = None
+
+    async def async_added_to_hass(self) -> None:
+        """Handle disabled entities that has previous data."""
+
+        await super().async_added_to_hass()
+
+        self.coordinator.async_add_listener(self._handle_coordinator_update)
+
+        prev_state_data = await self.async_get_last_sensor_data()
+        prev_state = await self.async_get_last_state()
+        if not prev_state:
+            return
+        self._data = prev_state_data.native_value
+        if not self.entity_registry_visible_default:
+            self.entity_registry_visible_default = True
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._state = self.coordinator.data.get(self.entity_description.key)
+        self._data = self.coordinator.data.get(self.entity_description.key)
 
         self.async_write_ha_state()
-        self.async_registry_entry_updated()
 
     @property
-    def unique_id(self) -> str:
-        """Return a unique, Home Assistant friendly identifier for this entity."""
-        return self.entity_description.key
-
-    @property
-    def native_value(self) -> None:
+    def native_value(self) -> str | int | float | None:
         """Return value of entity."""
-        return self._state
-
-    @property
-    def native_unit_of_measurement(self) -> str:
-        """Return unit of measurement."""
-        return str(self.entity_description.native_unit_of_measurement)
+        return self.entity_description.value_fn(self._data)
 
     @property
     def state_class(self) -> str:

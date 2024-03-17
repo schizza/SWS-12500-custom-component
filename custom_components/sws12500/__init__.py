@@ -12,7 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import API_ID, API_KEY, DEFAULT_URL, DEV_DBG, DOMAIN, WINDY_ENABLED
-from .utils import anonymize, remap_items
+from .utils import anonymize, check_disabled, remap_items
 from .windy_func import WindyPush
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +55,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         if self.config_entry.options.get(WINDY_ENABLED):
             response = await self.windy.push_data_to_windy(data)
 
-        self.async_set_updated_data(remap_items(data))
+        remaped_items = remap_items(data)
+
+        await check_disabled(self.hass, remaped_items, self.config_entry.options.get(DEV_DBG))
+
+        self.async_set_updated_data(remaped_items)
 
         if self.config_entry.options.get(DEV_DBG):
             _LOGGER.info("Dev log: %s", anonymize(data))
@@ -72,8 +76,12 @@ def register_path(
         route = hass.http.app.router.add_route(
             "GET", url_path, coordinator.recieved_data
         )
-    except Exception:  # pylint: disable=(broad-except)
-        _LOGGER.error("Unable to register URL handler!")
+    except RuntimeError as Ex:  # pylint: disable=(broad-except)
+        if "Added route will never be executed, method GET is already registered" in Ex.args:
+            _LOGGER.info("Handler to URL (%s) already registred", url_path)
+            return True
+
+        _LOGGER.error("Unable to register URL handler! (%s)", Ex.args)
         return False
 
     _LOGGER.info(
@@ -82,8 +90,7 @@ def register_path(
     )
     return True
 
-
-def unregister_path():
+def unregister_path(hass: HomeAssistant):
     """Unregister path to handle incoming data."""
     _LOGGER.error(
         "Unable to delete webhook from API! Restart HA before adding integration!"
@@ -99,8 +106,10 @@ class Weather(WeatherDataUpdateCoordinator):
         super().__init__(hass, config)
 
     async def setup_update_listener(self, hass: HomeAssistant, entry: ConfigEntry):
-        """Update setup listener."""
-        _LOGGER.info("Settings updated")
+         """Update setup listener."""
+         await hass.config_entries.async_reload(entry.entry_id)
+
+         _LOGGER.info("Settings updated")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -131,7 +140,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if _ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-        unregister_path()
+        unregister_path(hass)
 
     return _ok
 
