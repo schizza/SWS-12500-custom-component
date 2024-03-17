@@ -84,3 +84,8 @@ REMAP_ITEMS: dict = {
     "soiltempf": CH2_TEMP,
     "soilmoisture": CH2_HUMIDITY,
 }
+
+DISABLED_BY_DEFAULT: Final = [
+    CH2_TEMP,
+    CH2_HUMIDITY
+]
