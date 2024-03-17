@@ -5,8 +5,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry
-from homeassistant.SensorEntity import async_get as se
+from homeassistant.helpers import entity_registry as er
 
 from .const import DISABLED_BY_DEFAULT, DOMAIN, REMAP_ITEMS
 
@@ -56,8 +55,7 @@ async def check_disabled(hass: HomeAssistant, items, log: bool = False):
     Returns True if sensor found else False
     """
 
-    _ER = entity_registry.async_get(hass)
-    _SE = se(hass)
+    _ER = er.async_get(hass)
 
     eid: str = None
     entityFound: bool = False
@@ -80,6 +78,6 @@ async def check_disabled(hass: HomeAssistant, items, log: bool = False):
                 entityFound = True
 
             elif not is_disabled and log:
-                    _LOGGER.info("Sensor %s is visible.", eid)
+                _LOGGER.info("Sensor %s is visible.", eid)
 
     return entityFound
