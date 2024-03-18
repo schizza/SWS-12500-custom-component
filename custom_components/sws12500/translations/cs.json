@@ -43,7 +43,7 @@
       "init": {
         "description": "Vyberte, co chcete konfigurovat. Zda přihlašovací údaje nebo nastavení pro přeposílání dat na Windy.",
         "menu_options": {
-          "basic": "Základní - přístupové údaje (úřihlášení)",
+          "basic": "Základní - přístupové údaje (přihlášení)",
           "windy": "Nastavení pro přeposílání dat na Windy"
         },
         "title": "Nastavení integrace SWS12500"
