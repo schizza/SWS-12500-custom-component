@@ -13,6 +13,16 @@ This integration will listen for data from your station and passes them to respe
 
 ## Installation
 
+### HACS installation
+For installation with HACS, you have to first add a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/). 
+You will need to enter the URL of this repository when prompted: `https://github.com/schizza/SWS-12500-custom-component`.
+
+After adding this repository to HACS:
+- Go to HACS -> Integrations
+- Search for the integration `Sencor SWS 12500 Weather station` and download the integration.
+- Restart Home Assistant
+- Now go to `Integrations` and add new integration. Search for `Sencor SWS 12500 Weather station` and select it. 
+
 ### Manual installation
 
 For manual installation you must have an access to your Home Assistant's  `/config` folder.
@@ -21,7 +31,7 @@ For manual installation you must have an access to your Home Assistant's  `/conf
   
 - Copy the `custom_components/sws12500-custom-component` folder to your `config/custom_components` folder in Home Assistant.
 - Restart Home Assistant.
-- Now go to `Integrations` and add new integration `SWS 12500`
+- Now go to `Integrations` and add new integration `Sencor SWS 12500 Weather station`
 
 ## Configure your station in AP mode
 
