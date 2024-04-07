@@ -11,6 +11,8 @@ ICON = "mdi:weather"
 API_KEY = "API_KEY"
 API_ID = "API_ID"
 
+SENSORS_TO_LOAD: Final = "sensors_to_load"
+
 DEV_DBG: Final = "dev_debug_checkbox"
 
 WINDY_API_KEY = "WINDY_API_KEY"
@@ -85,7 +87,5 @@ REMAP_ITEMS: dict = {
     "soilmoisture": CH2_HUMIDITY,
 }
 
-DISABLED_BY_DEFAULT: Final = [
-    CH2_TEMP,
-    CH2_HUMIDITY
-]
+DISABLED_BY_DEFAULT: Final = [CH2_TEMP, CH2_HUMIDITY]
+

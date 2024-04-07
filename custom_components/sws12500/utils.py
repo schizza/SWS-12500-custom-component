@@ -3,16 +3,14 @@
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 
-from .const import DISABLED_BY_DEFAULT, DOMAIN, REMAP_ITEMS
+from .const import DEV_DBG, REMAP_ITEMS, SENSORS_TO_LOAD
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def update_options(
+async def update_options(
     hass: HomeAssistant, entry: ConfigEntry, update_key, update_value
 ) -> None:
     """Update config.options entry."""
@@ -23,7 +21,7 @@ def update_options(
 
     conf[update_key] = update_value
 
-    hass.config_entries.async_update_entry(entry, options=conf)
+    return hass.config_entries.async_update_entry(entry, options=conf)
 
 
 def anonymize(data):
@@ -47,37 +45,26 @@ def remap_items(entities):
     return items
 
 
-async def check_disabled(hass: HomeAssistant, items, log: bool = False):
-    """Check if we have data for disabed sensors.
+def check_disabled(hass: HomeAssistant, items, config_entry: ConfigEntry) -> list | None:
+    """Check if we have data for unloaded sensors.
 
-    If so, then enable senosor.
+    If so, then add sensor to load queue.
 
-    Returns True if sensor found else False
+    Returns list of found sensors or None
     """
 
-    _ER = er.async_get(hass)
-
-    eid: str = None
+    log: bool = config_entry.options.get(DEV_DBG)
     entityFound: bool = False
+    loaded_sensors: list = config_entry.options.get(SENSORS_TO_LOAD) if config_entry.options.get(SENSORS_TO_LOAD) else []
 
-    for disabled in DISABLED_BY_DEFAULT:
+    for item in items:
         if log:
-            _LOGGER.info("Checking %s", disabled)
+            _LOGGER.info("Checking %s", item)
 
-        if disabled in items:
-            eid = _ER.async_get_entity_id(Platform.SENSOR, DOMAIN, disabled)
-            is_disabled = _ER.entities[eid].hidden
-
+        if item not in loaded_sensors:
+            loaded_sensors.append(item)
+            entityFound = True
             if log:
-                _LOGGER.info("Found sensor %s", eid)
+                _LOGGER.info("Add sensor (%s) to loading queue", item)
 
-            if is_disabled:
-                if log:
-                    _LOGGER.info("Sensor %s is hidden. Making visible", eid)
-                _ER.async_update_entity(eid, hidden_by=None)
-                entityFound = True
-
-            elif not is_disabled and log:
-                _LOGGER.info("Sensor %s is visible.", eid)
-
-    return entityFound
+    return loaded_sensors if entityFound else None
