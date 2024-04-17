@@ -77,5 +77,11 @@
       "ch2_temp": { "name": "Teplota senzoru 2" },
       "ch2_humidity": { "name": "Vlhkost sensoru 2" }
     }
+  },
+  "notify": {
+    "added": {
+      "title": "Nalezeny nové senzory pro SWS 12500.",
+      "message": "{added_sensors}\n<b>Je třeba restartovat Home Assistenta pro správnou funkci komponenty.</b>"
+    }
   }
 }

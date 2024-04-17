@@ -19,7 +19,15 @@ from .const import (
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
 )
-from .utils import anonymize, check_disabled, remap_items, update_options
+from .utils import (
+    anonymize,
+    check_disabled,
+    loaded_sensors,
+    remap_items,
+    translated_notification,
+    translations,
+    update_options,
+)
 from .windy_func import WindyPush
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,10 +73,22 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         remaped_items = remap_items(data)
 
         if sensors := check_disabled(self.hass, remaped_items, self.config):
-            await update_options(
-                self.hass, self.config_entry, SENSORS_TO_LOAD, sensors
+            translate_sensors = [
+                await translations(self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity")
+                for t_key in sensors
+            ]
+            human_readable = "\n".join(translate_sensors)
+
+            await translated_notification(
+                self.hass,
+                DOMAIN,
+                "added",
+                {"added_sensors": f"{human_readable}\n"},
             )
-            # await self.hass.config_entries.async_reload(self.config.entry_id)
+            if _loaded_sensors := loaded_sensors(self.config_entry):
+                sensors.extend(_loaded_sensors)
+            await update_options(self.hass, self.config_entry, SENSORS_TO_LOAD, sensors)
+            await self.hass.config_entries.async_reload(self.config.entry_id)
 
         self.async_set_updated_data(remaped_items)
 
@@ -131,11 +151,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
-async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
-        """Update setup listener."""
-        await hass.config_entries.async_reload(entry.entry_id)
 
-        _LOGGER.info("Settings updated")
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
+    """Update setup listener."""
+    # Disabled as on fire async_reload, integration stops writing data,
+    # and we don't need to reload config entry for proper work.
+
+    # await hass.config_entries.async_reload(entry.entry_id)
+
+    _LOGGER.info("Settings updated")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -147,15 +171,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         unregister_path(hass)
 
     return _ok
-
-
-# async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-#     """Set up the component.
-
-#     This component can only be configured through the Integrations UI.
-#     """
-#     hass.data.setdefault(DOMAIN, {})
-
-#     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-#     return True

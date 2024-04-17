@@ -251,23 +251,25 @@ class WeatherSensor(
         self._attr_unique_id = description.key
         self._data = None
 
-    # async def async_added_to_hass(self) -> None:
-    #     """Handle listeners to reloaded sensors."""
+    async def async_added_to_hass(self) -> None:
+        """Handle listeners to reloaded sensors."""
 
-    #     await super().async_added_to_hass()
+        await super().async_added_to_hass()
 
-    #     self.coordinator.async_add_listener(self._handle_coordinator_update)
+        self.coordinator.async_add_listener(self._handle_coordinator_update)
 
-    #     # prev_state_data = await self.async_get_last_sensor_data()
-    #     # prev_state = await self.async_get_last_state()
-    #     # if not prev_state:
-    #     #     return
-    #     # self._data = prev_state_data.native_value
+        # prev_state_data = await self.async_get_last_sensor_data()
+        # prev_state = await self.async_get_last_state()
+        # if not prev_state:
+        #     return
+        # self._data = prev_state_data.native_value
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self._data = self.coordinator.data.get(self.entity_description.key)
+
+        super()._handle_coordinator_update()
 
         self.async_write_ha_state()
 
@@ -280,11 +282,6 @@ class WeatherSensor(
     def suggested_entity_id(self) -> str:
         """Return name."""
         return generate_entity_id("sensor.{}", self.entity_description.key)
-
-    # @property
-    # def translation_key(self) -> str:
-    #     """"Returns translation key."""
-    #     return self.entity_description.translation_key
 
     @property
     def device_info(self) -> DeviceInfo:
