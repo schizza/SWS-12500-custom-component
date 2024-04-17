@@ -2,28 +2,79 @@
 
 import logging
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.translation import async_get_translations
 
-from .const import DISABLED_BY_DEFAULT, DOMAIN, REMAP_ITEMS
+from .const import DEV_DBG, REMAP_ITEMS, SENSORS_TO_LOAD
 
 _LOGGER = logging.getLogger(__name__)
 
+async def translations(
+    hass: HomeAssistant,
+    translation_domain: str,
+    translation_key: str,
+    *,
+    key: str = "message",
+    category: str = "notify"
+) -> str:
+    """Get translated keys for domain."""
 
-def update_options(
+    localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
+
+    language = hass.config.language
+
+    _translations = await async_get_translations(
+        hass, language, category, [translation_domain]
+    )
+    if localize_key in _translations:
+        return _translations[localize_key]
+
+async def translated_notification(
+    hass: HomeAssistant,
+    translation_domain: str,
+    translation_key: str,
+    translation_placeholders: dict[str, str] | None = None,
+    notification_id: str | None = None,
+    *,
+    key: str = "message",
+    category: str = "notify"
+) -> str:
+    """Translate notification."""
+
+    localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
+
+    localize_title = f"component.{translation_domain}.{category}.{translation_key}.title"
+
+    language = hass.config.language
+
+    _translations = await async_get_translations(
+        hass, language, category, [translation_domain]
+    )
+    if localize_key in _translations:
+        if not translation_placeholders:
+            persistent_notification.async_create(
+                hass,
+                _translations[localize_key],
+                _translations[localize_title],
+                notification_id,
+            )
+        else:
+            message = _translations[localize_key].format(**translation_placeholders)
+            persistent_notification.async_create(
+                hass, message, _translations[localize_title], notification_id
+            )
+
+
+async def update_options(
     hass: HomeAssistant, entry: ConfigEntry, update_key, update_value
 ) -> None:
     """Update config.options entry."""
-    conf = {}
-
-    for k in entry.options:
-        conf[k] = entry.options[k]
-
+    conf = {**entry.options}
     conf[update_key] = update_value
 
-    hass.config_entries.async_update_entry(entry, options=conf)
+    return hass.config_entries.async_update_entry(entry, options=conf)
 
 
 def anonymize(data):
@@ -46,38 +97,34 @@ def remap_items(entities):
 
     return items
 
+def loaded_sensors(config_entry: ConfigEntry) -> list | None:
+    """Get loaded sensors."""
 
-async def check_disabled(hass: HomeAssistant, items, log: bool = False):
-    """Check if we have data for disabed sensors.
+    return config_entry.options.get(SENSORS_TO_LOAD) if config_entry.options.get(SENSORS_TO_LOAD) else []
 
-    If so, then enable senosor.
+def check_disabled(
+    hass: HomeAssistant, items, config_entry: ConfigEntry
+) -> list | None:
+    """Check if we have data for unloaded sensors.
 
-    Returns True if sensor found else False
+    If so, then add sensor to load queue.
+
+    Returns list of found sensors or None
     """
 
-    _ER = er.async_get(hass)
-
-    eid: str = None
+    log: bool = config_entry.options.get(DEV_DBG)
     entityFound: bool = False
+    _loaded_sensors = loaded_sensors(config_entry)
+    missing_sensors: list = []
 
-    for disabled in DISABLED_BY_DEFAULT:
+    for item in items:
         if log:
-            _LOGGER.info("Checking %s", disabled)
+            _LOGGER.info("Checking %s", item)
 
-        if disabled in items:
-            eid = _ER.async_get_entity_id(Platform.SENSOR, DOMAIN, disabled)
-            is_disabled = _ER.entities[eid].hidden
-
+        if item not in _loaded_sensors:
+            missing_sensors.append(item)
+            entityFound = True
             if log:
-                _LOGGER.info("Found sensor %s", eid)
+                _LOGGER.info("Add sensor (%s) to loading queue", item)
 
-            if is_disabled:
-                if log:
-                    _LOGGER.info("Sensor %s is hidden. Making visible", eid)
-                _ER.async_update_entity(eid, hidden_by=None)
-                entityFound = True
-
-            elif not is_disabled and log:
-                _LOGGER.info("Sensor %s is visible.", eid)
-
-    return entityFound
+    return missing_sensors if entityFound else None

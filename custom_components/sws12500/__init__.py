@@ -8,15 +8,30 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import InvalidStateError, PlatformNotReady
-from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import API_ID, API_KEY, DEFAULT_URL, DEV_DBG, DOMAIN, WINDY_ENABLED
-from .utils import anonymize, check_disabled, remap_items
+from .const import (
+    API_ID,
+    API_KEY,
+    DEFAULT_URL,
+    DEV_DBG,
+    DOMAIN,
+    SENSORS_TO_LOAD,
+    WINDY_ENABLED,
+)
+from .utils import (
+    anonymize,
+    check_disabled,
+    loaded_sensors,
+    remap_items,
+    translated_notification,
+    translations,
+    update_options,
+)
 from .windy_func import WindyPush
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 class IncorrectDataError(InvalidStateError):
@@ -57,7 +72,23 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         remaped_items = remap_items(data)
 
-        await check_disabled(self.hass, remaped_items, self.config_entry.options.get(DEV_DBG))
+        if sensors := check_disabled(self.hass, remaped_items, self.config):
+            translate_sensors = [
+                await translations(self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity")
+                for t_key in sensors
+            ]
+            human_readable = "\n".join(translate_sensors)
+
+            await translated_notification(
+                self.hass,
+                DOMAIN,
+                "added",
+                {"added_sensors": f"{human_readable}\n"},
+            )
+            if _loaded_sensors := loaded_sensors(self.config_entry):
+                sensors.extend(_loaded_sensors)
+            await update_options(self.hass, self.config_entry, SENSORS_TO_LOAD, sensors)
+            await self.hass.config_entries.async_reload(self.config.entry_id)
 
         self.async_set_updated_data(remaped_items)
 
@@ -77,7 +108,10 @@ def register_path(
             "GET", url_path, coordinator.recieved_data
         )
     except RuntimeError as Ex:  # pylint: disable=(broad-except)
-        if "Added route will never be executed, method GET is already registered" in Ex.args:
+        if (
+            "Added route will never be executed, method GET is already registered"
+            in Ex.args
+        ):
             _LOGGER.info("Handler to URL (%s) already registred", url_path)
             return True
 
@@ -90,26 +124,14 @@ def register_path(
     )
     return True
 
+
 def unregister_path(hass: HomeAssistant):
     """Unregister path to handle incoming data."""
     _LOGGER.error(
-        "Unable to delete webhook from API! Restart HA before adding integration!"
+        """Unable to delete webhook from API! Restart HA before adding integration!
+        If this error is raised while adding sensors or reloading configuration, you can ignore this error
+        """
     )
-
-
-class Weather(WeatherDataUpdateCoordinator):
-    """Weather class."""
-
-    def __init__(self, hass: HomeAssistant, config) -> None:
-        """Init class."""
-        self.hass = hass
-        super().__init__(hass, config)
-
-    async def setup_update_listener(self, hass: HomeAssistant, entry: ConfigEntry):
-         """Update setup listener."""
-         await hass.config_entries.async_reload(entry.entry_id)
-
-         _LOGGER.info("Settings updated")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -117,11 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
-    hass.data.setdefault(DOMAIN, {})
-
-    hass.data[DOMAIN][entry.entry_id] = coordinator
-
-    weather = Weather(hass, entry)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     if not register_path(hass, DEFAULT_URL, coordinator):
         _LOGGER.error("Fatal: path not registered!")
@@ -129,9 +147,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(entry.add_update_listener(weather.setup_update_listener))
+    entry.async_on_unload(entry.add_update_listener(update_listener))
 
     return True
+
+
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
+    """Update setup listener."""
+    # Disabled as on fire async_reload, integration stops writing data,
+    # and we don't need to reload config entry for proper work.
+
+    # await hass.config_entries.async_reload(entry.entry_id)
+
+    _LOGGER.info("Settings updated")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -143,12 +171,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         unregister_path(hass)
 
     return _ok
-
-
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the component.
-
-    This component can only be configured through the Integrations UI.
-    """
-    hass.data.setdefault(DOMAIN, {})
-    return True

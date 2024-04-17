@@ -78,5 +78,11 @@
       "ch2_temp": { "name": "Channel 2 temperature" },
       "ch2_humidity": { "name": "Channel 2 humidity" }
     }
+  },
+  "notify": {
+    "added": {
+      "title": "New sensors for SWS 12500 found.",
+      "message": "{added_sensors}\n<b>HomeAssistant needs to be restarted for proper integreation run.</b>"
+    }
   }
 }

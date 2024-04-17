@@ -13,6 +13,7 @@ from .const import (
     DEV_DBG,
     DOMAIN,
     INVALID_CREDENTIALS,
+    SENSORS_TO_LOAD,
     WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
@@ -44,6 +45,10 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
             WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
             WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED) if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool) else False,
             WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED) if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool) else False,
+        }
+
+        self.sensors: dict[str, Any] = {
+            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD) if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list) else []
         }
 
         self.user_data_schema = {
@@ -85,16 +90,11 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            # retain Windy options
-            data: dict = {}
-            data[WINDY_API_KEY] = self.config_entry.options.get(WINDY_API_KEY)
-            data[WINDY_ENABLED] = self.config_entry.options.get(WINDY_ENABLED)
-            data[WINDY_LOGGER_ENABLED] = self.config_entry.options.get(
-                WINDY_LOGGER_ENABLED
-            )
-
             # retain windy data
             user_input.update(self.windy_data)
+
+            #retain sensors
+            user_input.update(self.sensors)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -132,6 +132,9 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
 
         # retain user_data
         user_input.update(self.user_data)
+
+        #retain senors
+        user_input.update(self.sensors)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 

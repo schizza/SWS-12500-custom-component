@@ -25,7 +25,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -42,6 +42,7 @@ from .const import (
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     RAIN,
+    SENSORS_TO_LOAD,
     SOLAR_RADIATION,
     UV,
     WIND_DIR,
@@ -177,6 +178,7 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=UV,
+        name=UV,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UV_INDEX,
         icon="mdi:sunglasses",
@@ -191,7 +193,6 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:weather-sunny",
         translation_key=CH2_TEMP,
-        entity_registry_visible_default=False,
         value_fn=lambda data: cast(float, data),
     ),
     WeatherSensorEntityDescription(
@@ -201,7 +202,6 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         icon="mdi:weather-sunny",
         translation_key=CH2_HUMIDITY,
-        entity_registry_visible_default=False,
         value_fn=lambda data: cast(int, data),
     ),
 )
@@ -215,10 +215,18 @@ async def async_setup_entry(
     """Set up Weather Station sensors."""
 
     coordinator: WeatherDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id]
-    sensors = []
-    for description in SENSOR_TYPES:
-        sensors.append(WeatherSensor(hass, description, coordinator))
-    async_add_entities(sensors)
+
+    sensors_to_load: list = []
+    sensors: list = []
+
+    # Check if we have some sensors to load.
+    if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD):
+        sensors = [
+            WeatherSensor(hass, description, coordinator)
+            for description in SENSOR_TYPES
+            if description.key in sensors_to_load
+        ]
+        async_add_entities(sensors)
 
 
 class WeatherSensor(
@@ -226,7 +234,6 @@ class WeatherSensor(
 ):
     """Implementation of Weather Sensor entity."""
 
-    entity_description: WeatherSensorEntityDescription
     _attr_has_entity_name = True
     _attr_should_poll = False
 
@@ -245,24 +252,24 @@ class WeatherSensor(
         self._data = None
 
     async def async_added_to_hass(self) -> None:
-        """Handle disabled entities that has previous data."""
+        """Handle listeners to reloaded sensors."""
 
         await super().async_added_to_hass()
 
         self.coordinator.async_add_listener(self._handle_coordinator_update)
 
-        prev_state_data = await self.async_get_last_sensor_data()
-        prev_state = await self.async_get_last_state()
-        if not prev_state:
-            return
-        self._data = prev_state_data.native_value
-        if not self.entity_registry_visible_default:
-            self.entity_registry_visible_default = True
+        # prev_state_data = await self.async_get_last_sensor_data()
+        # prev_state = await self.async_get_last_state()
+        # if not prev_state:
+        #     return
+        # self._data = prev_state_data.native_value
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self._data = self.coordinator.data.get(self.entity_description.key)
+
+        super()._handle_coordinator_update()
 
         self.async_write_ha_state()
 
@@ -272,9 +279,9 @@ class WeatherSensor(
         return self.entity_description.value_fn(self._data)
 
     @property
-    def state_class(self) -> str:
-        """Return stateClass."""
-        return str(self.entity_description.state_class)
+    def suggested_entity_id(self) -> str:
+        """Return name."""
+        return generate_entity_id("sensor.{}", self.entity_description.key)
 
     @property
     def device_info(self) -> DeviceInfo:
