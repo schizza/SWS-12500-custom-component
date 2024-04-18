@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
 
-from .const import DEV_DBG, REMAP_ITEMS, SENSORS_TO_LOAD
+from .const import AZIMUT, DEV_DBG, REMAP_ITEMS, SENSORS_TO_LOAD, UnitOfDir
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,3 +128,16 @@ def check_disabled(
                 _LOGGER.info("Add sensor (%s) to loading queue", item)
 
     return missing_sensors if entityFound else None
+
+def wind_dir_to_text(deg: float) -> UnitOfDir | None:
+    """Return wind direction in text representation.
+
+    Returns UnitOfDir or None
+    """
+
+    if deg:
+        return AZIMUT[int(abs((float(deg) - 11.25) % 360) / 22.5)]
+
+    return None
+
+

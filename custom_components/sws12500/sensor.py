@@ -45,10 +45,13 @@ from .const import (
     SENSORS_TO_LOAD,
     SOLAR_RADIATION,
     UV,
+    WIND_AZIMUT,
     WIND_DIR,
     WIND_GUST,
     WIND_SPEED,
+    UnitOfDir,
 )
+from .utils import wind_dir_to_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -146,6 +149,14 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         value_fn=lambda data: cast(int, data),
     ),
     WeatherSensorEntityDescription(
+        key=WIND_AZIMUT,
+        icon="mdi:sign-direction",
+        value_fn=lambda data: cast(str, wind_dir_to_text(data)),
+        device_class=SensorDeviceClass.ENUM,
+        options=list(UnitOfDir),
+        translation_key=WIND_AZIMUT,
+    ),
+    WeatherSensorEntityDescription(
         key=RAIN,
         native_unit_of_measurement=UnitOfPrecipitationDepth.INCHES,
         device_class=SensorDeviceClass.PRECIPITATION,
@@ -221,6 +232,8 @@ async def async_setup_entry(
 
     # Check if we have some sensors to load.
     if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD):
+        if WIND_DIR in sensors_to_load:
+            sensors_to_load.append(WIND_AZIMUT)
         sensors = [
             WeatherSensor(hass, description, coordinator)
             for description in SENSOR_TYPES
@@ -276,6 +289,10 @@ class WeatherSensor(
     @property
     def native_value(self) -> str | int | float | None:
         """Return value of entity."""
+
+        if self.coordinator.data and (WIND_AZIMUT in self.entity_description.key):
+            return self.entity_description.value_fn(self.coordinator.data.get(WIND_DIR))
+
         return self.entity_description.value_fn(self._data)
 
     @property
