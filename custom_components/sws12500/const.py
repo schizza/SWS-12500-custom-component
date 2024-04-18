@@ -1,5 +1,6 @@
 """Constants."""
 
+from enum import StrEnum
 from typing import Final
 
 DOMAIN = "sws12500"
@@ -59,6 +60,7 @@ OUTSIDE_HUMIDITY: Final = "outside_humidity"
 WIND_SPEED: Final = "wind_speed"
 WIND_GUST: Final = "wind_gust"
 WIND_DIR: Final = "wind_dir"
+WIND_AZIMUT: Final = "wind_azimut"
 RAIN: Final = "rain"
 DAILY_RAIN: Final = "daily_rain"
 SOLAR_RADIATION: Final = "solar_radiation"
@@ -89,3 +91,41 @@ REMAP_ITEMS: dict = {
 
 DISABLED_BY_DEFAULT: Final = [CH2_TEMP, CH2_HUMIDITY]
 
+class UnitOfDir(StrEnum):
+    """Wind direrction azimut."""
+
+    NNE = "NNE"
+    NE = "NE"
+    ENE = "ENE"
+    E = "E"
+    ESE = "ESE"
+    SE = "SE"
+    SSE = "SSE"
+    S = "S"
+    SSW = "SSW"
+    SW = "SW"
+    WSW = "WSW"
+    W = "W"
+    WNW = "WNW"
+    NW = "NW"
+    NNW = "NNW"
+    N = "N"
+
+AZIMUT: list[UnitOfDir] = [
+    UnitOfDir.NNE,
+    UnitOfDir.NE,
+    UnitOfDir.ENE,
+    UnitOfDir.E,
+    UnitOfDir.ESE,
+    UnitOfDir.SE,
+    UnitOfDir.SSE,
+    UnitOfDir.S,
+    UnitOfDir.SSW,
+    UnitOfDir.SW,
+    UnitOfDir.WSW,
+    UnitOfDir.W,
+    UnitOfDir.WNW,
+    UnitOfDir.NW,
+    UnitOfDir.NNW,
+    UnitOfDir.N,
+]

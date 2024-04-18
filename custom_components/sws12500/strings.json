@@ -76,7 +76,28 @@
       "daily_rain": { "name": "Daily precipitation" },
       "solar_radiation": { "name": "Solar irradiance" },
       "ch2_temp": { "name": "Channel 2 temperature" },
-      "ch2_humidity": { "name": "Channel 2 humidity" }
+      "ch2_humidity": { "name": "Channel 2 humidity" },
+      "wind_azimut": {
+        "name": "Bearing",
+        "state": {
+          "N": "N",
+          "NNE": "NNE",
+          "NE": "NE",
+          "ENE": "ENE",
+          "E": "E",
+          "ESE": "ESE",
+          "SE": "SE",
+          "SSE": "SSE",
+          "S": "S",
+          "SSW": "SSW",
+          "SW": "SW",
+          "WSW": "WSW",
+          "W": "W",
+          "WNW": "WNW",
+          "NW": "NW",
+          "NNW": "NNW"
+        }
+      }
     }
   },
   "notify": {
