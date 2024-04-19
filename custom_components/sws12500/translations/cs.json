@@ -77,26 +77,26 @@
       "ch2_temp": { "name": "Teplota senzoru 2" },
       "ch2_humidity": { "name": "Vlhkost sensoru 2" },
       "wind_azimut": {
-            "name": "Azimut",
-            "state": {
-              "N": "S",
-              "NNE": "SSV",
-              "NE": "SV",
-              "ENE": "VVS",
-              "E": "V",
-              "ESE": "VVJ",
-              "SE": "JV",
-              "SSE": "JJV",
-              "S": "J",
-              "SSW": "JJZ",
-              "SW": "JZ",
-              "WSW": "JZZ",
-              "W": "Z",
-              "WNW": "ZZS",
-              "NW": "SZ",
-              "NNW": "SSZ"
-            }
-          }
+        "name": "Azimut",
+        "state": {
+          "n": "S",
+          "nne": "SSV",
+          "ne": "SV",
+          "ene": "VVS",
+          "e": "V",
+          "ese": "VVJ",
+          "se": "JV",
+          "sse": "JJV",
+          "s": "J",
+          "ssw": "JJZ",
+          "sw": "JZ",
+          "wsw": "JZZ",
+          "w": "Z",
+          "wnw": "ZZS",
+          "nw": "SZ",
+          "nnw": "SSZ"
+        }
+      }
     }
   },
   "notify": {

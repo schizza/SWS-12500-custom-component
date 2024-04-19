@@ -91,25 +91,27 @@ REMAP_ITEMS: dict = {
 
 DISABLED_BY_DEFAULT: Final = [CH2_TEMP, CH2_HUMIDITY]
 
+
 class UnitOfDir(StrEnum):
     """Wind direrction azimut."""
 
-    NNE = "NNE"
-    NE = "NE"
-    ENE = "ENE"
-    E = "E"
-    ESE = "ESE"
-    SE = "SE"
-    SSE = "SSE"
-    S = "S"
-    SSW = "SSW"
-    SW = "SW"
-    WSW = "WSW"
-    W = "W"
-    WNW = "WNW"
-    NW = "NW"
-    NNW = "NNW"
-    N = "N"
+    NNE = "nne"
+    NE = "ne"
+    ENE = "ene"
+    E = "e"
+    ESE = "ese"
+    SE = "se"
+    SSE = "sse"
+    S = "s"
+    SSW = "ssw"
+    SW = "sw"
+    WSW = "wsw"
+    W = "w"
+    WNW = "wnw"
+    NW = "nw"
+    NNW = "nnw"
+    N = "n"
+
 
 AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNE,
