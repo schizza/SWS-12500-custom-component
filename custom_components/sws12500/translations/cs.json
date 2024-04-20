@@ -68,7 +68,7 @@
       "uv": { "name": "UV index" },
       "baro_pressure": { "name": "Tlak vzduchu" },
       "dew_point": { "name": "Rosný bod" },
-      "wind_speed": { "name": "Rychlost větrtu" },
+      "wind_speed": { "name": "Rychlost větru" },
       "wind_dir": { "name": "Směr větru" },
       "wind_gust": { "name": "Poryvy větru" },
       "rain": { "name": "Srážky" },
