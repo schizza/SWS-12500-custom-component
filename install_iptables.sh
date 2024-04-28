@@ -55,8 +55,8 @@ function validate_num() {
 }
 
 function validate_dest() {
-    echo "Validating host '$2' ... "
-    if ping -c 4 2>/dev/null; then
+    echo "Validating host '$1' ... "
+    if ping -c 2 $1 >/dev/null 2>&1; then
         info "OK"
         true
     else
