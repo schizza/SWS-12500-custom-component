@@ -1,13 +1,18 @@
 #!/bin/bash
 
+# Script for frowarding SWS 12500 station's destination port 80
+# to your Home Assistant's instance port (8123)
+#
+# Workaround for station's firmware 1.0 bug
+#
+#
 # Script pro přesměrování portu pro stanici SWS12500
 
-# set -e
 
-STATION_IP=192.168.2.95
-HA=192.168.2.219
-SRC_PORT=80
-DST_PORT=8123
+STATION_IP=[_STATION_IP_]
+HA=[_HA_]
+SRC_PORT=[_SRC_PORT_]
+DST_PORT=[_DST_PORT_]
 
 INSTALL_IPTABLES=0
 APK_MISSING=0
@@ -23,9 +28,9 @@ function warn () { echo -e "${GREEN_YELLOW}WARN: $1${NO_COLOR}";}
 function error () { echo -e "${RED_COLOR}ERROR: $1${NO_COLOR}"; if [ "$2" != "false" ]; then exit 1;fi; }
 
 function check () {
-	echo -n "Kontrola dostupnosti $1 ... "
+	echo -n "Checking dependencies: '$1' ... "
 	if [ -z "$(command -v "$1")" ]; then
-		error "'$1' není nainstalován." $2
+		error "not installed" $2
 		return 1
 	fi
 	info "OK."
@@ -33,53 +38,52 @@ function check () {
 }
 
 
-echo 
+echo
 echo "**************************************************************"
 echo "*                                                            *"
-echo -e "*     ${GREEN_YELLOW}Spouštím iptables přesměrování pro port $SRC_PORT -> $DST_PORT ${NO_COLOR}    *"
+echo -e "*        ${GREEN_YELLOW}Running iptables forward for port $SRC_PORT -> $DST_PORT ${NO_COLOR}       *"
 echo "*                                                            *"
 echo "**************************************************************"
 echo
 
-# Máme nainstalované iptables a apk?
+# Check for dependencies
 
 check "iptables" false
 INSTALL_IPTABLES=$?
 
 check "apk" false
-
 APK_MISSING=$?
 
 
 if [ $APK_MISSING -eq 1 ] && [ $INSTALL_IPTABLES -eq 1 ]; then
-        error "Nelze nakonfigurovat IP Tables. \n'iptables' chybí a chybí i instalační aplikace 'apk'!!\n"
+        error "Could not install and run iptables.\n'apk' installer is missing and 'iptables' are not installed.\n"
 fi
 
 if [ $INSTALL_IPTABLES -eq 1 ] && [ $APK_MISSING -eq 0 ]; then
         declare -a RUNINSTALL=(apk add iptables)
-        echo -n "Spouštím instalaci iptables ... ${RUNINSTAll[@]} ... "
+        echo -n "Installing 'iptables' ... ${RUNINSTALL[@]} ... "
 		${RUNINSTALL[@]}
         EXIT_STATUS=$?
         if [ $EXIT_STATUS -ne 0 ]; then
-				warn "Chybový kód instalace: $EXIT_STATUS"
-                error "Instalace iptables se nezdařila!"
+				warn "apk error code: $EXIT_STATUS"
+                error "Installation of iptables failed!"
         else
-            info "'iptables' úspěšně nainstalovány."
+            info "'iptables' installed successfully."
         fi
 fi
 declare -a RULE=(PREROUTING -t nat -s $STATION_IP -d $HA -p tcp -m tcp --dport $SRC_PORT -j REDIRECT --to-ports $DST_PORT)
-echo -ne "Spouštím iptables ... "
+echo -n "Chceking for existing rule in iptables ... "
 $(iptables -C ${RULE[@]} 2>/dev/null)
 if [ $? -eq 0 ]; then
-    warn "Pravidlo je již v iptables zapsáno."
+    warn "Rule is already present in PREROUTING chain."
 else
+    echo -n "Inserting iptables rule to PREROUTING chain ... "
     $(iptables -I ${RULE[@]})
 fi
 EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
-	warn "Chybový kód iptables: ${EXIT_STATUS} "
-	error "Přidání pravidla do iptables se nezdařilo!"
+	warn "iptables error code: ${EXIT_STATUS} "
+	error "Rule could not be added!"
 fi
 
-info "iptables jsou nastaveny na přesměrování portu $SRC_PORT -> $DST_PORT pro stanici na IP: $STATION_IP"
-
+info "iptables are set to forward port $SRC_PORT -> $DST_PORT for station's IP: $STATION_IP"
