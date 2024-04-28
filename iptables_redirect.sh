@@ -88,4 +88,4 @@ else
     info "OK."
 fi
 
-info "iptables are now set to redirect incomming connections from $STATION_IP:Any -> $HA:$SRC_PORT to $HA:$DST_PORT"
+info "iptables are now set to redirect incoming connections from $STATION_IP:Any -> $HA:$SRC_PORT to $HA:$DST_PORT"
