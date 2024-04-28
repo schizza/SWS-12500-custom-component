@@ -10,6 +10,7 @@ NO_COLOR='\033[0m'
 ST_PORT=80
 
 LINK="https://raw.githubusercontent.com/schizza/SWS-12500-custom-component/main/iptables_redirect.sh"
+FILENAME="iptables_redirect.sh"
 
 P_HA=true
 P_ST=true
@@ -55,7 +56,7 @@ function validate_num() {
 }
 
 function validate_dest() {
-    echo "Validating host '$1' ... "
+    echo -n "Validating host '$1' ... "
     if ping -c 2 $1 >/dev/null 2>&1; then
         info "OK"
         true
@@ -105,6 +106,8 @@ for _PATH in "${HA_PATHS[@]}"; do
         HA_PATH="$_PATH"
     fi
 done
+
+rm -f "$FILENAME"
 
 [ -z $HA_PATH ] && { error "Home Assistant not found!"; }
 info "found at $HA_PATH"
