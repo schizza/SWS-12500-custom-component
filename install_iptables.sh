@@ -9,7 +9,7 @@ NO_COLOR='\033[0m'
 
 ST_PORT=80
 
-LINK=""
+LINK="https://raw.githubusercontent.com/schizza/SWS-12500-custom-component/main/iptables_redirect.sh"
 
 P_HA=true
 P_ST=true
@@ -55,8 +55,8 @@ function validate_num() {
 }
 
 function validate_dest() {
-    echo "Validating host '$1' ... "
-    if ping -c 4; then
+    echo "Validating host '$2' ... "
+    if ping -c 4 2>/dev/null; then
         info "OK"
         true
     else
@@ -93,17 +93,17 @@ check "sed"
 check "ping" false && { PING=true; } || { PING=false; }
 
 echo -n "Trying to find Home Assitant ... "
-for PATH in "${HA_PATHS[@]}"; do
+for _PATH in "${HA_PATHS[@]}"; do
     if [ -n "$HA_PATH" ]; then
         break
     fi
 
-    if [ -f "$PATH/.HA_VERSION" ]; then
-        HA_PATH="$PATH"
+    if [ -f "$_PATH/.HA_VERSION" ]; then
+        HA_PATH="$_PATH"
     fi
 done
 
-#[ -z $HA_PATH ] && { error "Home Assistant not found!"; }
+[ -z $HA_PATH ] && { error "Home Assistant not found!"; }
 info "found at $HA_PATH"
 
 while true; do
@@ -128,8 +128,28 @@ while true; do
 done
 
 if $PING; then
-    validate_dest $HA_IP || { cont "Home Assistant host is unreachable."; P_HA=false; }
-    validate_dest $ST_IP || { cont "Station is unreachable."; P_ST=false; }
+    validate_dest $HA_IP || {
+        cont "Home Assistant host is unreachable."
+        P_HA=false
+    }
+    validate_dest $ST_IP || {
+        cont "Station is unreachable."
+        P_ST=false
+    }
+fi
+
+echo -n "Downloading 'iptables_redirect.sh' ... "
+wget -q -O - "$LINK" | sed -e "s/\[_STATION_IP_\]/$ST_IP/" \
+    -e "s/\[_HA_\]/$HA_IP/" \
+    -e "s/\[_SRC_PORT_\]/$ST_PORT/" \
+    -e "s/\[_DST_PORT_\]/$HA_PORT/" >./iptables_redirect.sh
+
+EXIT_STATUS=$?
+if [ $EXIT_STATUS -ne 0 ]; then
+    warn "wget exited with error: $EXIT_STATUS"
+    error "Could not download 'iptables_redirect.sh'."
+else
+    info "iptables_redirect.sh downloaded succeffully."
 fi
 
 info "\nYour configuration:"
@@ -146,3 +166,5 @@ if $PING; then
 else
     error " (not tested)" false
 fi
+
+/bin/bash ./iptables_redirect.sh
