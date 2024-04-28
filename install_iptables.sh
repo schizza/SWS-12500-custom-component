@@ -73,7 +73,10 @@ function cont() {
         read -n 1 YN
         YN=${YN:-N}
         case $YN in
-        [Yy]) return 0 ;;
+        [Yy])
+            echo -e "\n"
+            return 0
+            ;;
         [Nn]) error "\nExiting." ;;
         *) error "\nInvalid response.\n" false ;;
         esac
