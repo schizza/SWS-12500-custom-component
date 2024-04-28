@@ -84,7 +84,8 @@ EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
     warn "iptables error code: ${EXIT_STATUS} "
     error "Rule could not be added!"
+else
+    info "OK."
 fi
 
-info "OK."
 info "iptables are now set to redirect incomming connections from $STATION_IP:Any -> $HA:$SRC_PORT to $HA:$DST_PORT"
