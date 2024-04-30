@@ -204,7 +204,7 @@ exit_status $? "cat" \
     "OK."
 
 echo -n "Setting 'exec.sh' script right privileges ... "
-chmod +x --quiet "$COMPLETE_PATH/exec.sh"
+chmod -f a+rx "$COMPLETE_PATH/exec.sh"
 exit_status $? "chmod" \
     "Filed to set +x on exec.sh" \
     "OK."
