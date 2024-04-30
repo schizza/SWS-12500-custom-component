@@ -13,18 +13,16 @@ LINK="https://raw.githubusercontent.com/schizza/SWS-12500-custom-component/main/
 FILENAME="iptables_redirect.sh"
 SCRIPT_DIR="iptables_redirect"
 
-
 P_HA=true
 P_ST=true
 
 declare -a HA_PATHS=(
+    "/homeassistant"
     "$PWD"
     "$PWD/config"
     "/config"
-    "/homeassistant"
     "$HOME/.homeassistant"
     "/usr/share/hassio/homeassistant"
-    "./HA"
 )
 
 function info() { echo -e $2 "${GREEN_COLOR}$1${NO_COLOR}"; }
@@ -208,8 +206,8 @@ exit_status $? "cat" \
 echo -n "Setting 'exec.sh' script right privileges ... "
 chmod +x --quiet "$COMPLETE_PATH/exec.sh"
 exit_status $? "chmod" \
-                "Filed to set +x on exec.sh" \
-                "OK."
+    "Filed to set +x on exec.sh" \
+    "OK."
 
 echo -n "Creating 'runscript' ... "
 cat >$COMPLETE_PATH/runscript <<-"EOF"
@@ -224,16 +222,16 @@ exit_status $? "cat" \
     "OK."
 
 echo -n "Modifying configuration.yaml ... "
-cat >> $HA_PATH/configuration.yaml <<EOF
+cat >>$HA_PATH/configuration.yaml <<EOF
 
 shell_command:
   iptables_script: ./iptables_redirect/exec.sh
 EOF
 
 exit_status $? "cat" \
-            "Could not modify configuration.yaml" \
-            "OK." \
-            false
+    "Could not modify configuration.yaml" \
+    "OK." \
+    false
 
 echo "Executing 'iptables_redirecet.sh' ..."
 
@@ -263,4 +261,3 @@ info "   First run of 'iptables_redirect.sh' script " -n
 [ $FIRST_RUN -ne 0 ] && { error " failed." false; } || { info " passed."; }
 
 info "   SSH pub_key: at $COMPLETE_PATH/ssh/ipt_dsa.pub"
-
