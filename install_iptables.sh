@@ -226,6 +226,17 @@ cat >>$HA_PATH/configuration.yaml <<EOF
 
 shell_command:
   iptables_script: ./iptables_redirect/exec.sh
+
+description: "Run iptables script on Home Assistant start."
+mode: single
+trigger:
+  - platform: homeassistant
+    event: start
+condition: []
+action:
+  - service: shell_command.iptables_script
+    metadata: {}
+    data: {}
 EOF
 
 exit_status $? "cat" \
