@@ -11,6 +11,7 @@ ST_PORT=80
 
 LINK="https://raw.githubusercontent.com/schizza/SWS-12500-custom-component/main/iptables_redirect.sh"
 FILENAME="iptables_redirect.sh"
+SCRIPT_DIR="iptables_redirect/"
 
 P_HA=true
 P_ST=true
@@ -106,6 +107,9 @@ for _PATH in "${HA_PATHS[@]}"; do
         HA_PATH="$_PATH"
     fi
 done
+
+COMPLETE_PATH="$HA_PATH/$SCRIPT_DIR"
+FILENAME="$COMPLETE_PATH$FILENAME"
 
 rm -f "$FILENAME"
 
