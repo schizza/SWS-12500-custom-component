@@ -13,6 +13,7 @@ LINK="https://raw.githubusercontent.com/schizza/SWS-12500-custom-component/main/
 FILENAME="iptables_redirect.sh"
 SCRIPT_DIR="iptables_redirect"
 
+
 P_HA=true
 P_ST=true
 
@@ -262,3 +263,4 @@ info "   First run of 'iptables_redirect.sh' script " -n
 [ $FIRST_RUN -ne 0 ] && { error " failed." false; } || { info " passed."; }
 
 info "   SSH pub_key: at $COMPLETE_PATH/ssh/ipt_dsa.pub"
+
