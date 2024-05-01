@@ -66,4 +66,10 @@ The scritp will set all you need to modify iptables on every Home Assistant star
 Script files are stored in your `config/iptables_redirect` directory.
 There is also your public key for your SSH server configuration in `ssh` directory. It is important to add public key to your SSH server configuration.
 
+
+
+https://github.com/schizza/SWS-12500-custom-component/assets/4604900/bf0a3438-e23b-4425-8de1-6329e4d74319
+
+
+
 So you are no all set! :tada:
