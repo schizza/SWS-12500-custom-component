@@ -1,4 +1,3 @@
-
 # Integrates your SWS 12500 weather station seamlessly into Home Assistant
 
 This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to Windy API.
@@ -13,22 +12,24 @@ This integration will listen for data from your station and passes them to respe
 
 ## Installation
 
+### If your station's firmware is 1.0 or your station is configured as described in this README and you still can not see any data incoming to Home Assistant please [read here](https://github.com/schizza/SWS-12500-custom-component/issues/17) and [here](firmware_bug.md)
+
 ### HACS installation
-For installation with HACS, you have to first add a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/). 
+For installation with HACS, you have to first add a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/).
 You will need to enter the URL of this repository when prompted: `https://github.com/schizza/SWS-12500-custom-component`.
 
 After adding this repository to HACS:
 - Go to HACS -> Integrations
 - Search for the integration `Sencor SWS 12500 Weather station` and download the integration.
 - Restart Home Assistant
-- Now go to `Integrations` and add new integration. Search for `Sencor SWS 12500 Weather station` and select it. 
+- Now go to `Integrations` and add new integration. Search for `Sencor SWS 12500 Weather station` and select it.
 
 ### Manual installation
 
 For manual installation you must have an access to your Home Assistant's  `/config` folder.
 
-- Clone this repository or download [latest release here](https://github.com/schizza/SWS-12500-custom-component/releases/latest).  
-  
+- Clone this repository or download [latest release here](https://github.com/schizza/SWS-12500-custom-component/releases/latest).
+
 - Copy the `custom_components/sws12500-custom-component` folder to your `config/custom_components` folder in Home Assistant.
 - Restart Home Assistant.
 - Now go to `Integrations` and add new integration `Sencor SWS 12500 Weather station`
