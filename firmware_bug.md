@@ -15,8 +15,7 @@ If you ommit the `:port`, station will send data to designated port `:80` of you
 
 ## :adhesive_bandage: Workaround
 
-[!TIP]
-There is a solution to this! :bulb:
+:bulb: There is a solution to this!
 
 You have to redirect incoming data on `port 80` from station's IP address to `port 8123` or what ever port your instance of Home Assistant is running. To achive this, you have to run `iptables` to redirect ports.
 
@@ -28,9 +27,9 @@ Ok, now how to do it?
 
 ### Step one
 
-Install [`Advanced SSH & Web Terminal`](https://github.com/hassio-addons/addon-ssh/blob/main/ssh/DOCS.md) from add-ons. Yes, it **has to be** `Advanced SSH & Web Terminal` not regular `Terminal & SSH`, as regular `Terminal & SSH` do not have such functions, capabilities and privileges.
+Install [Advanced SSH & Web Terminal](https://github.com/hassio-addons/addon-ssh/blob/main/ssh/DOCS.md) from add-ons. Yes, it **has to be** `Advanced SSH & Web Terminal` not regular `Terminal & SSH`, as regular `Terminal & SSH` do not have such functions, capabilities and privileges.
 
-### Step two
+### Step two
 
 After you have installed `Advanced SSH & Web Terminal` [configure ](https://github.com/hassio-addons/addon-ssh/blob/main/ssh/DOCS.md) it to run on some free port (eg. 23). Make sure you have configured `username` and `authorized_keys`. Please be advised, that this script will not work with `password`.
 
