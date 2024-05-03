@@ -232,17 +232,6 @@ cat >>$HA_PATH/configuration.yaml <<EOF
 
 shell_command:
   iptables_script: iptables_redirect/exec.sh
-
-description: "Run iptables script on Home Assistant start."
-mode: single
-trigger:
-  - platform: homeassistant
-    event: start
-condition: []
-action:
-  - service: shell_command.iptables_script
-    metadata: {}
-    data: {}
 EOF
 
 exit_status $? "cat" \
@@ -250,7 +239,30 @@ exit_status $? "cat" \
     "OK." \
     false
 
-echo "Executing 'iptables_redirecet.sh' ..."
+echo -n "Modifying automations.yaml ... "
+cat >>$HA_PATH/automations.yaml <<EOF
+
+- id: '1714725977432'
+  alias: Run iptables_redirect on HA start
+  description: On every start we will run iptables_redirect script to ensure accepting
+    data from station with firmware 1.0
+  trigger:
+  - platform: homeassistant
+    event: start
+  condition: []
+  action:
+  - service: shell_command.iptables_script
+    metadata: {}
+    data: {}
+  mode: single
+EOF
+
+exit_status $? "cat" \
+    "Could not modify automations.yaml" \
+    "OK." \
+    false
+
+echo "Executing 'iptables_redirecet.sh' ... "
 
 /bin/bash $FILENAME
 FIRST_RUN=$?
