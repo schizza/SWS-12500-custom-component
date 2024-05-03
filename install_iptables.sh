@@ -231,7 +231,7 @@ echo -n "Modifying configuration.yaml ... "
 cat >>$HA_PATH/configuration.yaml <<EOF
 
 shell_command:
-  iptables_script: /homeassistant/iptables_redirect/exec.sh
+  iptables_script: iptables_redirect/exec.sh
 
 description: "Run iptables script on Home Assistant start."
 mode: single
