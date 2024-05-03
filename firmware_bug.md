@@ -58,7 +58,8 @@ You will be asked for:
 
 The scritp will set all you need to modify iptables on every Home Assistant start.
 
-## :warning: Scrip will modify `configuration.yaml` so, please look at it and check that it does not contain any error.
+## :warning: Scrip will modify `configuration.yaml` and `automations.yaml` so, please look at it and check that it does not contain any error.
+If you have already set `shell_command` in your `configuration.yaml` then you have to transfer created one to your already set one.
 
 ### Step four
 
