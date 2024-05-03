@@ -196,7 +196,10 @@ echo -n "Creating 'exec.sh' script ... "
 cat >$COMPLETE_PATH/exec.sh <<-EOF
 #!/bin/bash
 
-cat ./iptables_redirect/runscript | ssh -i ./iptables_redirect/ssl/ipt_dsa -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
+RUN=$(find /homeassistant -name "iptables_redirect.sh" | sed -n 1p)
+KEY=$(find /homeassistatnt -name "ipt_dsa" | sed -n 1p)
+
+cat \$RUN | ssh -i \$KEY -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
 EOF
 
 exit_status $? "cat" \
@@ -225,7 +228,7 @@ echo -n "Modifying configuration.yaml ... "
 cat >>$HA_PATH/configuration.yaml <<EOF
 
 shell_command:
-  iptables_script: ./iptables_redirect/exec.sh
+  iptables_script: /homeassistant/iptables_redirect/exec.sh
 
 description: "Run iptables script on Home Assistant start."
 mode: single
