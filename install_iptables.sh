@@ -196,7 +196,7 @@ echo -n "Creating 'exec.sh' script ... "
 cat >$COMPLETE_PATH/exec.sh <<-EOF
 #!/bin/bash
 
-cat iptables_redirect/iptables_redirect.sh | ssh -i iptables_redirect/ssh/ipt.dsa -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
+cat iptables_redirect/iptables_redirect.sh | ssh -i iptables_redirect/ssh/ipt_dsa -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
 EOF
 
 exit_status $? "cat" \
