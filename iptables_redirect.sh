@@ -59,9 +59,8 @@ if [ $APK_MISSING -eq 1 ] && [ $INSTALL_IPTABLES -eq 1 ]; then
 fi
 
 if [ $INSTALL_IPTABLES -eq 1 ] && [ $APK_MISSING -eq 0 ]; then
-    declare -a RUNINSTALL=(apk add iptables)
     echo -n "Installing 'iptables' ... ${RUNINSTALL[@]} ... "
-    ${RUNINSTALL[@]}
+    sudo apk add iptables
     EXIT_STATUS=$?
     if [ $EXIT_STATUS -ne 0 ]; then
         warn "apk error code: $EXIT_STATUS"
@@ -72,7 +71,7 @@ if [ $INSTALL_IPTABLES -eq 1 ] && [ $APK_MISSING -eq 0 ]; then
 fi
 declare -a RULE=(PREROUTING -t nat -s $STATION_IP -d $HA -p tcp -m tcp --dport $SRC_PORT -j REDIRECT --to-ports $DST_PORT)
 echo -n "Chceking for existing rule in iptables ... "
-$(iptables -C ${RULE[@]} 2>/dev/null)
+sudo iptables -C ${RULE[@]} 2>/dev/null
 if [ $? -eq 0 ]; then
     warn "Rule is already present in PREROUTING chain."
 else
