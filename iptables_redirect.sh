@@ -77,7 +77,7 @@ if [ $? -eq 0 ]; then
 else
     info "not found."
     echo -n "Inserting iptables rule to PREROUTING chain ... "
-    $(iptables -I ${RULE[@]})
+    sudo iptables -I ${RULE[@]} 2>/dev/null
 fi
 EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
