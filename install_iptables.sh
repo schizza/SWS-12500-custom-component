@@ -196,10 +196,7 @@ echo -n "Creating 'exec.sh' script ... "
 cat >$COMPLETE_PATH/exec.sh <<-EOF
 #!/bin/bash
 
-RUN=\$(find /homeassistant -name "iptables_redirect.sh" | sed -n 1p)
-KEY=\$(find /homeassistatnt -name "ipt_dsa" | sed -n 1p)
-
-cat \$RUN | ssh -i \$KEY -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
+cat iptables_redirect/iptables_redirect.sh | ssh -i iptables_redirect/ssh/ipt.dsa -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
 EOF
 
 exit_status $? "cat" \
@@ -212,12 +209,18 @@ exit_status $? "chmod" \
     "Filed to set +x on exec.sh" \
     "OK."
 
+echo -n "Setting 'iptables_redirect.sh' script right privileges ... "
+chmod -f a+rx "$COMPLETE_PATH/iptables_redirect.sh"
+exit_status $? "chmod" \
+    "Filed to set +x on exec.sh" \
+    "OK."
+
 echo -n "Creating 'runscript' ... "
 cat >$COMPLETE_PATH/runscript <<-"EOF"
-#!/bin/zsh
+#!/bin/bash
 
 SCRIPT=$(find /homeassistant -name "iptables_redirect.sh" | sed -n 1p)
-sudo /bin/bash "$SCRIPT"
+sudo $SCRIPT
 EOF
 
 exit_status $? "cat" \
