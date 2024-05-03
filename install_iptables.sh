@@ -196,8 +196,8 @@ echo -n "Creating 'exec.sh' script ... "
 cat >$COMPLETE_PATH/exec.sh <<-EOF
 #!/bin/bash
 
-RUN=$(find /homeassistant -name "iptables_redirect.sh" | sed -n 1p)
-KEY=$(find /homeassistatnt -name "ipt_dsa" | sed -n 1p)
+RUN=\$(find /homeassistant -name "iptables_redirect.sh" | sed -n 1p)
+KEY=\$(find /homeassistatnt -name "ipt_dsa" | sed -n 1p)
 
 cat \$RUN | ssh -i \$KEY -o StrictHostKeyChecking=no -p $SSH_PORT -l $SSH_USER $HA_IP /bin/zsh
 EOF
