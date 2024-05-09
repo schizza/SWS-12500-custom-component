@@ -70,6 +70,7 @@ UV: Final = "uv"
 CH2_TEMP: Final = "ch2_temp"
 CH2_HUMIDITY: Final = "ch2_humidity"
 HEAT_INDEX: Final = "heat_index"
+CHILL_INDEX: Final = "chill_index"
 
 
 REMAP_ITEMS: dict = {

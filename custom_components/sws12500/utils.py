@@ -19,6 +19,7 @@ from .const import (
     UnitOfDir,
     OUTSIDE_TEMP,
     OUTSIDE_HUMIDITY,
+    WIND_SPEED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -190,6 +191,22 @@ def heat_index(data: Any) -> UnitOfTemperature:
         if rh > 80 and (temp in np.arange(80, 87, 0.1)):
             adjustment = ((rh - 85) / 10) * ((87 - temp) / 5)
 
-        return full_index + adjustment if adjustment else full_index
+        return round((full_index + adjustment if adjustment else full_index), 2)
 
     return simple
+
+
+def chill_index(data: Any) -> UnitOfTemperature:
+    """Calculate wind chill index."""
+
+    temp = float(data[OUTSIDE_TEMP])
+    wind = float(data[WIND_SPEED])
+
+    return round(
+        (
+            (35.7 + (0.6215 * temp))
+            - (35.75 * (wind**0.16))
+            + (0.4275 * (temp * (wind**0.16)))
+        ),
+        2,
+    )
