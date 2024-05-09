@@ -6,10 +6,23 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.const import UnitOfTemperature
+from typing import Any
+import math
+import numpy as np
 
-from .const import AZIMUT, DEV_DBG, REMAP_ITEMS, SENSORS_TO_LOAD, UnitOfDir
+from .const import (
+    AZIMUT,
+    DEV_DBG,
+    REMAP_ITEMS,
+    SENSORS_TO_LOAD,
+    UnitOfDir,
+    OUTSIDE_TEMP,
+    OUTSIDE_HUMIDITY,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def translations(
     hass: HomeAssistant,
@@ -17,7 +30,7 @@ async def translations(
     translation_key: str,
     *,
     key: str = "message",
-    category: str = "notify"
+    category: str = "notify",
 ) -> str:
     """Get translated keys for domain."""
 
@@ -31,6 +44,7 @@ async def translations(
     if localize_key in _translations:
         return _translations[localize_key]
 
+
 async def translated_notification(
     hass: HomeAssistant,
     translation_domain: str,
@@ -39,13 +53,15 @@ async def translated_notification(
     notification_id: str | None = None,
     *,
     key: str = "message",
-    category: str = "notify"
+    category: str = "notify",
 ) -> str:
     """Translate notification."""
 
     localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
 
-    localize_title = f"component.{translation_domain}.{category}.{translation_key}.title"
+    localize_title = (
+        f"component.{translation_domain}.{category}.{translation_key}.title"
+    )
 
     language = hass.config.language
 
@@ -97,10 +113,16 @@ def remap_items(entities):
 
     return items
 
+
 def loaded_sensors(config_entry: ConfigEntry) -> list | None:
     """Get loaded sensors."""
 
-    return config_entry.options.get(SENSORS_TO_LOAD) if config_entry.options.get(SENSORS_TO_LOAD) else []
+    return (
+        config_entry.options.get(SENSORS_TO_LOAD)
+        if config_entry.options.get(SENSORS_TO_LOAD)
+        else []
+    )
+
 
 def check_disabled(
     hass: HomeAssistant, items, config_entry: ConfigEntry
@@ -129,6 +151,7 @@ def check_disabled(
 
     return missing_sensors if entityFound else None
 
+
 def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     """Return wind direction in text representation.
 
@@ -141,3 +164,32 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     return None
 
 
+def heat_index(data: Any) -> UnitOfTemperature:
+    """Calculate heat index from temperature."""
+
+    temp = float(data[OUTSIDE_TEMP])
+    rh = float(data[OUTSIDE_HUMIDITY])
+    adjustment = None
+
+    simple = 0.5 * (temp + 61.0 + ((temp - 68.0) * 1.2) + (rh * 0.094))
+    if ((simple + temp) / 2) > 80:
+        full_index = (
+            -42.379
+            + 2.04901523 * temp
+            + 10.14333127 * rh
+            - 0.22475541 * temp * rh
+            - 0.00683783 * temp * temp
+            - 0.05481717 * rh * rh
+            + 0.00122874 * temp * temp * rh
+            + 0.00085282 * temp * rh * rh
+            - 0.00000199 * temp * temp * rh * rh
+        )
+        if rh < 13 and (temp in np.arange(80, 112, 0.1)):
+            adjustment = ((13 - rh) / 4) * math.sqrt((17 - abs(temp - 95)) / 17)
+
+        if rh > 80 and (temp in np.arange(80, 87, 0.1)):
+            adjustment = ((rh - 85) / 10) * ((87 - temp) / 5)
+
+        return full_index + adjustment if adjustment else full_index
+
+    return simple

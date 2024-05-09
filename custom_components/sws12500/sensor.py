@@ -37,6 +37,7 @@ from .const import (
     DAILY_RAIN,
     DEW_POINT,
     DOMAIN,
+    HEAT_INDEX,
     INDOOR_HUMIDITY,
     INDOOR_TEMP,
     OUTSIDE_HUMIDITY,
@@ -51,7 +52,7 @@ from .const import (
     WIND_SPEED,
     UnitOfDir,
 )
-from .utils import wind_dir_to_text
+from .utils import wind_dir_to_text, heat_index
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -215,6 +216,16 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         translation_key=CH2_HUMIDITY,
         value_fn=lambda data: cast(int, data),
     ),
+    WeatherSensorEntityDescription(
+        key=HEAT_INDEX,
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        icon="mdi:weather-sunny",
+        translation_key=HEAT_INDEX,
+        value_fn=lambda data: cast(int, data),
+    ),
 )
 
 
@@ -234,6 +245,8 @@ async def async_setup_entry(
     if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD):
         if WIND_DIR in sensors_to_load:
             sensors_to_load.append(WIND_AZIMUT)
+        if (WIND_SPEED in sensors_to_load) and (OUTSIDE_TEMP in sensors_to_load):
+            sensors_to_load.append(HEAT_INDEX)
         sensors = [
             WeatherSensor(hass, description, coordinator)
             for description in SENSOR_TYPES
@@ -292,6 +305,9 @@ class WeatherSensor(
 
         if self.coordinator.data and (WIND_AZIMUT in self.entity_description.key):
             return self.entity_description.value_fn(self.coordinator.data.get(WIND_DIR))
+
+        if self.coordinator.data and (HEAT_INDEX in self.entity_description.key):
+            return self.entity_description.value_fn(heat_index(self.coordinator.data))
 
         return self.entity_description.value_fn(self._data)
 

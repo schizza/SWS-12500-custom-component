@@ -76,6 +76,7 @@
       "solar_radiation": { "name": "Sluneční osvit" },
       "ch2_temp": { "name": "Teplota senzoru 2" },
       "ch2_humidity": { "name": "Vlhkost sensoru 2" },
+      "heat_index": { "name": "Tepelný index" },
       "wind_azimut": {
         "name": "Azimut",
         "state": {
