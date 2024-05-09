@@ -78,6 +78,7 @@
       "ch2_temp": { "name": "Channel 2 temperature" },
       "ch2_humidity": { "name": "Channel 2 humidity" },
       "heat_index": { "name": "Apparent temperature" },
+      "chill_index": { "name": "Wind chill" },
       "wind_azimut": {
         "name": "Bearing",
         "state": {

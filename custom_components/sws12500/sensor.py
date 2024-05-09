@@ -1,4 +1,5 @@
 """Sensors definition for SWS12500."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 import logging
@@ -34,6 +35,7 @@ from .const import (
     BARO_PRESSURE,
     CH2_HUMIDITY,
     CH2_TEMP,
+    CHILL_INDEX,
     DAILY_RAIN,
     DEW_POINT,
     DOMAIN,
@@ -52,7 +54,7 @@ from .const import (
     WIND_SPEED,
     UnitOfDir,
 )
-from .utils import wind_dir_to_text, heat_index
+from .utils import heat_index, wind_dir_to_text, chill_index
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -226,6 +228,17 @@ SENSOR_TYPES: tuple[WeatherSensorEntityDescription, ...] = (
         translation_key=HEAT_INDEX,
         value_fn=lambda data: cast(int, data),
     ),
+    WeatherSensorEntityDescription(
+        key=CHILL_INDEX,
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=2,
+        icon="mdi:weather-sunny",
+        translation_key=CHILL_INDEX,
+        value_fn=lambda data: cast(int, data),
+    ),
 )
 
 
@@ -245,8 +258,11 @@ async def async_setup_entry(
     if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD):
         if WIND_DIR in sensors_to_load:
             sensors_to_load.append(WIND_AZIMUT)
-        if (WIND_SPEED in sensors_to_load) and (OUTSIDE_TEMP in sensors_to_load):
+        if (OUTSIDE_HUMIDITY in sensors_to_load) and (OUTSIDE_TEMP in sensors_to_load):
             sensors_to_load.append(HEAT_INDEX)
+
+        if (WIND_SPEED in sensors_to_load) and (OUTSIDE_TEMP in sensors_to_load):
+            sensors_to_load.append(CHILL_INDEX)
         sensors = [
             WeatherSensor(hass, description, coordinator)
             for description in SENSOR_TYPES
@@ -308,6 +324,9 @@ class WeatherSensor(
 
         if self.coordinator.data and (HEAT_INDEX in self.entity_description.key):
             return self.entity_description.value_fn(heat_index(self.coordinator.data))
+
+        if self.coordinator.data and (CHILL_INDEX in self.entity_description.key):
+            return self.entity_description.value_fn(chill_index(self.coordinator.data))
 
         return self.entity_description.value_fn(self._data)
 
