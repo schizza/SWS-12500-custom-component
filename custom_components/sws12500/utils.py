@@ -201,7 +201,7 @@ def chill_index(data: Any) -> UnitOfTemperature:
 
     temp = float(data[OUTSIDE_TEMP])
     wind = float(data[WIND_SPEED])
-
+    
     return round(
         (
             (35.7 + (0.6215 * temp))
@@ -209,4 +209,4 @@ def chill_index(data: Any) -> UnitOfTemperature:
             + (0.4275 * (temp * (wind**0.16)))
         ),
         2,
-    )
+    ) if temp < 50 and wind > 3 else temp
