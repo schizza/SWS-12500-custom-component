@@ -76,6 +76,10 @@
       "solar_radiation": { "name": "Sluneční osvit" },
       "ch2_temp": { "name": "Teplota senzoru 2" },
       "ch2_humidity": { "name": "Vlhkost sensoru 2" },
+      "ch3_temp": { "name": "Teplota senzoru 3" },
+      "ch3_humidity": { "name": "Vlhkost sensoru 3" },
+      "ch4_temp": { "name": "Teplota senzoru 4" },
+      "ch4_humidity": { "name": "Vlhkost sensoru 4" },
       "heat_index": { "name": "Tepelný index" },
       "chill_index": { "name": "Pocitová teplota" },
       "wind_azimut": {
