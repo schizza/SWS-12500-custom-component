@@ -77,6 +77,10 @@
       "solar_radiation": { "name": "Solar irradiance" },
       "ch2_temp": { "name": "Channel 2 temperature" },
       "ch2_humidity": { "name": "Channel 2 humidity" },
+      "ch3_temp": { "name": "Channel 3 temperature" },
+      "ch3_humidity": { "name": "Channel 3 humidity" },
+      "ch4_temp": { "name": "Channel 4 temperature" },
+      "ch4_humidity": { "name": "Channel 4 humidity" },
       "heat_index": { "name": "Apparent temperature" },
       "chill_index": { "name": "Wind chill" },
       "wind_azimut": {

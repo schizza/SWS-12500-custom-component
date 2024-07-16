@@ -69,6 +69,10 @@ INDOOR_HUMIDITY: Final = "indoor_humidity"
 UV: Final = "uv"
 CH2_TEMP: Final = "ch2_temp"
 CH2_HUMIDITY: Final = "ch2_humidity"
+CH3_TEMP: Final = "ch3_temp"
+CH3_HUMIDITY: Final = "ch3_humidity"
+CH4_TEMP: Final = "ch4_temp"
+CH4_HUMIDITY: Final = "ch4_humidity"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 
@@ -89,9 +93,20 @@ REMAP_ITEMS: dict = {
     "UV": UV,
     "soiltempf": CH2_TEMP,
     "soilmoisture": CH2_HUMIDITY,
+    "soiltemp2f": CH3_TEMP,
+    "soilmoisture2": CH3_HUMIDITY,
+    "soiltemp3f": CH4_TEMP,
+    "soilmoisture3": CH4_HUMIDITY,
 }
 
-DISABLED_BY_DEFAULT: Final = [CH2_TEMP, CH2_HUMIDITY]
+DISABLED_BY_DEFAULT: Final = [
+    CH2_TEMP,
+    CH2_HUMIDITY,
+    CH3_TEMP,
+    CH3_HUMIDITY,
+    CH4_TEMP,
+    CH4_HUMIDITY,
+]
 
 
 class UnitOfDir(StrEnum):
