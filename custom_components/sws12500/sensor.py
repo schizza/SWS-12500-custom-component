@@ -38,7 +38,7 @@ from .const import (
     CH3_TEMP,
     CH3_HUMIDITY,
     CH4_TEMP,
-    CH4_HUMIDITY,
+    CH4_HUMIDITY,   
     CHILL_INDEX,
     DAILY_RAIN,
     DEW_POINT,
