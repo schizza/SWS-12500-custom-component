@@ -3,10 +3,9 @@
 from datetime import datetime, timedelta
 import logging
 
-import aiohttp
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     PURGE_DATA,
@@ -69,6 +68,9 @@ class WindyPush:
     ) -> WindyNotInserted | WindySuccess | WindyApiKeyError | None:
         """Verify answer form Windy."""
 
+        if self.log:
+            _LOGGER.info("Windy response raw response: %s", response)
+
         if "NOTICE" in response:
             raise WindyNotInserted
 
@@ -76,6 +78,9 @@ class WindyPush:
             raise WindySuccess
 
         if "Invalid API key" in response:
+            raise WindyApiKeyError
+
+        if "Unauthorized" in response:
             raise WindyApiKeyError
 
         return None
@@ -116,46 +121,44 @@ class WindyPush:
 
         if self.log:
             _LOGGER.info("Dataset for windy: %s", purged_data)
+        session = async_get_clientsession(self.hass, verify_ssl=False)
+        try:
+            async with session.get(request_url, params=purged_data) as resp:
+                status = await resp.text()
+                try:
+                    self.verify_windy_response(status)
+                except WindyNotInserted:
+                    # log despite of settings
+                    _LOGGER.error(WINDY_NOT_INSERTED)
 
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(ssl=False), trust_env=True
-        ) as session:  # verify_ssl=False; intended to be False
-            try:
-                async with session.get(request_url, params=purged_data) as resp:
-                    status = await resp.text()
-                    try:
-                        self.verify_windy_response(status)
-                    except WindyNotInserted:
-                        # log despite of settings
-                        _LOGGER.error(WINDY_NOT_INSERTED)
+                    text_for_test = WINDY_NOT_INSERTED
 
-                        text_for_test = WINDY_NOT_INSERTED
+                except WindyApiKeyError:
+                    # log despite of settings
+                    _LOGGER.critical(WINDY_INVALID_KEY)
+                    text_for_test = WINDY_INVALID_KEY
 
-                    except WindyApiKeyError:
-                        # log despite of settings
-                        _LOGGER.critical(WINDY_INVALID_KEY)
-                        text_for_test = WINDY_INVALID_KEY
-
-                        update_options(self.hass, self.config, WINDY_ENABLED, False)
-
-                    except WindySuccess:
-                        if self.log:
-                            _LOGGER.info(WINDY_SUCCESS)
-                        text_for_test = WINDY_SUCCESS
-
-            except aiohttp.ClientConnectionError as ex:
-                _LOGGER.critical("Invalid response from Windy: %s", str(ex))
-                self.invalid_response_count += 1
-                if self.invalid_response_count > 3:
-                    _LOGGER.critical(WINDY_UNEXPECTED)
-                    text_for_test = WINDY_UNEXPECTED
                     update_options(self.hass, self.config, WINDY_ENABLED, False)
 
-            self.last_update = datetime.now()
-            self.next_update = self.last_update + timed(minutes=5)
+                except WindySuccess:
+                    if self.log:
+                        _LOGGER.info(WINDY_SUCCESS)
+                    text_for_test = WINDY_SUCCESS
 
-            if self.log:
-                _LOGGER.info("Next update: %s", str(self.next_update))
+        except session.ClientError as ex:
+            _LOGGER.critical("Invalid response from Windy: %s", str(ex))
+            self.invalid_response_count += 1
+            if self.invalid_response_count > 3:
+                _LOGGER.critical(WINDY_UNEXPECTED)
+                text_for_test = WINDY_UNEXPECTED
+                update_options(self.hass, self.config, WINDY_ENABLED, False)
+
+        self.last_update = datetime.now()
+        self.next_update = self.last_update + timed(minutes=5)
+
+        if self.log:
+            _LOGGER.info("Next update: %s", str(self.next_update))
+
         if RESPONSE_FOR_TEST and text_for_test:
             return text_for_test
         return None

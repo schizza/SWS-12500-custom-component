@@ -1,4 +1,5 @@
 """The Sencor SWS 12500 Weather Station integration."""
+
 import logging
 
 import aiohttp
@@ -74,7 +75,9 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         if sensors := check_disabled(self.hass, remaped_items, self.config):
             translate_sensors = [
-                await translations(self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity")
+                await translations(
+                    self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity"
+                )
                 for t_key in sensors
             ]
             human_readable = "\n".join(translate_sensors)
