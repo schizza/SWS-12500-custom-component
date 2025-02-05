@@ -15,7 +15,7 @@
         "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
         "title": "Nastavení přístpu pro metostanici",
         "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+          "dev_debug_checkbox": " Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
         }
       }
     }
@@ -37,7 +37,7 @@
         "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
         "title": "Nastavení přihlášení",
         "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+          "dev_debug_checkbox": " Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
         }
       },
       "init": {
