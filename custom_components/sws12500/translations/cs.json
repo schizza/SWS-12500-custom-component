@@ -10,6 +10,7 @@
         "data": {
           "API_ID": "API ID / ID stanice",
           "API_KEY": "API KEY / Heslo",
+          "wslink": "WSLink API",
           "dev_debug_checkbox": "Developer log"
         },
         "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
@@ -32,6 +33,7 @@
         "data": {
           "API_ID": "API ID / ID Stanice",
           "API_KEY": "API KEY / Heslo",
+          "wslink": "WSLink API",
           "dev_debug_checkbox": "Developer log"
         },
         "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",

@@ -1,4 +1,5 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
+
 from typing import Any
 
 import voluptuous as vol
@@ -17,6 +18,7 @@ from .const import (
     WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
+    WSLINK,
 )
 
 
@@ -38,22 +40,30 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
         self.user_data: dict[str, str] = {
             API_ID: self.config_entry.options.get(API_ID),
             API_KEY: self.config_entry.options.get(API_KEY),
+            WSLINK: self.config_entry.options.get(WSLINK),
             DEV_DBG: self.config_entry.options.get(DEV_DBG),
         }
 
         self.windy_data: dict[str, Any] = {
             WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
-            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED) if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool) else False,
-            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED) if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool) else False,
+            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED)
+            if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool)
+            else False,
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED)
+            if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool)
+            else False,
         }
 
         self.sensors: dict[str, Any] = {
-            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD) if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list) else []
+            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD)
+            if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
+            else []
         }
 
         self.user_data_schema = {
             vol.Required(API_ID, default=self.user_data[API_ID] or ""): str,
             vol.Required(API_KEY, default=self.user_data[API_KEY] or ""): str,
+            vol.Optional(WSLINK, default=self.user_data[WSLINK]): bool,
             vol.Optional(DEV_DBG, default=self.user_data[DEV_DBG]): bool,
         }
 
@@ -93,7 +103,7 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
             # retain windy data
             user_input.update(self.windy_data)
 
-            #retain sensors
+            # retain sensors
             user_input.update(self.sensors)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
@@ -133,7 +143,7 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
         # retain user_data
         user_input.update(self.user_data)
 
-        #retain senors
+        # retain senors
         user_input.update(self.sensors)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
@@ -145,6 +155,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     data_schema = {
         vol.Required(API_ID): str,
         vol.Required(API_KEY): str,
+        vol.Optional(WSLINK): bool,
         vol.Optional(DEV_DBG): bool,
     }
 
@@ -170,7 +181,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            return self.async_create_entry(title=DOMAIN, data=user_input, options=user_input)
+            return self.async_create_entry(
+                title=DOMAIN, data=user_input, options=user_input
+            )
 
         return self.async_show_form(
             step_id="user",
