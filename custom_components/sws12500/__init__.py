@@ -19,12 +19,15 @@ from .const import (
     DOMAIN,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
+    WSLINK,
+    WSLINK_URL,
 )
 from .utils import (
     anonymize,
     check_disabled,
     loaded_sensors,
     remap_items,
+    remap_wslink_items,
     translated_notification,
     translations,
     update_options,
@@ -51,15 +54,25 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def recieved_data(self, webdata):
         """Handle incoming data query."""
+        _wslink = self.config_entry.data.get(WSLINK)
         data = webdata.query
+
         response = None
 
-        if "ID" not in data or "PASSWORD" not in data:
+        if not _wslink and ("ID" not in data or "PASSWORD" not in data):
             _LOGGER.error("Invalid request. No security data provided!")
             raise HTTPUnauthorized
 
-        id_data = data["ID"]
-        key_data = data["PASSWORD"]
+        if _wslink and ("wsid" not in data or "wspw" not in data):
+            _LOGGER.error("Invalid request. No security data provided!")
+            raise HTTPUnauthorized
+
+        if _wslink:
+            id_data = data["wsid"]
+            key_data = data["wspw"]
+        else:
+            id_data = data["ID"]
+            key_data = data["PASSWORD"]
 
         _id = self.config_entry.options.get(API_ID)
         _key = self.config_entry.options.get(API_KEY)
@@ -71,7 +84,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         if self.config_entry.options.get(WINDY_ENABLED):
             response = await self.windy.push_data_to_windy(data)
 
-        remaped_items = remap_items(data)
+        remaped_items = (
+            remap_wslink_items(data)
+            if self.config_entry.options.get(WSLINK)
+            else remap_items(data)
+        )
 
         if sensors := check_disabled(self.hass, remaped_items, self.config):
             translate_sensors = [
@@ -98,18 +115,22 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         if self.config_entry.options.get(DEV_DBG):
             _LOGGER.info("Dev log: %s", anonymize(data))
 
-        response = response if response else "OK"
-        return aiohttp.web.Response(body=f"{response}", status=200)
+        response = response or "OK"
+        return aiohttp.web.Response(body=f"{response or 'OK'}", status=200)
 
 
 def register_path(
     hass: HomeAssistant, url_path: str, coordinator: WeatherDataUpdateCoordinator
 ):
     """Register path to handle incoming data."""
+
+    _wslink = hass.config_entries.async_get_entry(WSLINK)
+
     try:
         route = hass.http.app.router.add_route(
             "GET", url_path, coordinator.recieved_data
         )
+
     except RuntimeError as Ex:  # pylint: disable=(broad-except)
         if (
             "Added route will never be executed, method GET is already registered"
@@ -144,7 +165,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
-    if not register_path(hass, DEFAULT_URL, coordinator):
+    _wslink = entry.data.get(WSLINK)
+
+    _LOGGER.info("WS Link is %s", "enbled" if _wslink else "disabled")
+
+    if not register_path(hass, DEFAULT_URL if not _wslink else WSLINK_URL, coordinator):
         _LOGGER.error("Fatal: path not registered!")
         raise PlatformNotReady
 

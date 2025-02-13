@@ -1,9 +1,10 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
+
 from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 
@@ -17,6 +18,7 @@ from .const import (
     WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
+    WSLINK,
 )
 
 
@@ -28,33 +30,54 @@ class InvalidAuth(HomeAssistantError):
     """Invalid auth exception."""
 
 
-class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
+class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize flow."""
-        self.config_entry = config_entry
+        super().__init__()
+
+        self.windy_data: dict[str, Any] = {}
+        self.windy_data_schema = {}
+        self.user_data: dict[str, str] = {}
+        self.user_data_schema = {}
+        self.sensors: dict[str, Any] = {}
+
+        @property
+        def config_entry(self):
+            return self.hass.config_entries.async_get_entry(self.handler)
+
+    def _get_entry_data(self):
+        """Get entry data."""
 
         self.user_data: dict[str, str] = {
             API_ID: self.config_entry.options.get(API_ID),
             API_KEY: self.config_entry.options.get(API_KEY),
+            WSLINK: self.config_entry.options.get(WSLINK),
             DEV_DBG: self.config_entry.options.get(DEV_DBG),
-        }
-
-        self.windy_data: dict[str, Any] = {
-            WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
-            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED) if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool) else False,
-            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED) if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool) else False,
-        }
-
-        self.sensors: dict[str, Any] = {
-            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD) if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list) else []
         }
 
         self.user_data_schema = {
             vol.Required(API_ID, default=self.user_data[API_ID] or ""): str,
             vol.Required(API_KEY, default=self.user_data[API_KEY] or ""): str,
+            vol.Optional(WSLINK, default=self.user_data[WSLINK]): bool,
             vol.Optional(DEV_DBG, default=self.user_data[DEV_DBG]): bool,
+        }
+
+        self.sensors: dict[str, Any] = {
+            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD)
+            if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
+            else []
+        }
+
+        self.windy_data: dict[str, Any] = {
+            WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
+            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED)
+            if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool)
+            else False,
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED)
+            if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool)
+            else False,
         }
 
         self.windy_data_schema = {
@@ -76,6 +99,8 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
         """Manage basic options - credentials."""
         errors = {}
 
+        self._get_entry_data()
+
         if user_input is None:
             return self.async_show_form(
                 step_id="basic",
@@ -93,7 +118,7 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
             # retain windy data
             user_input.update(self.windy_data)
 
-            #retain sensors
+            # retain sensors
             user_input.update(self.sensors)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
@@ -110,6 +135,8 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_windy(self, user_input=None):
         """Manage windy options."""
         errors = {}
+
+        self._get_entry_data()
 
         if user_input is None:
             return self.async_show_form(
@@ -133,18 +160,19 @@ class ConfigOptionsFlowHandler(config_entries.OptionsFlow):
         # retain user_data
         user_input.update(self.user_data)
 
-        #retain senors
+        # retain senors
         user_input.update(self.sensors)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sencor SWS 12500 Weather Station."""
 
     data_schema = {
         vol.Required(API_ID): str,
         vol.Required(API_KEY): str,
+        vol.Optional(WSLINK): bool,
         vol.Optional(DEV_DBG): bool,
     }
 
@@ -170,7 +198,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            return self.async_create_entry(title=DOMAIN, data=user_input, options=user_input)
+            return self.async_create_entry(
+                title=DOMAIN, data=user_input, options=user_input
+            )
 
         return self.async_show_form(
             step_id="user",
@@ -178,10 +208,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+
     @staticmethod
     @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> ConfigOptionsFlowHandler:
+    def async_get_options_flow(config_entry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return ConfigOptionsFlowHandler(config_entry)
+        return ConfigOptionsFlowHandler()

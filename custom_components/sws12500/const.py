@@ -5,6 +5,7 @@ from typing import Final
 
 DOMAIN = "sws12500"
 DEFAULT_URL = "/weatherstation/updateweatherstation.php"
+WSLINK_URL = "/data/upload.php"
 WINDY_URL = "https://stations.windy.com/pws/update/"
 
 ICON = "mdi:weather"
@@ -15,6 +16,7 @@ API_ID = "API_ID"
 SENSORS_TO_LOAD: Final = "sensors_to_load"
 
 DEV_DBG: Final = "dev_debug_checkbox"
+WSLINK: Final = "wslink"
 
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
@@ -52,6 +54,7 @@ PURGE_DATA: Final = [
     "indoorhumidity",
     "dailyrainin",
 ]
+
 
 BARO_PRESSURE: Final = "baro_pressure"
 OUTSIDE_TEMP: Final = "outside_temp"
@@ -97,6 +100,22 @@ REMAP_ITEMS: dict = {
     "soilmoisture2": CH3_HUMIDITY,
     "soiltemp3f": CH4_TEMP,
     "soilmoisture3": CH4_HUMIDITY,
+}
+
+REMAP_WSLINK_ITEMS: dict = {
+    "intem": INDOOR_TEMP,
+    "inhum": INDOOR_HUMIDITY,
+    "t1temp": OUTSIDE_TEMP,
+    "t1hum": OUTSIDE_HUMIDITY,
+    "t1dew": DEW_POINT,
+    "t1wdir": WIND_DIR,
+    "t1ws": WIND_SPEED,
+    "t1wg": WIND_GUST,
+    "t1rainra": RAIN,
+    "t1raindy": DAILY_RAIN,
+    "t1solrad": SOLAR_RADIATION,
+    "rbar": BARO_PRESSURE,
+    "uvi": UV
 }
 
 DISABLED_BY_DEFAULT: Final = [
@@ -148,3 +167,4 @@ AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNW,
     UnitOfDir.N,
 ]
+

@@ -1,25 +1,27 @@
 """Utils for SWS12500."""
 
 import logging
+import math
+from typing import Any
+
+import numpy as np
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
-from homeassistant.const import UnitOfTemperature
-from typing import Any
-import math
-import numpy as np
 
 from .const import (
     AZIMUT,
     DEV_DBG,
-    REMAP_ITEMS,
-    SENSORS_TO_LOAD,
-    UnitOfDir,
-    OUTSIDE_TEMP,
     OUTSIDE_HUMIDITY,
+    OUTSIDE_TEMP,
+    REMAP_ITEMS,
+    REMAP_WSLINK_ITEMS,
+    SENSORS_TO_LOAD,
     WIND_SPEED,
+    UnitOfDir,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,7 +101,7 @@ def anonymize(data):
 
     anonym = {}
     for k in data:
-        if k not in ("ID", "PASSWORD"):
+        if k not in ("ID", "PASSWORD", "wsid", "wspw"):
             anonym[k] = data[k]
 
     return anonym
@@ -111,6 +113,16 @@ def remap_items(entities):
     for item in entities:
         if item in REMAP_ITEMS:
             items[REMAP_ITEMS[item]] = entities[item]
+
+    return items
+
+
+def remap_wslink_items(entities):
+    """Remap items in query for WSLink API."""
+    items = {}
+    for item in entities:
+        if item in REMAP_WSLINK_ITEMS:
+            items[REMAP_WSLINK_ITEMS[item]] = entities[item]
 
     return items
 
@@ -201,12 +213,16 @@ def chill_index(data: Any) -> UnitOfTemperature:
 
     temp = float(data[OUTSIDE_TEMP])
     wind = float(data[WIND_SPEED])
-    
-    return round(
-        (
-            (35.7 + (0.6215 * temp))
-            - (35.75 * (wind**0.16))
-            + (0.4275 * (temp * (wind**0.16)))
-        ),
-        2,
-    ) if temp < 50 and wind > 3 else temp
+
+    return (
+        round(
+            (
+                (35.7 + (0.6215 * temp))
+                - (35.75 * (wind**0.16))
+                + (0.4275 * (temp * (wind**0.16)))
+            ),
+            2,
+        )
+        if temp < 50 and wind > 3
+        else temp
+    )
