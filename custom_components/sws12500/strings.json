@@ -103,7 +103,7 @@
   "notify": {
     "added": {
       "title": "New sensors for SWS 12500 found.",
-      "message": "{added_sensors}\n<b>HomeAssistant needs to be restarted for proper integreation run.</b>"
+      "message": "{added_sensors}\n"
     }
   }
 }

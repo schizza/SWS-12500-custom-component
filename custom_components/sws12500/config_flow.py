@@ -50,7 +50,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
     def _get_entry_data(self):
         """Get entry data."""
 
-        self.user_data: dict[str, str] = {
+        self.user_data: dict[str, Any] = {
             API_ID: self.config_entry.options.get(API_ID),
             API_KEY: self.config_entry.options.get(API_KEY),
             WSLINK: self.config_entry.options.get(WSLINK),
@@ -207,7 +207,6 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(self.data_schema),
             errors=errors,
         )
-
 
     @staticmethod
     @callback
