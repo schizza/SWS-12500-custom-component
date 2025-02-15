@@ -22,6 +22,7 @@ from .const import (
     WSLINK,
     WSLINK_URL,
 )
+from .routes import Routes, unregistred
 from .utils import (
     anonymize,
     check_disabled,
@@ -54,7 +55,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def recieved_data(self, webdata):
         """Handle incoming data query."""
-        _wslink = self.config_entry.data.get(WSLINK)
+        _wslink = self.config_entry.options.get(WSLINK)
         data = webdata.query
 
         response = None
@@ -108,7 +109,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             if _loaded_sensors := loaded_sensors(self.config_entry):
                 sensors.extend(_loaded_sensors)
             await update_options(self.hass, self.config_entry, SENSORS_TO_LOAD, sensors)
-            await self.hass.config_entries.async_reload(self.config.entry_id)
+            # await self.hass.config_entries.async_reload(self.config.entry_id)
 
         self.async_set_updated_data(remaped_items)
 
@@ -120,42 +121,77 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
 
 def register_path(
-    hass: HomeAssistant, url_path: str, coordinator: WeatherDataUpdateCoordinator
+    hass: HomeAssistant,
+    url_path: str,
+    coordinator: WeatherDataUpdateCoordinator,
+    config: ConfigEntry,
 ):
     """Register path to handle incoming data."""
 
-    _wslink = hass.config_entries.async_get_entry(WSLINK)
+    hass_data = hass.data.setdefault(DOMAIN, {})
+    debug = config.options.get(DEV_DBG)
+    _wslink = config.options.get(WSLINK)
 
-    try:
-        route = hass.http.app.router.add_route(
-            "GET", url_path, coordinator.recieved_data
+    routes: Routes = hass_data.get("routes") if "routes" in hass_data else None
+
+    if routes is None:
+        routes = Routes()
+        _LOGGER.info("Routes not found, creating new routes")
+
+        if debug:
+            _LOGGER.debug("Enabled route is: %s, WSLink is %s", url_path, _wslink)
+
+        try:
+            default_route = hass.http.app.router.add_get(
+                DEFAULT_URL,
+                coordinator.recieved_data if not _wslink else unregistred,
+                name="weather_default_url",
+            )
+            if debug:
+                _LOGGER.debug("Default route: %s", default_route)
+
+            wslink_route = hass.http.app.router.add_get(
+                WSLINK_URL,
+                coordinator.recieved_data if _wslink else unregistred,
+                name="weather_wslink_url",
+            )
+            if debug:
+                _LOGGER.debug("WSLink route: %s", wslink_route)
+
+            routes.add_route(
+                DEFAULT_URL,
+                default_route,
+                coordinator.recieved_data if not _wslink else unregistred,
+                not _wslink,
+            )
+            routes.add_route(
+                WSLINK_URL, wslink_route, coordinator.recieved_data, _wslink
+            )
+
+            hass_data["routes"] = routes
+
+        except RuntimeError as Ex:  # pylint: disable=(broad-except)
+            if (
+                "Added route will never be executed, method GET is already registered"
+                in Ex.args
+            ):
+                _LOGGER.info("Handler to URL (%s) already registred", url_path)
+                return False
+
+            _LOGGER.error("Unable to register URL handler! (%s)", Ex.args)
+            return False
+
+        _LOGGER.info(
+            "Registered path to handle weather data: %s",
+            routes.get_enabled(),  # pylint: disable=used-before-assignment
         )
 
-    except RuntimeError as Ex:  # pylint: disable=(broad-except)
-        if (
-            "Added route will never be executed, method GET is already registered"
-            in Ex.args
-        ):
-            _LOGGER.info("Handler to URL (%s) already registred", url_path)
-            return True
+    if _wslink:
+        routes.switch_route(coordinator.recieved_data, WSLINK_URL)
+    else:
+        routes.switch_route(coordinator.recieved_data, DEFAULT_URL)
 
-        _LOGGER.error("Unable to register URL handler! (%s)", Ex.args)
-        return False
-
-    _LOGGER.info(
-        "Registered path to handle weather data: %s",
-        route.get_info(),  # pylint: disable=used-before-assignment
-    )
-    return True
-
-
-def unregister_path(hass: HomeAssistant):
-    """Unregister path to handle incoming data."""
-    _LOGGER.error(
-        """Unable to delete webhook from API! Restart HA before adding integration!
-        If this error is raised while adding sensors or reloading configuration, you can ignore this error
-        """
-    )
+    return routes
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -163,15 +199,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    hass_data = hass.data.setdefault(DOMAIN, {})
+    hass_data[entry.entry_id] = coordinator
 
-    _wslink = entry.data.get(WSLINK)
+    _wslink = entry.options.get(WSLINK)
+    debug = entry.options.get(DEV_DBG)
 
-    _LOGGER.info("WS Link is %s", "enbled" if _wslink else "disabled")
+    if debug:
+        _LOGGER.debug("WS Link is %s", "enbled" if _wslink else "disabled")
 
-    if not register_path(hass, DEFAULT_URL if not _wslink else WSLINK_URL, coordinator):
+    route = register_path(
+        hass, DEFAULT_URL if not _wslink else WSLINK_URL, coordinator, entry
+    )
+
+    if not route:
         _LOGGER.error("Fatal: path not registered!")
         raise PlatformNotReady
+
+    hass_data["route"] = route
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -182,10 +227,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
     """Update setup listener."""
-    # Disabled as on fire async_reload, integration stops writing data,
-    # and we don't need to reload config entry for proper work.
 
-    # await hass.config_entries.async_reload(entry.entry_id)
+    await hass.config_entries.async_reload(entry.entry_id)
 
     _LOGGER.info("Settings updated")
 
@@ -196,6 +239,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if _ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-        unregister_path(hass)
 
     return _ok

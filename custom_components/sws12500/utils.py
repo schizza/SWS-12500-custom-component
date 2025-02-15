@@ -46,6 +46,7 @@ async def translations(
     )
     if localize_key in _translations:
         return _translations[localize_key]
+    return None
 
 
 async def translated_notification(
@@ -101,7 +102,7 @@ def anonymize(data):
 
     anonym = {}
     for k in data:
-        if k not in ("ID", "PASSWORD", "wsid", "wspw"):
+        if k not in {"ID", "PASSWORD", "wsid", "wspw"}:
             anonym[k] = data[k]
 
     return anonym
@@ -131,9 +132,7 @@ def loaded_sensors(config_entry: ConfigEntry) -> list | None:
     """Get loaded sensors."""
 
     return (
-        config_entry.options.get(SENSORS_TO_LOAD)
-        if config_entry.options.get(SENSORS_TO_LOAD)
-        else []
+        config_entry.options.get(SENSORS_TO_LOAD) or []
     )
 
 
