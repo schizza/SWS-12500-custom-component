@@ -7,20 +7,24 @@
     },
     "step": {
       "user": {
+        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
+        "title": "Nastavení přihlášení",
         "data": {
-          "API_ID": "API ID / ID stanice",
+          "API_ID": "API ID / ID Stanice",
           "API_KEY": "API KEY / Heslo",
           "wslink": "WSLink API",
           "dev_debug_checkbox": "Developer log"
         },
-        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
-        "title": "Nastavení přístpu pro metostanici",
         "data_description": {
-          "dev_debug_checkbox": " Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+          "dev_debug_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři.",
+          "API_ID": "API ID je ID stanice, které jste nastavili v meteostanici.",
+          "API_KEY": "API KEY je heslo, které jste nastavili v meteostanici.",
+          "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink."
         }
       }
     }
   },
+
   "options": {
     "error": {
       "valid_credentials_api": "Vyplňte platné API ID",
@@ -28,39 +32,50 @@
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
       "windy_key_required": "Je vyžadován Windy API key, pokud chcete aktivovat přeposílání dat na Windy"
     },
+
     "step": {
+      "init": {
+        "title": "Nastavení integrace SWS12500",
+        "description": "Vyberte, co chcete konfigurovat. Zda přihlašovací údaje nebo nastavení pro přeposílání dat na Windy.",
+        "menu_options": {
+          "basic": "Základní - přístupové údaje (přihlášení)",
+          "windy": "Nastavení pro přeposílání dat na Windy"
+        }
+      },
+
       "basic": {
+        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
+        "title": "Nastavení přihlášení",
         "data": {
           "API_ID": "API ID / ID Stanice",
           "API_KEY": "API KEY / Heslo",
           "wslink": "WSLink API",
           "dev_debug_checkbox": "Developer log"
         },
-        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
-        "title": "Nastavení přihlášení",
         "data_description": {
-          "dev_debug_checkbox": " Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+          "dev_debug_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři.",
+          "API_ID": "API ID je ID stanice, které jste nastavili v meteostanici.",
+          "API_KEY": "API KEY je heslo, které jste nastavili v meteostanici.",
+          "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink."
         }
       },
-      "init": {
-        "description": "Vyberte, co chcete konfigurovat. Zda přihlašovací údaje nebo nastavení pro přeposílání dat na Windy.",
-        "menu_options": {
-          "basic": "Základní - přístupové údaje (přihlášení)",
-          "windy": "Nastavení pro přeposílání dat na Windy"
-        },
-        "title": "Nastavení integrace SWS12500"
-      },
+
       "windy": {
+        "description": "Přeposílání dat z metostanice na Windy",
+        "title": "Konfigurace Windy",
         "data": {
           "WINDY_API_KEY": "Klíč API KEY získaný z Windy",
           "windy_enabled_checkbox": "Povolit přeposílání dat na Windy",
           "windy_logger_checkbox": "Logovat data a odpovědi z Windy"
         },
-        "description": "Přeposílání dat z metostanice na Windy",
-        "title": "Konfigurace Windy"
+        "data_description": {
+          "WINDY_API_KEY": "Klíč API KEY získaný z https://https://api.windy.com/keys",
+          "windy_logger_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+        }
       }
     }
   },
+
   "entity": {
     "sensor": {
       "indoor_temp": { "name": "Vnitřní teplota" },

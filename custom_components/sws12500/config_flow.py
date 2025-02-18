@@ -53,15 +53,15 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.user_data: dict[str, Any] = {
             API_ID: self.config_entry.options.get(API_ID),
             API_KEY: self.config_entry.options.get(API_KEY),
-            WSLINK: self.config_entry.options.get(WSLINK),
-            DEV_DBG: self.config_entry.options.get(DEV_DBG),
+            WSLINK: self.config_entry.options.get(WSLINK, False),
+            DEV_DBG: self.config_entry.options.get(DEV_DBG, False),
         }
 
         self.user_data_schema = {
             vol.Required(API_ID, default=self.user_data[API_ID] or ""): str,
             vol.Required(API_KEY, default=self.user_data[API_KEY] or ""): str,
-            vol.Optional(WSLINK, default=self.user_data[WSLINK]): bool,
-            vol.Optional(DEV_DBG, default=self.user_data[DEV_DBG]): bool,
+            vol.Optional(WSLINK, default=self.user_data[WSLINK]): bool or False,
+            vol.Optional(DEV_DBG, default=self.user_data[DEV_DBG]): bool or False,
         }
 
         self.sensors: dict[str, Any] = {
@@ -72,23 +72,22 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.windy_data: dict[str, Any] = {
             WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
-            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED)
-            if isinstance(self.config_entry.options.get(WINDY_ENABLED), bool)
-            else False,
-            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED)
-            if isinstance(self.config_entry.options.get(WINDY_LOGGER_ENABLED), bool)
-            else False,
+            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(
+                WINDY_LOGGER_ENABLED, False
+            ),
         }
 
         self.windy_data_schema = {
             vol.Optional(
                 WINDY_API_KEY, default=self.windy_data[WINDY_API_KEY] or ""
             ): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool
+            or False,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
-            ): bool,
+            ): bool or False,
         }
 
     async def async_step_init(self, user_input=None):
@@ -150,10 +149,6 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             return self.async_show_form(
                 step_id="windy",
                 data_schema=self.windy_data_schema,
-                description_placeholders={
-                    WINDY_ENABLED: True,
-                    WINDY_LOGGER_ENABLED: user_input[WINDY_LOGGER_ENABLED],
-                },
                 errors=errors,
             )
 
