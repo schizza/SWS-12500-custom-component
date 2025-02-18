@@ -5,21 +5,27 @@
       "valid_credentials_key": "Provide valid API KEY.",
       "valid_credentials_match": "API ID and API KEY should not be the same."
     },
+
     "step": {
       "user": {
+        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
+        "title": "Configure access for Weather Station",
         "data": {
           "API_ID": "API ID / Station ID",
           "API_KEY": "API KEY / Password",
+          "WSLINK": "WSLink API",
           "dev_debug_checkbox": "Developer log"
         },
-        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
-        "title": "Configure access for Weather Station",
         "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
+          "API_ID": "API ID is the Station ID you set in the Weather Station.",
+          "API_KEY": "API KEY is the password you set in the Weather Station.",
+          "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
         }
       }
     }
   },
+
   "options": {
     "error": {
       "valid_credentials_api": "Provide valid API ID.",
@@ -27,35 +33,47 @@
       "valid_credentials_match": "API ID and API KEY should not be the same.",
       "windy_key_required": "Windy API key is required if you want to enable this function."
     },
+
     "step": {
-      "basic": {
-        "data": {
-          "API_ID": "API ID / Station ID",
-          "API_KEY": "API KEY / Password",
-          "dev_debug_checkbox": "Developer log"
-        },
-        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
-        "title": "Configure credentials",
-        "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
-        }
-      },
+
       "init": {
+        "title": "Configure SWS12500 Integration",
         "description": "Choose what do you want to configure. If basic access or resending data for Windy site",
         "menu_options": {
           "basic": "Basic - configure credentials for Weather Station",
           "windy": "Windy configuration"
-        },
-        "title": "Configure SWS12500 Integration"
+        }
       },
+
+      "basic": {
+        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
+        "title": "Configure credentials",
+        "data": {
+          "API_ID": "API ID / Station ID",
+          "API_KEY": "API KEY / Password",
+          "WSLINK": "WSLink API",
+          "dev_debug_checkbox": "Developer log"
+        },
+        "data_description": {
+          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
+          "API_ID": "API ID is the Station ID you set in the Weather Station.",
+          "API_KEY": "API KEY is the password you set in the Weather Station.",
+          "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
+        }
+      },
+
       "windy": {
+        "description": "Resend weather data to your Windy stations.",
+        "title": "Configure Windy",
         "data": {
           "WINDY_API_KEY": "API KEY provided by Windy",
           "windy_enabled_checkbox": "Enable resending data to Windy",
           "windy_logger_checkbox": "Log Windy data and responses"
         },
-        "description": "Resend weather data to your Windy stations.",
-        "title": "Configure Windy"
+        "data_description": {
+          "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
+          "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
+        }
       }
     }
   },
@@ -77,6 +95,12 @@
       "solar_radiation": { "name": "Solar irradiance" },
       "ch2_temp": { "name": "Channel 2 temperature" },
       "ch2_humidity": { "name": "Channel 2 humidity" },
+      "ch3_temp": { "name": "Channel 3 temperature" },
+      "ch3_humidity": { "name": "Channel 3 humidity" },
+      "ch4_temp": { "name": "Channel 4 temperature" },
+      "ch4_humidity": { "name": "Channel 4 humidity" },
+      "heat_index": { "name": "Apparent temperature" },
+      "chill_index": { "name": "Wind chill" },
       "wind_azimut": {
         "name": "Bearing",
         "state": {
