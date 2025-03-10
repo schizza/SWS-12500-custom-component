@@ -97,6 +97,10 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
                     self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity"
                 )
                 for t_key in sensors
+                if await translations(
+                    self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity"
+                )
+                is not None
             ]
             human_readable = "\n".join(translate_sensors)
 

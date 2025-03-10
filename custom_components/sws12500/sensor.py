@@ -111,16 +111,26 @@ class WeatherSensor(
     def native_value(self) -> str | int | float | None:
         """Return value of entity."""
 
+        _wslink = self.coordinator.config.options.get(WSLINK)
+
         if self.coordinator.data and (WIND_AZIMUT in self.entity_description.key):
             return self.entity_description.value_fn(self.coordinator.data.get(WIND_DIR))
 
-        if self.coordinator.data and (HEAT_INDEX in self.entity_description.key):
+        if (
+            self.coordinator.data
+            and (HEAT_INDEX in self.entity_description.key)
+            and not _wslink
+        ):
             return self.entity_description.value_fn(heat_index(self.coordinator.data))
 
-        if self.coordinator.data and (CHILL_INDEX in self.entity_description.key):
+        if (
+            self.coordinator.data
+            and (CHILL_INDEX in self.entity_description.key)
+            and not _wslink
+        ):
             return self.entity_description.value_fn(chill_index(self.coordinator.data))
 
-        return self.entity_description.value_fn(self._data)
+        return None if self._data == "" else self.entity_description.value_fn(self._data)
 
     @property
     def suggested_entity_id(self) -> str:

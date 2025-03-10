@@ -131,9 +131,7 @@ def remap_wslink_items(entities):
 def loaded_sensors(config_entry: ConfigEntry) -> list | None:
     """Get loaded sensors."""
 
-    return (
-        config_entry.options.get(SENSORS_TO_LOAD) or []
-    )
+    return config_entry.options.get(SENSORS_TO_LOAD) or []
 
 
 def check_disabled(
@@ -176,12 +174,29 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     return None
 
 
-def heat_index(data: Any) -> UnitOfTemperature:
-    """Calculate heat index from temperature."""
+def fahrenheit_to_celsius(fahrenheit: float) -> float:
+    """Convert Fahrenheit to Celsius."""
+    return (fahrenheit - 32) * 5.0 / 9.0
+
+
+def celsius_to_fahrenheit(celsius: float) -> float:
+    """Convert Celsius to Fahrenheit."""
+    return celsius * 9.0 / 5.0 + 32
+
+
+def heat_index(data: Any, convert: bool = False) -> UnitOfTemperature:
+    """Calculate heat index from temperature.
+
+    data: dict with temperature and humidity
+    convert: bool, convert recieved data from Celsius to Fahrenheit
+    """
 
     temp = float(data[OUTSIDE_TEMP])
     rh = float(data[OUTSIDE_HUMIDITY])
     adjustment = None
+
+    if convert:
+        temp = celsius_to_fahrenheit(temp)
 
     simple = 0.5 * (temp + 61.0 + ((temp - 68.0) * 1.2) + (rh * 0.094))
     if ((simple + temp) / 2) > 80:
@@ -207,11 +222,18 @@ def heat_index(data: Any) -> UnitOfTemperature:
     return simple
 
 
-def chill_index(data: Any) -> UnitOfTemperature:
-    """Calculate wind chill index."""
+def chill_index(data: Any, convert: bool = False) -> UnitOfTemperature:
+    """Calculate wind chill index from temperature and wind speed.
+
+    data: dict with temperature and wind speed
+    convert: bool, convert recieved data from Celsius to Fahrenheit
+    """
 
     temp = float(data[OUTSIDE_TEMP])
     wind = float(data[WIND_SPEED])
+
+    if convert:
+        temp = celsius_to_fahrenheit(temp)
 
     return (
         round(
