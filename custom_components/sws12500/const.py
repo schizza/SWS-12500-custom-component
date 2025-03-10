@@ -60,6 +60,7 @@ BARO_PRESSURE: Final = "baro_pressure"
 OUTSIDE_TEMP: Final = "outside_temp"
 DEW_POINT: Final = "dew_point"
 OUTSIDE_HUMIDITY: Final = "outside_humidity"
+OUTSIDE_CONNECTION: Final = "outside_connection"
 WIND_SPEED: Final = "wind_speed"
 WIND_GUST: Final = "wind_gust"
 WIND_DIR: Final = "wind_dir"
@@ -72,10 +73,13 @@ INDOOR_HUMIDITY: Final = "indoor_humidity"
 UV: Final = "uv"
 CH2_TEMP: Final = "ch2_temp"
 CH2_HUMIDITY: Final = "ch2_humidity"
+CH2_CONNECTION: Final = "ch2_connection"
 CH3_TEMP: Final = "ch3_temp"
 CH3_HUMIDITY: Final = "ch3_humidity"
+CH3_CONNECTION: Final = "ch3_connection"
 CH4_TEMP: Final = "ch4_temp"
 CH4_HUMIDITY: Final = "ch4_humidity"
+CH4_CONNECTION: Final = "ch4_connection"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 
@@ -105,18 +109,36 @@ REMAP_ITEMS: dict = {
 REMAP_WSLINK_ITEMS: dict = {
     "intem": INDOOR_TEMP,
     "inhum": INDOOR_HUMIDITY,
-    "t1temp": OUTSIDE_TEMP,
+    "t1tem": OUTSIDE_TEMP,
     "t1hum": OUTSIDE_HUMIDITY,
     "t1dew": DEW_POINT,
     "t1wdir": WIND_DIR,
     "t1ws": WIND_SPEED,
-    "t1wg": WIND_GUST,
+    "t1wgust": WIND_GUST,
     "t1rainra": RAIN,
     "t1raindy": DAILY_RAIN,
     "t1solrad": SOLAR_RADIATION,
     "rbar": BARO_PRESSURE,
-    "uvi": UV
+    "t1uvi": UV,
+    "t234c1tem": CH2_TEMP,
+    "t234c1hum": CH2_HUMIDITY,
+    "t1cn": OUTSIDE_CONNECTION,
+    "t234c1cn": CH2_CONNECTION,
+    "t234c2cn": CH3_CONNECTION,
+    "t1chill": CHILL_INDEX,
+    "t1heat": HEAT_INDEX,
 }
+
+# TODO: Add more sensors
+#
+# 'inbat'  indoor battery level (1 normal, 0 low)
+# 't1rainhr' hourly rain rate in mm
+# 't1rainwy' weekly rain rate in mm
+# 't1rainmth': monthly rain rate in mm
+# 't1rainyr': yearly rain rate in mm
+# 't1bat': outdoor battery level (1 normal, 0 low)
+# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLink
+
 
 DISABLED_BY_DEFAULT: Final = [
     CH2_TEMP,
@@ -167,4 +189,3 @@ AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNW,
     UnitOfDir.N,
 ]
-
