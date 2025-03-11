@@ -64,7 +64,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_TEMP,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
