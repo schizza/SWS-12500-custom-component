@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from .utils import long_term_units_in_statistics_meta, migrate_data
 
 from .const import (
     API_ID,
@@ -15,6 +16,7 @@ from .const import (
     DOMAIN,
     INVALID_CREDENTIALS,
     SENSORS_TO_LOAD,
+    SENSOR_TO_MIGRATE,
     WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
@@ -42,6 +44,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.user_data: dict[str, str] = {}
         self.user_data_schema = {}
         self.sensors: dict[str, Any] = {}
+        self.migrate_schema = {}
 
         @property
         def config_entry(self):
@@ -90,9 +93,18 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             ): bool or False,
         }
 
+        self.migrate_schema = {
+            vol.Required(SENSOR_TO_MIGRATE): vol.In(
+                long_term_units_in_statistics_meta() or {}
+            ),
+            vol.Optional("trigger_action", default=False): bool,
+        }
+
     async def async_step_init(self, user_input=None):
         """Manage the options - show menu first."""
-        return self.async_show_menu(step_id="init", menu_options=["basic", "windy"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["basic", "windy", "migration"]
+        )
 
     async def async_step_basic(self, user_input=None):
         """Manage basic options - credentials."""
@@ -151,6 +163,51 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 data_schema=self.windy_data_schema,
                 errors=errors,
             )
+
+        # retain user_data
+        user_input.update(self.user_data)
+
+        # retain senors
+        user_input.update(self.sensors)
+
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    async def async_step_migration(self, user_input=None):
+        """Migrate sensors."""
+
+        # hj
+        errors = {}
+
+        self._get_entry_data()
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="migration",
+                data_schema=vol.Schema(self.migrate_schema),
+                errors=errors,
+                description_placeholders={
+                    "migration_status": "-",
+                    "migration_count": "-",
+                },
+            )
+
+        if user_input.get("trigger_action"):
+            # Akce se vykoná po zaškrtnutí
+            count = await self.hass.async_add_executor_job(
+                migrate_data, user_input.get(SENSOR_TO_MIGRATE)
+            )
+            return self.async_show_form(
+                step_id="migration",
+                data_schema=vol.Schema(self.migrate_schema),
+                errors=errors,
+                description_placeholders={
+                    "migration_status": user_input.get(SENSOR_TO_MIGRATE),
+                    "migration_count": count,
+                },
+            )
+
+        # retain windy data
+        user_input.update(self.windy_data)
 
         # retain user_data
         user_input.update(self.user_data)

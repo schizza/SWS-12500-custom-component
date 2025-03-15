@@ -2,18 +2,25 @@
 
 import logging
 import math
+from pathlib import Path
+import sqlite3
 from typing import Any
 
 import numpy as np
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import (
+    UnitOfPrecipitationDepth,
+    UnitOfTemperature,
+    UnitOfVolumetricFlux,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
@@ -247,3 +254,68 @@ def chill_index(data: Any, convert: bool = False) -> UnitOfTemperature:
         if temp < 50 and wind > 3
         else temp
     )
+
+
+def long_term_units_in_statistics_meta():
+    """Get units in long term statitstics."""
+
+    if not Path(DATABASE_PATH).exists():
+        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+        return False
+
+    conn = sqlite3.connect(DATABASE_PATH)
+    db = conn.cursor()
+
+    try:
+        db.execute("""
+            SELECT statistic_id, unit_of_measurement from statistics_meta
+            WHERE statistic_id LIKE 'sensor.weather_station_sws%'
+         """)
+        rows = db.fetchall()
+        sensor_units = {
+            statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows
+        }
+
+    except sqlite3.Error as e:
+        _LOGGER.error("Error during data migration: %s", e)
+    finally:
+        conn.close()
+
+    return sensor_units
+
+
+def migrate_data(sensor_id: str | None = None):
+    """Migrate data from mm/d to mm."""
+    updated_rows = 0
+
+    if not Path(DATABASE_PATH).exists():
+        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+        return False
+
+    conn = sqlite3.connect(DATABASE_PATH)
+    db = conn.cursor()
+
+    try:
+        _LOGGER.info(sensor_id)
+        db.execute(
+            """
+            UPDATE statistics_meta
+            SET unit_of_measurement = 'mm'
+            WHERE statistic_id = ?
+            AND unit_of_measurement = 'mm/d';
+         """,
+            (sensor_id,),
+        )
+        updated_rows = db.rowcount
+        conn.commit()
+        _LOGGER.info(
+            "Data migration completed successfully. Updated rows: %s for %s",
+            updated_rows,
+            sensor_id,
+        )
+
+    except sqlite3.Error as e:
+        _LOGGER.error("Error during data migration: %s", e)
+    finally:
+        conn.close()
+    return updated_rows
