@@ -39,7 +39,8 @@
         "description": "Vyberte, co chcete konfigurovat. Zda přihlašovací údaje nebo nastavení pro přeposílání dat na Windy.",
         "menu_options": {
           "basic": "Základní - přístupové údaje (přihlášení)",
-          "windy": "Nastavení pro přeposílání dat na Windy"
+          "windy": "Nastavení pro přeposílání dat na Windy",
+          "migration": "Migrace statistiky senzoru"
         }
       },
 
@@ -71,6 +72,18 @@
         "data_description": {
           "WINDY_API_KEY": "Klíč API KEY získaný z https://https://api.windy.com/keys",
           "windy_logger_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+        }
+      },
+      "migration": {
+        "title": "Migrace statistiky senzoru.",
+        "description": "Pro správnou funkci dlouhodobé statistiky je nutné provést migraci jednotky senzoru v dlouhodobé statistice. Původní jednotka dlouhodobé statistiky pro denní úhrn srážek byla v mm/d, nicméně stanice zasílá pouze data v mm bez časového rozlišení.\n\n Senzor, který má být migrován je pro denní úhrn srážek. Pokud je v seznamu již správná hodnota u senzoru pro denní úhrn (mm), pak je již migrace hotová.\n\n Výsledek migrace pro senzor: {migration_status}, přepvedeno celkem {migration_count} řádků.",
+        "data": {
+          "sensor_to_migrate": "Senzor pro migraci",
+          "trigger_action": "Spustit migraci"
+        },
+        "data_description": {
+          "sensor_to_migrate": "Vyberte správný senzor pri migraci statistiky. \n Hodnoty senzoru budou zachovány, nepřepočítají se, pouze se změní jednotka v dlouhodobé statistice. ",
+          "trigger_action": "Po zaškrtnutí se spustí migrace statistiky senzoru."
         }
       }
     }

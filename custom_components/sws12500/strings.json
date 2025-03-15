@@ -35,7 +35,6 @@
     },
 
     "step": {
-
       "init": {
         "title": "Configure SWS12500 Integration",
         "description": "Choose what do you want to configure. If basic access or resending data for Windy site",
@@ -73,6 +72,18 @@
         "data_description": {
           "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
           "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
+        }
+      },
+      "migration": {
+        "title": "Statistic migration.",
+        "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
+        "data": {
+          "sensor_to_migrate": "Sensor to migrate",
+          "trigger_action": "Trigger migration"
+        },
+        "data_description": {
+          "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
+          "trigger_action": "Trigger the sensor statistics migration after checking."
         }
       }
     }
