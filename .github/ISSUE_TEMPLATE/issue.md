@@ -1,17 +1,17 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: "[BUG]"
-labels: bug
+name: Issue
+about: A minor issue that does not significantly affect functionality.
+title: "[ISSUE]"
+labels: issue
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Describe the issue**
+A clear and concise description of what the issue is.
 
 **To Reproduce**
-Steps to reproduce the behavior:
+Steps to reproduce the behavior if any:
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
