@@ -68,6 +68,10 @@ WIND_GUST: Final = "wind_gust"
 WIND_DIR: Final = "wind_dir"
 WIND_AZIMUT: Final = "wind_azimut"
 RAIN: Final = "rain"
+HOURLY_RAIN: Final = "hourly_rain"
+WEEKLY_RAIN: Final = "weekly_rain"
+MONTHLY_RAIN: Final = "monthly_rain"
+YEARLY_RAIN: Final = "yearly_rain"
 DAILY_RAIN: Final = "daily_rain"
 SOLAR_RADIATION: Final = "solar_radiation"
 INDOOR_TEMP: Final = "indoor_temp"
@@ -129,15 +133,15 @@ REMAP_WSLINK_ITEMS: dict = {
     "t234c2cn": CH3_CONNECTION,
     "t1chill": CHILL_INDEX,
     "t1heat": HEAT_INDEX,
+    "t1rainhr": HOURLY_RAIN,
+    "t1rainwy": WEEKLY_RAIN,
+    "t1rainmth": MONTHLY_RAIN,
+    "t1rainyr": YEARLY_RAIN,
 }
 
 # TODO: Add more sensors
 #
 # 'inbat'  indoor battery level (1 normal, 0 low)
-# 't1rainhr' hourly rain rate in mm
-# 't1rainwy' weekly rain rate in mm
-# 't1rainmth': monthly rain rate in mm
-# 't1rainyr': yearly rain rate in mm
 # 't1bat': outdoor battery level (1 normal, 0 low)
 # 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLink
 

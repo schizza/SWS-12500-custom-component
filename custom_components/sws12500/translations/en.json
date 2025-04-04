@@ -35,7 +35,6 @@
     },
 
     "step": {
-
       "init": {
         "title": "Configure SWS12500 Integration",
         "description": "Choose what do you want to configure. If basic access or resending data for Windy site",
@@ -83,8 +82,8 @@
           "trigger_action": "Trigger migration"
         },
         "data_description": {
-            "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
-            "trigger_action": "Trigger the sensor statistics migration after checking."
+          "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
+          "trigger_action": "Trigger the sensor statistics migration after checking."
         }
       }
     }
@@ -113,6 +112,10 @@
       "ch4_humidity": { "name": "Channel 4 humidity" },
       "heat_index": { "name": "Apparent temperature" },
       "chill_index": { "name": "Wind chill" },
+      "hourly_rain": { "name": "Hourly precipitation" },
+      "weekly_rain": { "name": "Weekly precipitation" },
+      "monthly_rain": { "name": "Monthly precipitation" },
+      "yearly_rain": { "name": "Yearly precipitation" },
       "wind_azimut": {
         "name": "Bearing",
         "state": {
