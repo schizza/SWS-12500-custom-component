@@ -284,7 +284,46 @@ def long_term_units_in_statistics_meta():
     return sensor_units
 
 
-def migrate_data(sensor_id: str | None = None):
+async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> bool:
+    """Migrate data from mm/d to mm."""
+    
+    _LOGGER.debug("Sensor %s is required for data migration", sensor_id) 
+    updated_rows = 0
+
+    if not Path(DATABASE_PATH).exists():
+        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+        return False
+
+    conn = sqlite3.connect(DATABASE_PATH)
+    db = conn.cursor()
+
+    try:
+        _LOGGER.info(sensor_id)
+        db.execute(
+            """
+            UPDATE statistics_meta
+            SET unit_of_measurement = 'mm'
+            WHERE statistic_id = ?
+            AND unit_of_measurement = 'mm/d';
+         """,
+            (sensor_id,),
+        )
+        updated_rows = db.rowcount
+        conn.commit()
+        _LOGGER.info(
+            "Data migration completed successfully. Updated rows: %s for %s",
+            updated_rows,
+            sensor_id,
+        )
+
+    except sqlite3.Error as e:
+        _LOGGER.error("Error during data migration: %s", e)
+    finally:
+        conn.close()
+    return updated_rows
+
+
+def migrate_data_old(sensor_id: str | None = None):
     """Migrate data from mm/d to mm."""
     updated_rows = 0
 

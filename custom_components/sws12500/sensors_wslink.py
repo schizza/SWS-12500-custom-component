@@ -40,9 +40,9 @@ from .const import (
     WIND_SPEED,
     UnitOfDir,
     MONTHLY_RAIN,
-    HOURLY_RAIN,
     YEARLY_RAIN,
     HOURLY_RAIN,
+    WEEKLY_RAIN,
 )
 from .sensors_common import WeatherSensorEntityDescription
 from .utils import wind_dir_to_text
@@ -145,7 +145,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         device_class=SensorDeviceClass.PRECIPITATION,
         state_class=SensorStateClass.TOTAL,
-        suggested_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS_PER_HOUR,
+        suggested_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=RAIN,
