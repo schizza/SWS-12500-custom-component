@@ -7,7 +7,7 @@ DOMAIN = "sws12500"
 DEFAULT_URL = "/weatherstation/updateweatherstation.php"
 WSLINK_URL = "/data/upload.php"
 WINDY_URL = "https://stations.windy.com/pws/update/"
-DATABASE_PATH = "./config/home-assistant_v2.db"
+DATABASE_PATH = "/config/home-assistant_v2.db"
 
 ICON = "mdi:weather"
 
