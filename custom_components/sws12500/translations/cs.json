@@ -112,6 +112,10 @@
       "ch4_humidity": { "name": "Vlhkost sensoru 4" },
       "heat_index": { "name": "Tepelný index" },
       "chill_index": { "name": "Pocitová teplota" },
+      "hourly_rain": { "name": "Hodinový úhrn srážek" },
+      "weekly_rain": { "name": "Týdenní úhrn srážek" },
+      "monthly_rain": { "name": "Měsíční úhrn srážek" },
+      "yearly_rain": { "name": "Roční úhrn srážek" },
       "wind_azimut": {
         "name": "Azimut",
         "state": {
