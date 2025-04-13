@@ -170,7 +170,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
-        translation_key=DAILY_RAIN,
+        translation_key=HOURLY_RAIN,
         value_fn=lambda data: cast("float", data),
     ),
     WeatherSensorEntityDescription(
@@ -181,7 +181,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
-        translation_key=DAILY_RAIN,
+        translation_key=WEEKLY_RAIN,
         value_fn=lambda data: cast("float", data),
     ),
     WeatherSensorEntityDescription(
@@ -192,7 +192,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
-        translation_key=DAILY_RAIN,
+        translation_key=MONTHLY_RAIN,
         value_fn=lambda data: cast("float", data),
     ),
     WeatherSensorEntityDescription(
@@ -203,7 +203,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfPrecipitationDepth.MILLIMETERS,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
-        translation_key=DAILY_RAIN,
+        translation_key=YEARLY_RAIN,
         value_fn=lambda data: cast("float", data),
     ),
     WeatherSensorEntityDescription(
