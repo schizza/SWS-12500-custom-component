@@ -7,7 +7,6 @@ DOMAIN = "sws12500"
 DEFAULT_URL = "/weatherstation/updateweatherstation.php"
 WSLINK_URL = "/data/upload.php"
 WINDY_URL = "https://stations.windy.com/pws/update/"
-DATABASE_PATH = "/config/home-assistant_v2.db"
 
 ICON = "mdi:weather"
 
@@ -16,6 +15,8 @@ API_ID = "API_ID"
 
 SENSORS_TO_LOAD: Final = "sensors_to_load"
 SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
+MIG_FROM: Final = "migrate_from"
+MIG_TO: Final = "migrate_to"
 
 DEV_DBG: Final = "dev_debug_checkbox"
 WSLINK: Final = "wslink"
