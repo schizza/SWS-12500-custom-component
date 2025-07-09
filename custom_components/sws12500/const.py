@@ -63,6 +63,7 @@ OUTSIDE_TEMP: Final = "outside_temp"
 DEW_POINT: Final = "dew_point"
 OUTSIDE_HUMIDITY: Final = "outside_humidity"
 OUTSIDE_CONNECTION: Final = "outside_connection"
+OUTSIDE_BATTERY: Final = "outside_battery"
 WIND_SPEED: Final = "wind_speed"
 WIND_GUST: Final = "wind_gust"
 WIND_DIR: Final = "wind_dir"
@@ -137,6 +138,7 @@ REMAP_WSLINK_ITEMS: dict = {
     "t1rainwy": WEEKLY_RAIN,
     "t1rainmth": MONTHLY_RAIN,
     "t1rainyr": YEARLY_RAIN,
+    "t1bat": OUTSIDE_BATTERY,
 }
 
 # TODO: Add more sensors
@@ -177,6 +179,26 @@ class UnitOfDir(StrEnum):
     N = "n"
 
 
+class UnitOfDir(StrEnum):
+    """Wind direrction azimut."""
+
+    NNE = "nne"
+    NE = "ne"
+    ENE = "ene"
+    E = "e"
+    ESE = "ese"
+    SE = "se"
+    SSE = "sse"
+    S = "s"
+    SSW = "ssw"
+    SW = "sw"
+    WSW = "wsw"
+    W = "w"
+    WNW = "wnw"
+    NW = "nw"
+    NNW = "nnw"
+    N = "n"
+
 AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNE,
     UnitOfDir.NE,
@@ -194,4 +216,15 @@ AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NW,
     UnitOfDir.NNW,
     UnitOfDir.N,
+]
+
+class UnitOfBat(StrEnum):
+    """Battery level unit of measure."""
+
+    LOW = "low"
+    NORMAL = "normal"
+
+BATLEVEL: list[UnitOfBat] = [
+    UnitOfBat.LOW,
+    UnitOfBat.NORMAL,
 ]

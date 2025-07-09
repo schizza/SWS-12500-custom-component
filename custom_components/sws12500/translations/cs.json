@@ -139,6 +139,7 @@
       }
     }
   },
+  "outside_battery": { "name": "Vnější úroveň nabití baterie" },
   "notify": {
     "added": {
       "title": "Nalezeny nové senzory pro SWS 12500.",
