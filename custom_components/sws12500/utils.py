@@ -20,6 +20,7 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    BATLEVEL,
     DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
@@ -180,7 +181,19 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
 
     return None
 
+def battery_level_to_text(battery: int) -> str:
+    """Return battery level in text representation.
 
+    Returns UnitOfBat or None
+    """
+    if battery is None:
+        return "unknown"
+
+    if battery is 0:
+        return BATLEVEL[battery]
+    elif battery is 1:
+        return BATLEVEL[battery]
+    
 def fahrenheit_to_celsius(fahrenheit: float) -> float:
     """Convert Fahrenheit to Celsius."""
     return (fahrenheit - 32) * 5.0 / 9.0

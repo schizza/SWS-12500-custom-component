@@ -135,6 +135,7 @@
       }
     }
   },
+  "outside_battery": { "name": "Outside battery level" },
   "notify": {
     "added": {
       "title": "New sensors for SWS 12500 found.",

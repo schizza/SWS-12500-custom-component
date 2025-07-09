@@ -29,6 +29,7 @@ from .const import (
     HEAT_INDEX,
     INDOOR_HUMIDITY,
     INDOOR_TEMP,
+    OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     RAIN,
@@ -45,7 +46,7 @@ from .const import (
     WEEKLY_RAIN,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import wind_dir_to_text
+from .utils import battery_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -302,5 +303,13 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
         value_fn=lambda data: cast("int", data),
+    ),
+    WeatherSensorEntityDescription(
+        key=OUTSIDE_BATTERY,
+        name="Outside Battery",
+        icon="mdi:battery",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda data: cast("str", battery_level_to_text(data)),
+        translation_key=OUTSIDE_BATTERY,
     ),
 )
