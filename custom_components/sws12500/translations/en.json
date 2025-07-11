@@ -138,7 +138,6 @@
         }
       },
       "outside_battery": { "name": "Outside battery level" }
-      }
     }
   },
   "notify": {
