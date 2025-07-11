@@ -309,7 +309,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         name="Outside Battery",
         icon="mdi:battery",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: cast("str", battery_level_to_text(data)),
+        value_fn=lambda data: battery_level_to_text(int(data)) if data is not None and str(data).isdigit() else "unknown",
         translation_key=OUTSIDE_BATTERY,
     ),
 )
