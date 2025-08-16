@@ -179,27 +179,6 @@ class UnitOfDir(StrEnum):
     NNW = "nnw"
     N = "n"
 
-
-class UnitOfDir(StrEnum):
-    """Wind direrction azimut."""
-
-    NNE = "nne"
-    NE = "ne"
-    ENE = "ene"
-    E = "e"
-    ESE = "ese"
-    SE = "se"
-    SSE = "sse"
-    S = "s"
-    SSW = "ssw"
-    SW = "sw"
-    WSW = "wsw"
-    W = "w"
-    WNW = "wnw"
-    NW = "nw"
-    NNW = "nnw"
-    N = "n"
-
 AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNE,
     UnitOfDir.NE,
@@ -224,8 +203,10 @@ class UnitOfBat(StrEnum):
 
     LOW = "low"
     NORMAL = "normal"
+    UNKNOWN = "unknown"
 
-BATLEVEL: list[UnitOfBat] = [
+BATTERY_LEVEL: list[UnitOfBat] = [
     UnitOfBat.LOW,
     UnitOfBat.NORMAL,
+    UnitOfBat.UNKNOWN,
 ]
