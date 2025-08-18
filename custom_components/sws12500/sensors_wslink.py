@@ -46,7 +46,7 @@ from .const import (
     WEEKLY_RAIN,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_level_to_text, wind_dir_to_text
+from .utils import battery_level_to_icon, battery_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -306,10 +306,9 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_BATTERY,
-        name="Outside Battery",
-        icon="mdi:battery",
-        device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: battery_level_to_text(int(data)) if data is not None and str(data).isdigit() else "unknown",
         translation_key=OUTSIDE_BATTERY,
+        icon=lambda data: battery_level_to_icon(battery_level_to_text(int(data))),
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda data: battery_level_to_text(int(data)),
     ),
 )
