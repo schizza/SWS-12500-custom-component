@@ -131,11 +131,18 @@
           "wnw": "WNW",
           "nw": "NW",
           "nnw": "NNW"
+        },
+        "outside_battery": {
+          "name": "Outside battery level",
+          "state": {
+            "normal": "OK",
+            "low": "Low",
+            "unknown": "Unknown / drained out"
+          }
         }
       }
     }
   },
-  "outside_battery": { "name": "Outside battery level" },
   "notify": {
     "added": {
       "title": "New sensors for SWS 12500 found.",

@@ -136,10 +136,17 @@
           "nw": "SZ",
           "nnw": "SSZ"
         }
+      },
+      "outside_battery": {
+        "name": "Stav nabití venkovní baterie",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
       }
     }
   },
-  "outside_battery": { "name": "Vnější úroveň nabití baterie" },
   "notify": {
     "added": {
       "title": "Nalezeny nové senzory pro SWS 12500.",
