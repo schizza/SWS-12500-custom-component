@@ -23,8 +23,12 @@ WSLINK: Final = "wslink"
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
-WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
+WINDY_NOT_INSERTED: Final = (
+    "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
+)
+WINDY_INVALID_KEY: Final = (
+    "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
+)
 WINDY_SUCCESS: Final = (
     "Windy successfully sent data and data was successfully inserted by Windy API"
 )
@@ -155,6 +159,7 @@ DISABLED_BY_DEFAULT: Final = [
     CH3_HUMIDITY,
     CH4_TEMP,
     CH4_HUMIDITY,
+    OUTSIDE_BATTERY,
 ]
 
 
@@ -178,6 +183,7 @@ class UnitOfDir(StrEnum):
     NNW = "nnw"
     N = "n"
 
+
 AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NNE,
     UnitOfDir.NE,
@@ -197,12 +203,14 @@ AZIMUT: list[UnitOfDir] = [
     UnitOfDir.N,
 ]
 
+
 class UnitOfBat(StrEnum):
     """Battery level unit of measure."""
 
     LOW = "low"
     NORMAL = "normal"
     UNKNOWN = "unknown"
+
 
 BATTERY_LEVEL: list[UnitOfBat] = [
     UnitOfBat.LOW,
