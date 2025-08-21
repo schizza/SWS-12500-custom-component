@@ -142,7 +142,8 @@ REMAP_WSLINK_ITEMS: dict = {
     "t1rainwy": WEEKLY_RAIN,
     "t1rainmth": MONTHLY_RAIN,
     "t1rainyr": YEARLY_RAIN,
-    "t1bat": OUTSIDE_BATTERY,
+    "t234c2tem": CH3_TEMP,
+    "t234c2hum": CH3_HUMIDITY,
 }
 
 # TODO: Add more sensors
