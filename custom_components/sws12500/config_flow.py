@@ -7,7 +7,6 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
-from .utils import long_term_units_in_statistics_meta, migrate_data
 
 from .const import (
     API_ID,
