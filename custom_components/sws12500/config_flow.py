@@ -15,7 +15,6 @@ from .const import (
     DOMAIN,
     INVALID_CREDENTIALS,
     SENSORS_TO_LOAD,
-    SENSOR_TO_MIGRATE,
     WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
@@ -67,9 +66,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.sensors: dict[str, Any] = {
-            SENSORS_TO_LOAD: self.config_entry.options.get(SENSORS_TO_LOAD)
-            if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
-            else []
+            SENSORS_TO_LOAD: (
+                self.config_entry.options.get(SENSORS_TO_LOAD)
+                if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
+                else []
+            )
         }
 
         self.windy_data: dict[str, Any] = {
@@ -89,14 +90,13 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
-            ): bool or False,
+            ): bool
+            or False,
         }
 
     async def async_step_init(self, user_input=None):
         """Manage the options - show menu first."""
-        return self.async_show_menu(
-            step_id="init", menu_options=["basic", "windy", "migration"]
-        )
+        return self.async_show_menu(step_id="init", menu_options=["basic", "windy"])
 
     async def async_step_basic(self, user_input=None):
         """Manage basic options - credentials."""
