@@ -192,7 +192,7 @@ def battery_level_to_text(battery: int) -> UnitOfBat:
     return {
         0: UnitOfBat.LOW,
         1: UnitOfBat.NORMAL,
-    }.get(battery, UnitOfBat.UNKNOWN)
+    }.get(int(battery) if battery is not None else None, UnitOfBat.UNKNOWN)
 
 
 def battery_level_to_icon(battery: UnitOfBat) -> str:
@@ -202,7 +202,7 @@ def battery_level_to_icon(battery: UnitOfBat) -> str:
     """
 
     icons = {
-        UnitOfBat.LOW: "mdi:battery-alert",
+        UnitOfBat.LOW: "mdi:battery-low",
         UnitOfBat.NORMAL: "mdi:battery",
     }
 

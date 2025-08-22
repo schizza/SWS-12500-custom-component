@@ -144,7 +144,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=RAIN,
         native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
-        device_class=SensorDeviceClass.PRECIPITATION,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
         state_class=SensorStateClass.TOTAL,
         suggested_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         suggested_display_precision=2,
@@ -307,8 +307,8 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=OUTSIDE_BATTERY,
         translation_key=OUTSIDE_BATTERY,
-        icon=lambda data: battery_level_to_icon(battery_level_to_text(int(data))),
+        icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: battery_level_to_text(int(data)),
+        value_fn=lambda data: battery_level_to_text(data),
     ),
 )

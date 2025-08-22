@@ -15,6 +15,7 @@ from .const import (
     CHILL_INDEX,
     DOMAIN,
     HEAT_INDEX,
+    OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     SENSORS_TO_LOAD,
@@ -26,7 +27,7 @@ from .const import (
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
-from .utils import chill_index, heat_index
+from .utils import chill_index, heat_index, battery_level_to_icon, battery_level_to_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,12 +131,26 @@ class WeatherSensor(
         ):
             return self.entity_description.value_fn(chill_index(self.coordinator.data))
 
-        return None if self._data == "" else self.entity_description.value_fn(self._data)
+        return (
+            None if self._data == "" else self.entity_description.value_fn(self._data)
+        )
 
     @property
     def suggested_entity_id(self) -> str:
         """Return name."""
         return generate_entity_id("sensor.{}", self.entity_description.key)
+
+    @property
+    def icon(self) -> str | None:
+        """Return the dynamic icon for battery representation."""
+
+        if self.entity_description.key == OUTSIDE_BATTERY:
+            try:
+                return battery_level_to_icon(self.native_value)
+            except Exception:
+                return "mdi:battery-unknown"
+
+        return self.entity_description.icon
 
     @property
     def device_info(self) -> DeviceInfo:
