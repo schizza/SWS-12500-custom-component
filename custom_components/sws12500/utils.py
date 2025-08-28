@@ -20,6 +20,7 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    BATTERY_LEVEL,
     DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
@@ -29,6 +30,7 @@ from .const import (
     SENSORS_TO_LOAD,
     WIND_SPEED,
     UnitOfDir,
+    UnitOfBat,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -181,6 +183,32 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     return None
 
 
+def battery_level_to_text(battery: int) -> UnitOfBat:
+    """Return battery level in text representation.
+
+    Returns UnitOfBat
+    """
+
+    return {
+        0: UnitOfBat.LOW,
+        1: UnitOfBat.NORMAL,
+    }.get(int(battery) if battery is not None else None, UnitOfBat.UNKNOWN)
+
+
+def battery_level_to_icon(battery: UnitOfBat) -> str:
+    """Return battery level in icon representation.
+
+    Returns str
+    """
+
+    icons = {
+        UnitOfBat.LOW: "mdi:battery-low",
+        UnitOfBat.NORMAL: "mdi:battery",
+    }
+
+    return icons.get(battery, "mdi:battery-unknown")
+
+
 def fahrenheit_to_celsius(fahrenheit: float) -> float:
     """Convert Fahrenheit to Celsius."""
     return (fahrenheit - 32) * 5.0 / 9.0
@@ -267,10 +295,12 @@ def long_term_units_in_statistics_meta():
     db = conn.cursor()
 
     try:
-        db.execute("""
+        db.execute(
+            """
             SELECT statistic_id, unit_of_measurement from statistics_meta
             WHERE statistic_id LIKE 'sensor.weather_station_sws%'
-         """)
+         """
+        )
         rows = db.fetchall()
         sensor_units = {
             statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows
@@ -286,8 +316,8 @@ def long_term_units_in_statistics_meta():
 
 async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> bool:
     """Migrate data from mm/d to mm."""
-    
-    _LOGGER.debug("Sensor %s is required for data migration", sensor_id) 
+
+    _LOGGER.debug("Sensor %s is required for data migration", sensor_id)
     updated_rows = 0
 
     if not Path(DATABASE_PATH).exists():

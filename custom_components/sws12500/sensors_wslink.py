@@ -27,25 +27,26 @@ from .const import (
     DAILY_RAIN,
     DEW_POINT,
     HEAT_INDEX,
+    HOURLY_RAIN,
     INDOOR_HUMIDITY,
     INDOOR_TEMP,
+    MONTHLY_RAIN,
+    OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     RAIN,
     SOLAR_RADIATION,
     UV,
+    WEEKLY_RAIN,
     WIND_AZIMUT,
     WIND_DIR,
     WIND_GUST,
     WIND_SPEED,
-    UnitOfDir,
-    MONTHLY_RAIN,
     YEARLY_RAIN,
-    HOURLY_RAIN,
-    WEEKLY_RAIN,
+    UnitOfDir,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import wind_dir_to_text
+from .utils import battery_level_to_icon, battery_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -143,7 +144,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=RAIN,
         native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
-        device_class=SensorDeviceClass.PRECIPITATION,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
         state_class=SensorStateClass.TOTAL,
         suggested_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         suggested_display_precision=2,
@@ -302,5 +303,12 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
         value_fn=lambda data: cast("int", data),
+    ),
+    WeatherSensorEntityDescription(
+        key=OUTSIDE_BATTERY,
+        translation_key=OUTSIDE_BATTERY,
+        icon="mdi:battery-unknown",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda data: battery_level_to_text(data),
     ),
 )
