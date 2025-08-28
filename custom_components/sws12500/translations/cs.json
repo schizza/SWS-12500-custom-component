@@ -136,6 +136,14 @@
           "nw": "SZ",
           "nnw": "SSZ"
         }
+      },
+      "outside_battery": {
+        "name": "Stav nabití venkovní baterie",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
       }
     }
   },

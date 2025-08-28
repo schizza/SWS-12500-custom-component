@@ -136,6 +136,14 @@
           "nw": "NW",
           "nnw": "NNW"
         }
+      },
+      "outside_battery": {
+        "name": "Outside battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
       }
     }
   },

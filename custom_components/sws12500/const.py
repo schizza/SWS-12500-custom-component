@@ -23,8 +23,12 @@ WSLINK: Final = "wslink"
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
-WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
+WINDY_NOT_INSERTED: Final = (
+    "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
+)
+WINDY_INVALID_KEY: Final = (
+    "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
+)
 WINDY_SUCCESS: Final = (
     "Windy successfully sent data and data was successfully inserted by Windy API"
 )
@@ -63,6 +67,7 @@ OUTSIDE_TEMP: Final = "outside_temp"
 DEW_POINT: Final = "dew_point"
 OUTSIDE_HUMIDITY: Final = "outside_humidity"
 OUTSIDE_CONNECTION: Final = "outside_connection"
+OUTSIDE_BATTERY: Final = "outside_battery"
 WIND_SPEED: Final = "wind_speed"
 WIND_GUST: Final = "wind_gust"
 WIND_DIR: Final = "wind_dir"
@@ -137,6 +142,9 @@ REMAP_WSLINK_ITEMS: dict = {
     "t1rainwy": WEEKLY_RAIN,
     "t1rainmth": MONTHLY_RAIN,
     "t1rainyr": YEARLY_RAIN,
+    "t234c2tem": CH3_TEMP,
+    "t234c2hum": CH3_HUMIDITY,
+    "t1bat": OUTSIDE_BATTERY,
 }
 
 # TODO: Add more sensors
@@ -153,6 +161,7 @@ DISABLED_BY_DEFAULT: Final = [
     CH3_HUMIDITY,
     CH4_TEMP,
     CH4_HUMIDITY,
+    OUTSIDE_BATTERY,
 ]
 
 
@@ -194,4 +203,19 @@ AZIMUT: list[UnitOfDir] = [
     UnitOfDir.NW,
     UnitOfDir.NNW,
     UnitOfDir.N,
+]
+
+
+class UnitOfBat(StrEnum):
+    """Battery level unit of measure."""
+
+    LOW = "low"
+    NORMAL = "normal"
+    UNKNOWN = "unknown"
+
+
+BATTERY_LEVEL: list[UnitOfBat] = [
+    UnitOfBat.LOW,
+    UnitOfBat.NORMAL,
+    UnitOfBat.UNKNOWN,
 ]
