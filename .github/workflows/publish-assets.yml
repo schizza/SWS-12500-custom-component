@@ -1,0 +1,21 @@
+name: Build & Attach ZIP asset
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create ZIP
+        run: |
+          mkdir -p dist
+          cd custom_components/sws12500
+          zip -r ../../dist/weather-station.zip . -x "*/__pycache__/*"
+
+      - name: Upload ZIP to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/weather-station.zip

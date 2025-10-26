@@ -1,3 +1,6 @@
+![GitHub Downloads](https://img.shields.io/github/downloads/schizza/SWS-12500-custom-component/total?label=downloads%20%28all%20releases%29)
+![Latest release downloads](https://img.shields.io/github/downloads/schizza/SWS-12500-custom-component/latest/total?label=downloads%20%28latest%29)
+
 # Integrates your Sencor SWS 12500 or 16600, GARNI, BRESSER weather stations seamlessly into Home Assistant
 
 This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to Windy API.
