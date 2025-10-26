@@ -1,4 +1,6 @@
 {
   "name": "Sencor SWS 12500 Weather station",
-  "render_readme": true
+  "filename": "weather-station.zip",
+  "render_readme": true,
+  "zip_release": true
 }
