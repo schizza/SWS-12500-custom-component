@@ -48,6 +48,7 @@ from .const import (
     WIND_SPEED,
     YEARLY_RAIN,
     UnitOfDir,
+    WBGT_TEMP,
 )
 from .sensors_common import WeatherSensorEntityDescription
 from .utils import battery_level_to_icon, battery_level_to_text, wind_dir_to_text
@@ -131,7 +132,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=WIND_DIR,
         native_unit_of_measurement=DEGREE,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=None,
         device_class=SensorDeviceClass.WIND_DIRECTION,
         suggested_display_precision=None,
         icon="mdi:sign-direction",
@@ -150,7 +151,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         key=RAIN,
         native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.MEASUREMENT,
         suggested_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
@@ -329,5 +330,15 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
         value_fn=lambda data: battery_level_to_text(data),
+    ),
+    WeatherSensorEntityDescription(
+        key=WBGT_TEMP,
+        translation_key=WBGT_TEMP,
+        icon="mdi:thermometer",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=2,
+        value_fn=lambda data: cast("int", data),
     ),
 )

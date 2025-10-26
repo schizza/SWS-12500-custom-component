@@ -116,6 +116,7 @@
       "weekly_rain": { "name": "Weekly precipitation" },
       "monthly_rain": { "name": "Monthly precipitation" },
       "yearly_rain": { "name": "Yearly precipitation" },
+      "wbgt_index": { "name": "WBGT index" },
       "wind_azimut": {
         "name": "Bearing",
         "state": {
