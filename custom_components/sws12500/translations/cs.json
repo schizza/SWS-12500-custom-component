@@ -116,6 +116,7 @@
       "weekly_rain": { "name": "Týdenní úhrn srážek" },
       "monthly_rain": { "name": "Měsíční úhrn srážek" },
       "yearly_rain": { "name": "Roční úhrn srážek" },
+      "wbgt_temp": { "name": "WBGT index" },
       "wind_azimut": {
         "name": "Azimut",
         "state": {

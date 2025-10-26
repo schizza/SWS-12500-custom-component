@@ -91,6 +91,7 @@ CH4_HUMIDITY: Final = "ch4_humidity"
 CH4_CONNECTION: Final = "ch4_connection"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
+WBGT_TEMP: Final = "wbgt_temp"
 
 
 REMAP_ITEMS: dict[str, str] = {
@@ -145,6 +146,7 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t1bat": OUTSIDE_BATTERY,
     "inbat": INDOOR_BATTERY,
     "t234c1bat": CH2_BATTERY,
+    "t1wbgt": WBGT_TEMP,
 }
 
 # TODO: Add more sensors
@@ -163,6 +165,7 @@ DISABLED_BY_DEFAULT: Final = [
     CH4_TEMP,
     CH4_HUMIDITY,
     OUTSIDE_BATTERY,
+    WBGT_TEMP,
 ]
 
 BATTERY_LIST = [
