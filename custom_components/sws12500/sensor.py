@@ -23,6 +23,7 @@ from .const import (
     WIND_DIR,
     WIND_SPEED,
     WSLINK,
+    BATTERY_LIST,
 )
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
@@ -144,7 +145,7 @@ class WeatherSensor(
     def icon(self) -> str | None:
         """Return the dynamic icon for battery representation."""
 
-        if self.entity_description.key == OUTSIDE_BATTERY:
+        if self.entity_description.key in BATTERY_LIST:
             try:
                 return battery_level_to_icon(self.native_value)
             except Exception:

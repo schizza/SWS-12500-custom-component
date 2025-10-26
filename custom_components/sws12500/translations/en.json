@@ -144,6 +144,22 @@
           "low": "Low",
           "unknown": "Unknown / drained out"
         }
+      },
+      "ch2_battery": {
+        "name": "Channel 2 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "indoor_battery": {
+        "name": "Console battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
       }
     }
   },

@@ -23,12 +23,8 @@ WSLINK: Final = "wslink"
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-WINDY_NOT_INSERTED: Final = (
-    "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
-)
-WINDY_INVALID_KEY: Final = (
-    "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
-)
+WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
+WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
 WINDY_SUCCESS: Final = (
     "Windy successfully sent data and data was successfully inserted by Windy API"
 )
@@ -81,10 +77,12 @@ DAILY_RAIN: Final = "daily_rain"
 SOLAR_RADIATION: Final = "solar_radiation"
 INDOOR_TEMP: Final = "indoor_temp"
 INDOOR_HUMIDITY: Final = "indoor_humidity"
+INDOOR_BATTERY: Final = "indoor_battery"
 UV: Final = "uv"
 CH2_TEMP: Final = "ch2_temp"
 CH2_HUMIDITY: Final = "ch2_humidity"
 CH2_CONNECTION: Final = "ch2_connection"
+CH2_BATTERY: Final = "ch2_battery"
 CH3_TEMP: Final = "ch3_temp"
 CH3_HUMIDITY: Final = "ch3_humidity"
 CH3_CONNECTION: Final = "ch3_connection"
@@ -95,7 +93,7 @@ HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 
 
-REMAP_ITEMS: dict = {
+REMAP_ITEMS: dict[str, str] = {
     "baromin": BARO_PRESSURE,
     "tempf": OUTSIDE_TEMP,
     "dewptf": DEW_POINT,
@@ -117,7 +115,7 @@ REMAP_ITEMS: dict = {
     "soilmoisture3": CH4_HUMIDITY,
 }
 
-REMAP_WSLINK_ITEMS: dict = {
+REMAP_WSLINK_ITEMS: dict[str, str] = {
     "intem": INDOOR_TEMP,
     "inhum": INDOOR_HUMIDITY,
     "t1tem": OUTSIDE_TEMP,
@@ -145,6 +143,8 @@ REMAP_WSLINK_ITEMS: dict = {
     "t234c2tem": CH3_TEMP,
     "t234c2hum": CH3_HUMIDITY,
     "t1bat": OUTSIDE_BATTERY,
+    "inbat": INDOOR_BATTERY,
+    "t234c1bat": CH2_BATTERY,
 }
 
 # TODO: Add more sensors
@@ -157,11 +157,18 @@ REMAP_WSLINK_ITEMS: dict = {
 DISABLED_BY_DEFAULT: Final = [
     CH2_TEMP,
     CH2_HUMIDITY,
+    CH2_BATTERY,
     CH3_TEMP,
     CH3_HUMIDITY,
     CH4_TEMP,
     CH4_HUMIDITY,
     OUTSIDE_BATTERY,
+]
+
+BATTERY_LIST = [
+    OUTSIDE_BATTERY,
+    INDOOR_BATTERY,
+    CH2_BATTERY,
 ]
 
 
