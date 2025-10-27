@@ -122,7 +122,8 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=WIND_DIR,
         native_unit_of_measurement=DEGREE,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.MEASUREMENT_ANGLE,
+        device_class=SensorDeviceClass.WIND_DIRECTION,
         suggested_display_precision=None,
         icon="mdi:sign-direction",
         translation_key=WIND_DIR,
