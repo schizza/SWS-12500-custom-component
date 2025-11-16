@@ -73,16 +73,16 @@
         "description": "Resend data to Pocasi Meteo CZ",
         "title": "Configure Pocasi Meteo CZ",
         "data": {
-          "POCASI_API_ID": "ID from your Pocasi Meteo APP",
-          "POCASI_API_KEY": "Key from your Pocasi Meteo APP",
-          "POCASI_SEND_INTERVAL": "Resend interval in seconds",
+          "POCASI_CZ_API_ID": "ID from your Pocasi Meteo APP",
+          "POCASI_CZ_API_KEY": "Key from your Pocasi Meteo APP",
+          "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds",
           "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
           "pocasi_logger_checkbox": "Log data and responses"
         },
         "data_description": {
-          "POCASI_API_ID": "You can obtain your ID in Pocasi Meteo App",
-          "POCASI_API_KEY": "You can obtain your KEY in Pocasi Meteo App",
-          "POCASI_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
+          "POCASI_CZ_API_ID": "You can obtain your ID in Pocasi Meteo App",
+          "POCASI_CZ_API_KEY": "You can obtain your KEY in Pocasi Meteo App",
+          "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
           "pocasi_enabled_checkbox": "Enables resending data to Pocasi Meteo",
           "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
         }
