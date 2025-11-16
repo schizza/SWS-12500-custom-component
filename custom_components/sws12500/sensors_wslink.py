@@ -17,14 +17,11 @@ from homeassistant.const import (
 
 from .const import (
     BARO_PRESSURE,
+    CH2_BATTERY,
     CH2_HUMIDITY,
     CH2_TEMP,
-    CH2_BATTERY,
-    INDOOR_BATTERY,
     CH3_HUMIDITY,
     CH3_TEMP,
-    CH4_HUMIDITY,
-    CH4_TEMP,
     CHILL_INDEX,
     DAILY_RAIN,
     DEW_POINT,
@@ -33,7 +30,6 @@ from .const import (
     INDOOR_BATTERY,
     INDOOR_HUMIDITY,
     INDOOR_TEMP,
-    INDOOR_BATTERY,
     MONTHLY_RAIN,
     OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
@@ -41,6 +37,7 @@ from .const import (
     RAIN,
     SOLAR_RADIATION,
     UV,
+    WBGT_TEMP,
     WEEKLY_RAIN,
     WIND_AZIMUT,
     WIND_DIR,
@@ -48,10 +45,9 @@ from .const import (
     WIND_SPEED,
     YEARLY_RAIN,
     UnitOfDir,
-    WBGT_TEMP,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_level_to_icon, battery_level_to_text, wind_dir_to_text
+from .utils import wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -258,7 +254,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:weather-sunny",
         translation_key=CH3_TEMP,
-        value_fn=lambda data: cast(float, data),
+        value_fn=lambda data: cast("float", data),
     ),
     WeatherSensorEntityDescription(
         key=CH3_HUMIDITY,
@@ -267,7 +263,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         icon="mdi:weather-sunny",
         translation_key=CH3_HUMIDITY,
-        value_fn=lambda data: cast(int, data),
+        value_fn=lambda data: cast("int", data),
     ),
     # WeatherSensorEntityDescription(
     #     key=CH4_TEMP,
@@ -315,21 +311,21 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         translation_key=OUTSIDE_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: battery_level_to_text(data),
+        value_fn=lambda data: (data),
     ),
     WeatherSensorEntityDescription(
         key=CH2_BATTERY,
         translation_key=CH2_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: battery_level_to_text(data),
+        value_fn=lambda data: (data),
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_BATTERY,
         translation_key=INDOOR_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: battery_level_to_text(data),
+        value_fn=lambda data: (data),
     ),
     WeatherSensorEntityDescription(
         key=WBGT_TEMP,

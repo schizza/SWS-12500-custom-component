@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta
 import logging
 
+from aiohttp.client_exceptions import ClientError
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -138,20 +140,20 @@ class WindyPush:
                     _LOGGER.critical(WINDY_INVALID_KEY)
                     text_for_test = WINDY_INVALID_KEY
 
-                    update_options(self.hass, self.config, WINDY_ENABLED, False)
+                    await update_options(self.hass, self.config, WINDY_ENABLED, False)
 
                 except WindySuccess:
                     if self.log:
                         _LOGGER.info(WINDY_SUCCESS)
                     text_for_test = WINDY_SUCCESS
 
-        except session.ClientError as ex:
+        except ClientError as ex:
             _LOGGER.critical("Invalid response from Windy: %s", str(ex))
             self.invalid_response_count += 1
             if self.invalid_response_count > 3:
                 _LOGGER.critical(WINDY_UNEXPECTED)
                 text_for_test = WINDY_UNEXPECTED
-                update_options(self.hass, self.config, WINDY_ENABLED, False)
+                await update_options(self.hass, self.config, WINDY_ENABLED, False)
 
         self.last_update = datetime.now()
         self.next_update = self.last_update + timed(minutes=5)
