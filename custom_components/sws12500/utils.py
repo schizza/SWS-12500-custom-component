@@ -10,17 +10,11 @@ import numpy as np
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    UnitOfPrecipitationDepth,
-    UnitOfTemperature,
-    UnitOfVolumetricFlux,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
-    BATTERY_LEVEL,
     DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
@@ -29,8 +23,8 @@ from .const import (
     REMAP_WSLINK_ITEMS,
     SENSORS_TO_LOAD,
     WIND_SPEED,
-    UnitOfDir,
     UnitOfBat,
+    UnitOfDir,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +49,7 @@ async def translations(
     )
     if localize_key in _translations:
         return _translations[localize_key]
-    return None
+    return ""
 
 
 async def translated_notification(
@@ -67,7 +61,7 @@ async def translated_notification(
     *,
     key: str = "message",
     category: str = "notify",
-) -> str:
+):
     """Translate notification."""
 
     localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
@@ -98,7 +92,7 @@ async def translated_notification(
 
 async def update_options(
     hass: HomeAssistant, entry: ConfigEntry, update_key, update_value
-) -> None:
+) -> bool:
     """Update config.options entry."""
     conf = {**entry.options}
     conf[update_key] = update_value
@@ -153,7 +147,7 @@ def check_disabled(
     Returns list of found sensors or None
     """
 
-    log: bool = config_entry.options.get(DEV_DBG)
+    log: bool = config_entry.options.get(DEV_DBG, False)
     entityFound: bool = False
     _loaded_sensors = loaded_sensors(config_entry)
     missing_sensors: list = []
@@ -189,10 +183,15 @@ def battery_level_to_text(battery: int) -> UnitOfBat:
     Returns UnitOfBat
     """
 
-    return {
+    level_map: dict[int, UnitOfBat] = {
         0: UnitOfBat.LOW,
         1: UnitOfBat.NORMAL,
-    }.get(int(battery) if battery is not None else None, UnitOfBat.UNKNOWN)
+    }
+
+    if battery is None:
+        return UnitOfBat.UNKNOWN
+
+    return level_map.get(int(battery), UnitOfBat.UNKNOWN)
 
 
 def battery_level_to_icon(battery: UnitOfBat) -> str:
@@ -219,7 +218,7 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return celsius * 9.0 / 5.0 + 32
 
 
-def heat_index(data: Any, convert: bool = False) -> UnitOfTemperature:
+def heat_index(data: Any, convert: bool = False) -> float:
     """Calculate heat index from temperature.
 
     data: dict with temperature and humidity
@@ -257,7 +256,7 @@ def heat_index(data: Any, convert: bool = False) -> UnitOfTemperature:
     return simple
 
 
-def chill_index(data: Any, convert: bool = False) -> UnitOfTemperature:
+def chill_index(data: Any, convert: bool = False) -> float:
     """Calculate wind chill index from temperature and wind speed.
 
     data: dict with temperature and wind speed
@@ -286,7 +285,7 @@ def chill_index(data: Any, convert: bool = False) -> UnitOfTemperature:
 
 def long_term_units_in_statistics_meta():
     """Get units in long term statitstics."""
-
+    sensor_units = []
     if not Path(DATABASE_PATH).exists():
         _LOGGER.error("Database file not found: %s", DATABASE_PATH)
         return False
@@ -314,7 +313,7 @@ def long_term_units_in_statistics_meta():
     return sensor_units
 
 
-async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> bool:
+async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> int | bool:
     """Migrate data from mm/d to mm."""
 
     _LOGGER.debug("Sensor %s is required for data migration", sensor_id)

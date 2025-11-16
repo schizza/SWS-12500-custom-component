@@ -1,5 +1,6 @@
 """Store routes info."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from logging import getLogger
 
@@ -14,7 +15,7 @@ class Route:
 
     url_path: str
     route: AbstractRoute
-    handler: callable
+    handler: Callable
     enabled: bool = False
 
     def __str__(self):
@@ -29,7 +30,7 @@ class Routes:
         """Initialize routes."""
         self.routes = {}
 
-    def switch_route(self, coordinator: callable, url_path: str):
+    def switch_route(self, coordinator: Callable, url_path: str):
         """Switch route."""
 
         for url, route in self.routes.items():
@@ -47,7 +48,7 @@ class Routes:
         self,
         url_path: str,
         route: AbstractRoute,
-        handler: callable,
+        handler: Callable,
         enabled: bool = False,
     ):
         """Add route."""
@@ -55,7 +56,7 @@ class Routes:
 
     def get_route(self, url_path: str) -> Route:
         """Get route."""
-        return self.routes.get(url_path)
+        return self.routes.get(url_path, Route)
 
     def get_enabled(self) -> str:
         """Get enabled routes."""

@@ -2,7 +2,7 @@
 
 import logging
 
-from homeassistant.components.sensor import RestoreSensor, SensorEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -12,10 +12,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WeatherDataUpdateCoordinator
 from .const import (
+    BATTERY_LIST,
     CHILL_INDEX,
     DOMAIN,
     HEAT_INDEX,
-    OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     SENSORS_TO_LOAD,
@@ -23,12 +23,12 @@ from .const import (
     WIND_DIR,
     WIND_SPEED,
     WSLINK,
-    BATTERY_LIST,
+    UnitOfBat,
 )
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
-from .utils import chill_index, heat_index, battery_level_to_icon, battery_level_to_text
+from .utils import battery_level_to_icon, battery_level_to_text, chill_index, heat_index
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,12 +44,12 @@ async def async_setup_entry(
 
     sensors_to_load: list = []
     sensors: list = []
-    _wslink = config_entry.data.get(WSLINK)
+    _wslink = config_entry.options.get(WSLINK)
 
     SENSOR_TYPES = SENSOR_TYPES_WSLINK if _wslink else SENSOR_TYPES_WEATHER_API
 
     # Check if we have some sensors to load.
-    if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD):
+    if sensors_to_load := config_entry.options.get(SENSORS_TO_LOAD, []):
         if WIND_DIR in sensors_to_load:
             sensors_to_load.append(WIND_AZIMUT)
         if (OUTSIDE_HUMIDITY in sensors_to_load) and (OUTSIDE_TEMP in sensors_to_load):
@@ -65,9 +65,9 @@ async def async_setup_entry(
         async_add_entities(sensors)
 
 
-class WeatherSensor(
-    CoordinatorEntity[WeatherDataUpdateCoordinator], RestoreSensor, SensorEntity
-):
+class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
+    CoordinatorEntity[WeatherDataUpdateCoordinator], SensorEntity
+):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Implementation of Weather Sensor entity."""
 
     _attr_has_entity_name = True
@@ -94,12 +94,6 @@ class WeatherSensor(
 
         self.coordinator.async_add_listener(self._handle_coordinator_update)
 
-        # prev_state_data = await self.async_get_last_sensor_data()
-        # prev_state = await self.async_get_last_state()
-        # if not prev_state:
-        #     return
-        # self._data = prev_state_data.native_value
-
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -110,30 +104,30 @@ class WeatherSensor(
         self.async_write_ha_state()
 
     @property
-    def native_value(self) -> str | int | float | None:
+    def native_value(self):  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return value of entity."""
 
         _wslink = self.coordinator.config.options.get(WSLINK)
 
         if self.coordinator.data and (WIND_AZIMUT in self.entity_description.key):
-            return self.entity_description.value_fn(self.coordinator.data.get(WIND_DIR))
+            return self.entity_description.value_fn(self.coordinator.data.get(WIND_DIR))  # pyright: ignore[ reportAttributeAccessIssue]
 
         if (
             self.coordinator.data
             and (HEAT_INDEX in self.entity_description.key)
             and not _wslink
         ):
-            return self.entity_description.value_fn(heat_index(self.coordinator.data))
+            return self.entity_description.value_fn(heat_index(self.coordinator.data))  # pyright: ignore[ reportAttributeAccessIssue]
 
         if (
             self.coordinator.data
             and (CHILL_INDEX in self.entity_description.key)
             and not _wslink
         ):
-            return self.entity_description.value_fn(chill_index(self.coordinator.data))
+            return self.entity_description.value_fn(chill_index(self.coordinator.data))  # pyright: ignore[ reportAttributeAccessIssue]
 
         return (
-            None if self._data == "" else self.entity_description.value_fn(self._data)
+            None if self._data == "" else self.entity_description.value_fn(self._data)  # pyright: ignore[ reportAttributeAccessIssue]
         )
 
     @property
@@ -142,19 +136,20 @@ class WeatherSensor(
         return generate_entity_id("sensor.{}", self.entity_description.key)
 
     @property
-    def icon(self) -> str | None:
+    def icon(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the dynamic icon for battery representation."""
 
         if self.entity_description.key in BATTERY_LIST:
-            try:
-                return battery_level_to_icon(self.native_value)
-            except Exception:
-                return "mdi:battery-unknown"
+            if self.native_value:
+                battery_level = battery_level_to_text(self.native_value)
+                return battery_level_to_icon(battery_level)
+
+            return battery_level_to_icon(UnitOfBat.UNKNOWN)
 
         return self.entity_description.icon
 
     @property
-    def device_info(self) -> DeviceInfo:
+    def device_info(self) -> DeviceInfo:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Device info."""
         return DeviceInfo(
             connections=set(),

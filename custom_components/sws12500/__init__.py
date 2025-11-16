@@ -2,7 +2,7 @@
 
 import logging
 
-import aiohttp
+import aiohttp.web
 from aiohttp.web_exceptions import HTTPUnauthorized
 
 from homeassistant.config_entries import ConfigEntry
@@ -140,11 +140,11 @@ def register_path(
 
     hass_data = hass.data.setdefault(DOMAIN, {})
     debug = config.options.get(DEV_DBG)
-    _wslink = config.options.get(WSLINK)
+    _wslink = config.options.get(WSLINK, False)
 
-    routes: Routes = hass_data.get("routes") if "routes" in hass_data else None
+    routes: Routes = hass_data.get("routes", Routes())
 
-    if routes is None:
+    if not routes.routes:
         routes = Routes()
         _LOGGER.info("Routes not found, creating new routes")
 
