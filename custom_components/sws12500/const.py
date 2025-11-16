@@ -73,6 +73,13 @@ PURGE_DATA: Final = [
     "dailyrainin",
 ]
 
+PURGE_DATA_POCAS: Final = [
+    "ID",
+    "PASSWORD",
+    "action",
+    "rtfreq",
+]
+
 
 BARO_PRESSURE: Final = "baro_pressure"
 OUTSIDE_TEMP: Final = "outside_temp"

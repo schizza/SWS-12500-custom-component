@@ -106,7 +106,7 @@ class WindyPush:
         if self.next_update > datetime.now():
             return False
 
-        purged_data = dict(data)
+        purged_data = data.copy()
 
         for purge in PURGE_DATA:
             if purge in purged_data:
