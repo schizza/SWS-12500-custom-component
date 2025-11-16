@@ -24,15 +24,15 @@
       }
     }
   },
-
   "options": {
     "error": {
       "valid_credentials_api": "Vyplňte platné API ID",
       "valid_credentials_key": "Vyplňte platný API KEY",
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
-      "windy_key_required": "Je vyžadován Windy API key, pokud chcete aktivovat přeposílání dat na Windy"
+      "windy_key_required": "Je vyžadován Windy API key, pokud chcete aktivovat přeposílání dat na Windy",
+      "pocasi_id_required": "Je vyžadován Počasí ID, pokud chcete aktivovat přeposílání dat na Počasí Meteo CZ",
+      "pocasi_key_required": "Klíč k účtu Počasí Meteo je povinný."
     },
-
     "step": {
       "init": {
         "title": "Nastavení integrace SWS12500",
@@ -40,10 +40,10 @@
         "menu_options": {
           "basic": "Základní - přístupové údaje (přihlášení)",
           "windy": "Nastavení pro přeposílání dat na Windy",
+          "pocasi": "Nastavení pro přeposlání dat na Pošasí Meteo CZ",
           "migration": "Migrace statistiky senzoru"
         }
       },
-
       "basic": {
         "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
         "title": "Nastavení přihlášení",
@@ -60,7 +60,6 @@
           "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink."
         }
       },
-
       "windy": {
         "description": "Přeposílání dat z metostanice na Windy",
         "title": "Konfigurace Windy",
@@ -70,8 +69,26 @@
           "windy_logger_checkbox": "Logovat data a odpovědi z Windy"
         },
         "data_description": {
-          "WINDY_API_KEY": "Klíč API KEY získaný z https://https://api.windy.com/keys",
+          "WINDY_API_KEY": "Klíč API KEY získaný z https://api.windy.com/keys",
           "windy_logger_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+        }
+      },
+      "pocasi": {
+        "description": "Přeposílání dat do aplikace Počasí Meteo",
+        "title": "Konfigurace Počasí Meteo",
+        "data": {
+          "POCASI_API_ID": "ID účtu na Počasí Meteo",
+          "POCASI_API_KEY": "Klíč (Key) k účtu Počasí Meteo",
+          "POCASI_SEND_INTERVAL": "Interval v sekundách",
+          "pocasi_enabled_checkbox": "Povolit přeposílání dat na server Počasí Meteo",
+          "pocasi_logger_choeckbox": "Logovat data a odpovědi z Počasí Meteo"
+        },
+        "data_description": {
+          "POCASI_API_ID": "ID získáte ve své aplikaci Počasí Meteo",
+          "POCASI_API_KEY": "Klíč (Key) získáte ve své aplikaci Počasí Meteo",
+          "POCASI_SEND_INTERVAL": "Interval v jakém se mají data na server přeposílat (minimum 12s, defaultně 30s)",
+          "pocasi_enabled_checkbox": "Zapne přeposílání data na server Počasí Meteo",
+          "pocasi_logger_checkbox": "Zapnout pouze v případě, že chcete zaslat ladící informace vývojáři."
         }
       },
       "migration": {
@@ -88,35 +105,86 @@
       }
     }
   },
-
   "entity": {
     "sensor": {
-      "indoor_temp": { "name": "Vnitřní teplota" },
-      "indoor_humidity": { "name": "Vnitřní vlhkost vzduchu" },
-      "outside_temp": { "name": "Venkovní teplota" },
-      "outside_humidity": { "name": "Venkovní vlhkost vzduchu" },
-      "uv": { "name": "UV index" },
-      "baro_pressure": { "name": "Tlak vzduchu" },
-      "dew_point": { "name": "Rosný bod" },
-      "wind_speed": { "name": "Rychlost větru" },
-      "wind_dir": { "name": "Směr větru" },
-      "wind_gust": { "name": "Poryvy větru" },
-      "rain": { "name": "Srážky" },
-      "daily_rain": { "name": "Denní úhrn srážek" },
-      "solar_radiation": { "name": "Sluneční osvit" },
-      "ch2_temp": { "name": "Teplota senzoru 2" },
-      "ch2_humidity": { "name": "Vlhkost sensoru 2" },
-      "ch3_temp": { "name": "Teplota senzoru 3" },
-      "ch3_humidity": { "name": "Vlhkost sensoru 3" },
-      "ch4_temp": { "name": "Teplota senzoru 4" },
-      "ch4_humidity": { "name": "Vlhkost sensoru 4" },
-      "heat_index": { "name": "Tepelný index" },
-      "chill_index": { "name": "Pocitová teplota" },
-      "hourly_rain": { "name": "Hodinový úhrn srážek" },
-      "weekly_rain": { "name": "Týdenní úhrn srážek" },
-      "monthly_rain": { "name": "Měsíční úhrn srážek" },
-      "yearly_rain": { "name": "Roční úhrn srážek" },
-      "wbgt_temp": { "name": "WBGT index" },
+      "indoor_temp": {
+        "name": "Vnitřní teplota"
+      },
+      "indoor_humidity": {
+        "name": "Vnitřní vlhkost vzduchu"
+      },
+      "outside_temp": {
+        "name": "Venkovní teplota"
+      },
+      "outside_humidity": {
+        "name": "Venkovní vlhkost vzduchu"
+      },
+      "uv": {
+        "name": "UV index"
+      },
+      "baro_pressure": {
+        "name": "Tlak vzduchu"
+      },
+      "dew_point": {
+        "name": "Rosný bod"
+      },
+      "wind_speed": {
+        "name": "Rychlost větru"
+      },
+      "wind_dir": {
+        "name": "Směr větru"
+      },
+      "wind_gust": {
+        "name": "Poryvy větru"
+      },
+      "rain": {
+        "name": "Srážky"
+      },
+      "daily_rain": {
+        "name": "Denní úhrn srážek"
+      },
+      "solar_radiation": {
+        "name": "Sluneční osvit"
+      },
+      "ch2_temp": {
+        "name": "Teplota senzoru 2"
+      },
+      "ch2_humidity": {
+        "name": "Vlhkost sensoru 2"
+      },
+      "ch3_temp": {
+        "name": "Teplota senzoru 3"
+      },
+      "ch3_humidity": {
+        "name": "Vlhkost sensoru 3"
+      },
+      "ch4_temp": {
+        "name": "Teplota senzoru 4"
+      },
+      "ch4_humidity": {
+        "name": "Vlhkost sensoru 4"
+      },
+      "heat_index": {
+        "name": "Tepelný index"
+      },
+      "chill_index": {
+        "name": "Pocitová teplota"
+      },
+      "hourly_rain": {
+        "name": "Hodinový úhrn srážek"
+      },
+      "weekly_rain": {
+        "name": "Týdenní úhrn srážek"
+      },
+      "monthly_rain": {
+        "name": "Měsíční úhrn srážek"
+      },
+      "yearly_rain": {
+        "name": "Roční úhrn srážek"
+      },
+      "wbgt_temp": {
+        "name": "WBGT index"
+      },
       "wind_azimut": {
         "name": "Azimut",
         "state": {
