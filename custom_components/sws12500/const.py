@@ -9,6 +9,10 @@ WSLINK_URL = "/data/upload.php"
 WINDY_URL = "https://stations.windy.com/pws/update/"
 DATABASE_PATH = "/config/home-assistant_v2.db"
 
+POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
+POCASI_CZ_SEND_INTERVAL = 30  # default time to resend data
+POCASTI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
+
 ICON = "mdi:weather"
 
 API_KEY = "API_KEY"
