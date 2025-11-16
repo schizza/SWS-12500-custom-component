@@ -17,11 +17,13 @@ from .const import (
     DEFAULT_URL,
     DEV_DBG,
     DOMAIN,
+    POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
     WSLINK,
     WSLINK_URL,
 )
+from .pocasti_cz import PocasiPush
 from .routes import Routes, unregistred
 from .utils import (
     anonymize,
@@ -51,6 +53,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config = config
         self.windy = WindyPush(hass, config)
+        self.pocasi: PocasiPush = PocasiPush(hass, config)
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
     async def recieved_data(self, webdata):
@@ -84,6 +87,9 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         if self.config_entry.options.get(WINDY_ENABLED):
             response = await self.windy.push_data_to_windy(data)
+
+        if self.config.options.get(POCASI_CZ_ENABLED):
+            await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
 
         remaped_items = (
             remap_wslink_items(data)

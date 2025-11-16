@@ -4,7 +4,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 
@@ -14,6 +14,12 @@ from .const import (
     DEV_DBG,
     DOMAIN,
     INVALID_CREDENTIALS,
+    POCASI_CZ_API_ID,
+    POCASI_CZ_API_KEY,
+    POCASI_CZ_ENABLED,
+    POCASI_CZ_LOGGER_ENABLED,
+    POCASI_CZ_SEND_INTERVAL,
+    POCASI_CZ_SEND_MINIMUM,
     SENSORS_TO_LOAD,
     WINDY_API_KEY,
     WINDY_ENABLED,
@@ -43,6 +49,8 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.user_data_schema = {}
         self.sensors: dict[str, Any] = {}
         self.migrate_schema = {}
+        self.pocasi_cz: dict[str, Any] = {}
+        self.pocasi_cz_schema = {}
 
         @property
         def config_entry(self):
@@ -51,7 +59,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
     async def _get_entry_data(self):
         """Get entry data."""
 
-        self.user_data: dict[str, Any] = {
+        self.user_data = {
             API_ID: self.config_entry.options.get(API_ID),
             API_KEY: self.config_entry.options.get(API_KEY),
             WSLINK: self.config_entry.options.get(WSLINK, False),
@@ -65,7 +73,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             vol.Optional(DEV_DBG, default=self.user_data.get(DEV_DBG, False)): bool,
         }
 
-        self.sensors: dict[str, Any] = {
+        self.sensors = {
             SENSORS_TO_LOAD: (
                 self.config_entry.options.get(SENSORS_TO_LOAD)
                 if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
@@ -73,7 +81,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             )
         }
 
-        self.windy_data: dict[str, Any] = {
+        self.windy_data = {
             WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
             WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
             WINDY_LOGGER_ENABLED: self.config_entry.options.get(
@@ -90,13 +98,46 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
-            ): bool
-            or False,
+            ): bool or False,
+        }
+
+        self.pocasi_cz = {
+            POCASI_CZ_API_ID: self.config_entry.options.get(POCASI_CZ_API_ID, ""),
+            POCASI_CZ_API_KEY: self.config_entry.options.get(POCASI_CZ_API_KEY, ""),
+            POCASI_CZ_ENABLED: self.config_entry.options.get(POCASI_CZ_ENABLED, False),
+            POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(
+                POCASI_CZ_LOGGER_ENABLED, False
+            ),
+            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(
+                POCASI_CZ_SEND_INTERVAL, 30
+            ),
+        }
+
+        self.pocasi_cz_schema = {
+            vol.Required(
+                POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)
+            ): str,
+            vol.Required(
+                POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)
+            ): str,
+            vol.Required(
+                POCASI_CZ_SEND_INTERVAL,
+                default=self.pocasi_cz.get(POCASI_CZ_SEND_INTERVAL),
+            ): int,
+            vol.Optional(
+                POCASI_CZ_ENABLED, default=self.pocasi_cz.get(POCASI_CZ_ENABLED)
+            ): bool,
+            vol.Optional(
+                POCASI_CZ_LOGGER_ENABLED,
+                default=self.pocasi_cz.get(POCASI_CZ_LOGGER_ENABLED),
+            ): bool,
         }
 
     async def async_step_init(self, user_input=None):
         """Manage the options - show menu first."""
-        return self.async_show_menu(step_id="init", menu_options=["basic", "windy"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["basic", "windy", "pocasi"]
+        )
 
     async def async_step_basic(self, user_input=None):
         """Manage basic options - credentials."""
@@ -123,6 +164,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
             # retain sensors
             user_input.update(self.sensors)
+
+            # retain pocasi data
+            user_input.update(self.pocasi_cz)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -162,10 +206,54 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         # retain senors
         user_input.update(self.sensors)
 
+        # retain pocasi cz
+
+        user_input.update(self.pocasi_cz)
+
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    async def async_step_pocasi(self, user_input: Any = None) -> ConfigFlowResult:
+        """Handle the pocasi step."""
+
+        errors = {}
+
+        await self._get_entry_data()
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="pocasi",
+                data_schema=vol.Schema(self.pocasi_cz_schema),
+                errors=errors,
+            )
+
+        if user_input.get(POCASI_CZ_SEND_INTERVAL, 0) < POCASI_CZ_SEND_MINIMUM:
+            errors[POCASI_CZ_SEND_INTERVAL] = "pocasi_send_minimum"
+
+        if user_input.get(POCASI_CZ_ENABLED):
+            if user_input.get(POCASI_CZ_API_ID) == "":
+                errors[POCASI_CZ_API_ID] = "pocasi_id_required"
+            if user_input.get(POCASI_CZ_API_KEY) == "":
+                errors[POCASI_CZ_API_KEY] = "pocasi_key_required"
+
+        if len(errors) > 0:
+            return self.async_show_form(
+                step_id="pocasi",
+                data_schema=vol.Schema(self.pocasi_cz_schema),
+                errors=errors,
+            )
+        # retain user data
+        user_input.update(self.user_data)
+
+        # retain senors
+        user_input.update(self.sensors)
+
+        # retain windy
+        user_input.update(self.windy_data)
+
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
 
-class ConfigFlow(ConfigFlow, domain=DOMAIN):
+class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sencor SWS 12500 Weather Station."""
 
     data_schema = {

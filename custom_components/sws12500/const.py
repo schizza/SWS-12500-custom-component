@@ -9,6 +9,9 @@ WSLINK_URL = "/data/upload.php"
 WINDY_URL = "https://stations.windy.com/pws/update/"
 DATABASE_PATH = "/config/home-assistant_v2.db"
 
+POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
+POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
+
 ICON = "mdi:weather"
 
 API_KEY = "API_KEY"
@@ -19,6 +22,19 @@ SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
 
 DEV_DBG: Final = "dev_debug_checkbox"
 WSLINK: Final = "wslink"
+
+POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
+POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
+POCASI_CZ_SEND_INTERVAL = "POCASI_SEND_INTERVAL"
+POCASI_CZ_ENABLED = "pocasi_enabled_chcekbox"
+POCASI_CZ_LOGGER_ENABLED = "pocasi_logger_checkbox"
+POCASI_INVALID_KEY: Final = (
+    "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
+)
+POCASI_CZ_SUCCESS: Final = "Successfully sent data to Pocasi Meteo"
+POCASI_CZ_UNEXPECTED: Final = (
+    "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
+)
 
 WINDY_API_KEY = "WINDY_API_KEY"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
@@ -55,6 +71,13 @@ PURGE_DATA: Final = [
     "indoortempf",
     "indoorhumidity",
     "dailyrainin",
+]
+
+PURGE_DATA_POCAS: Final = [
+    "ID",
+    "PASSWORD",
+    "action",
+    "rtfreq",
 ]
 
 

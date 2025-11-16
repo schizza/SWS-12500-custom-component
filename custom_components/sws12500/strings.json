@@ -5,7 +5,6 @@
       "valid_credentials_key": "Provide valid API KEY.",
       "valid_credentials_match": "API ID and API KEY should not be the same."
     },
-
     "step": {
       "user": {
         "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
@@ -25,7 +24,6 @@
       }
     }
   },
-
   "options": {
     "error": {
       "valid_credentials_api": "Provide valid API ID.",
@@ -33,7 +31,6 @@
       "valid_credentials_match": "API ID and API KEY should not be the same.",
       "windy_key_required": "Windy API key is required if you want to enable this function."
     },
-
     "step": {
       "init": {
         "title": "Configure SWS12500 Integration",
@@ -43,7 +40,6 @@
           "windy": "Windy configuration"
         }
       },
-
       "basic": {
         "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
         "title": "Configure credentials",
@@ -60,7 +56,6 @@
           "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
         }
       },
-
       "windy": {
         "description": "Resend weather data to your Windy stations.",
         "title": "Configure Windy",
@@ -72,6 +67,24 @@
         "data_description": {
           "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
           "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
+        }
+      },
+      "pocasi": {
+        "description": "Resend data to Pocasi Meteo CZ",
+        "title": "Configure Pocasi Meteo CZ",
+        "data": {
+          "POCASI_API_ID": "ID from your Pocasi Meteo APP",
+          "POCASI_API_KEY": "Key from your Pocasi Meteo APP",
+          "POCASI_SEND_INTERVAL": "Resend interval in seconds",
+          "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
+          "pocasi_logger_checkbox": "Log data and responses"
+        },
+        "data_description": {
+          "POCASI_API_ID": "You can obtain your ID in Pocasi Meteo App",
+          "POCASI_API_KEY": "You can obtain your KEY in Pocasi Meteo App",
+          "POCASI_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
+          "pocasi_enabled_checkbox": "Enables resending data to Pocasi Meteo",
+          "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
         }
       },
       "migration": {
@@ -88,30 +101,71 @@
       }
     }
   },
-
   "entity": {
     "sensor": {
-      "indoor_temp": { "name": "Indoor temperature" },
-      "indoor_humidity": { "name": "Indoor humidity" },
-      "outside_temp": { "name": "Outside Temperature" },
-      "outside_humidity": { "name": "Outside humidity" },
-      "uv": { "name": "UV index" },
-      "baro_pressure": { "name": "Barometric pressure" },
-      "dew_point": { "name": "Dew point" },
-      "wind_speed": { "name": "Wind speed" },
-      "wind_dir": { "name": "Wind direction" },
-      "wind_gust": { "name": "Wind gust" },
-      "rain": { "name": "Rain" },
-      "daily_rain": { "name": "Daily precipitation" },
-      "solar_radiation": { "name": "Solar irradiance" },
-      "ch2_temp": { "name": "Channel 2 temperature" },
-      "ch2_humidity": { "name": "Channel 2 humidity" },
-      "ch3_temp": { "name": "Channel 3 temperature" },
-      "ch3_humidity": { "name": "Channel 3 humidity" },
-      "ch4_temp": { "name": "Channel 4 temperature" },
-      "ch4_humidity": { "name": "Channel 4 humidity" },
-      "heat_index": { "name": "Apparent temperature" },
-      "chill_index": { "name": "Wind chill" },
+      "indoor_temp": {
+        "name": "Indoor temperature"
+      },
+      "indoor_humidity": {
+        "name": "Indoor humidity"
+      },
+      "outside_temp": {
+        "name": "Outside Temperature"
+      },
+      "outside_humidity": {
+        "name": "Outside humidity"
+      },
+      "uv": {
+        "name": "UV index"
+      },
+      "baro_pressure": {
+        "name": "Barometric pressure"
+      },
+      "dew_point": {
+        "name": "Dew point"
+      },
+      "wind_speed": {
+        "name": "Wind speed"
+      },
+      "wind_dir": {
+        "name": "Wind direction"
+      },
+      "wind_gust": {
+        "name": "Wind gust"
+      },
+      "rain": {
+        "name": "Rain"
+      },
+      "daily_rain": {
+        "name": "Daily precipitation"
+      },
+      "solar_radiation": {
+        "name": "Solar irradiance"
+      },
+      "ch2_temp": {
+        "name": "Channel 2 temperature"
+      },
+      "ch2_humidity": {
+        "name": "Channel 2 humidity"
+      },
+      "ch3_temp": {
+        "name": "Channel 3 temperature"
+      },
+      "ch3_humidity": {
+        "name": "Channel 3 humidity"
+      },
+      "ch4_temp": {
+        "name": "Channel 4 temperature"
+      },
+      "ch4_humidity": {
+        "name": "Channel 4 humidity"
+      },
+      "heat_index": {
+        "name": "Apparent temperature"
+      },
+      "chill_index": {
+        "name": "Wind chill"
+      },
       "wind_azimut": {
         "name": "Bearing",
         "state": {
