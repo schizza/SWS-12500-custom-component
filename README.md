@@ -102,6 +102,16 @@ As soon as the integration is added into Home Assistant it will listen for incom
 
 - You are done.
 
+## Resending data to Pocasi Meteo
+- If you are willing to use [Pocasi Meteo Application](https://pocasimeteo.cz) you can enable resending your data to their servers
+- You must have account at Pocasi Meteo, where you will recieve `ID` and `KEY`, which are needed to connect to server
+- In `Settings` -> `Devices & services` find SWS12500 and click `Configure`.
+- In dialog box choose `Pocasi Meteo configuration`.
+- Fill in `ID` and `KEY` you were provided at `Pocasi Meteo`.
+- Tick `Enable` checkbox.
+
+- You are done.
+
 ## WSLink notes
 
 While your station is using WSLink you have to have Home Assistant in SSL mode or behind SSL proxy server.
