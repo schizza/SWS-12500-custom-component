@@ -206,6 +206,10 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         # retain senors
         user_input.update(self.sensors)
 
+        # retain pocasi cz
+
+        user_input.update(self.pocasi_cz)
+
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
     async def async_step_pocasi(self, user_input: Any = None) -> ConfigFlowResult:
@@ -237,11 +241,19 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 data_schema=vol.Schema(self.pocasi_cz_schema),
                 errors=errors,
             )
+        # retain user data
+        user_input.update(self.user_data)
+
+        # retain senors
+        user_input.update(self.sensors)
+
+        # retain windy
+        user_input.update(self.windy_data)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
 
-class ConfigFlow(ConfigFlow, domain=DOMAIN):
+class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sencor SWS 12500 Weather Station."""
 
     data_schema = {
