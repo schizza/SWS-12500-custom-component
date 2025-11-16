@@ -81,7 +81,7 @@
           "POCASI_API_KEY": "Klíč (Key) k účtu Počasí Meteo",
           "POCASI_SEND_INTERVAL": "Interval v sekundách",
           "pocasi_enabled_checkbox": "Povolit přeposílání dat na server Počasí Meteo",
-          "pocasi_logger_choeckbox": "Logovat data a odpovědi z Počasí Meteo"
+          "pocasi_logger_checkbox": "Logovat data a odpovědi z Počasí Meteo"
         },
         "data_description": {
           "POCASI_API_ID": "ID získáte ve své aplikaci Počasí Meteo",

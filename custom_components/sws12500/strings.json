@@ -77,7 +77,7 @@
           "POCASI_API_KEY": "Key from your Pocasi Meteo APP",
           "POCASI_SEND_INTERVAL": "Resend interval in seconds",
           "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
-          "pocasi_logger_choeckbox": "Log data and responses"
+          "pocasi_logger_checkbox": "Log data and responses"
         },
         "data_description": {
           "POCASI_API_ID": "You can obtain your ID in Pocasi Meteo App",
@@ -85,121 +85,122 @@
           "POCASI_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
           "pocasi_enabled_checkbox": "Enables resending data to Pocasi Meteo",
           "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
-        },
-        "migration": {
-          "title": "Statistic migration.",
-          "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
-          "data": {
-            "sensor_to_migrate": "Sensor to migrate",
-            "trigger_action": "Trigger migration"
-          },
-          "data_description": {
-            "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
-            "trigger_action": "Trigger the sensor statistics migration after checking."
-          }
         }
-      }
-    },
-    "entity": {
-      "sensor": {
-        "indoor_temp": {
-          "name": "Indoor temperature"
+      },
+      "migration": {
+        "title": "Statistic migration.",
+        "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
+        "data": {
+          "sensor_to_migrate": "Sensor to migrate",
+          "trigger_action": "Trigger migration"
         },
-        "indoor_humidity": {
-          "name": "Indoor humidity"
-        },
-        "outside_temp": {
-          "name": "Outside Temperature"
-        },
-        "outside_humidity": {
-          "name": "Outside humidity"
-        },
-        "uv": {
-          "name": "UV index"
-        },
-        "baro_pressure": {
-          "name": "Barometric pressure"
-        },
-        "dew_point": {
-          "name": "Dew point"
-        },
-        "wind_speed": {
-          "name": "Wind speed"
-        },
-        "wind_dir": {
-          "name": "Wind direction"
-        },
-        "wind_gust": {
-          "name": "Wind gust"
-        },
-        "rain": {
-          "name": "Rain"
-        },
-        "daily_rain": {
-          "name": "Daily precipitation"
-        },
-        "solar_radiation": {
-          "name": "Solar irradiance"
-        },
-        "ch2_temp": {
-          "name": "Channel 2 temperature"
-        },
-        "ch2_humidity": {
-          "name": "Channel 2 humidity"
-        },
-        "ch3_temp": {
-          "name": "Channel 3 temperature"
-        },
-        "ch3_humidity": {
-          "name": "Channel 3 humidity"
-        },
-        "ch4_temp": {
-          "name": "Channel 4 temperature"
-        },
-        "ch4_humidity": {
-          "name": "Channel 4 humidity"
-        },
-        "heat_index": {
-          "name": "Apparent temperature"
-        },
-        "chill_index": {
-          "name": "Wind chill"
-        },
-        "wind_azimut": {
-          "name": "Bearing",
-          "state": {
-            "n": "N",
-            "nne": "NNE",
-            "ne": "NE",
-            "ene": "ENE",
-            "e": "E",
-            "ese": "ESE",
-            "se": "SE",
-            "sse": "SSE",
-            "s": "S",
-            "ssw": "SSW",
-            "sw": "SW",
-            "wsw": "WSW",
-            "w": "W",
-            "wnw": "WNW",
-            "nw": "NW",
-            "nnw": "NNW"
-          },
-          "outside_battery": {
-            "name": "Outside battery level",
-            "state": {
-              "normal": "OK",
-              "low": "Low",
-              "unknown": "Unknown / drained out"
-            }
-          }
+        "data_description": {
+          "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
+          "trigger_action": "Trigger the sensor statistics migration after checking."
         }
-      }
-    },
-    "notify": {
-      "added": {
-        "title": "New sensors for SWS 12500 found.",
-        "message": "{added_sensors}\n"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "indoor_temp": {
+        "name": "Indoor temperature"
+      },
+      "indoor_humidity": {
+        "name": "Indoor humidity"
+      },
+      "outside_temp": {
+        "name": "Outside Temperature"
+      },
+      "outside_humidity": {
+        "name": "Outside humidity"
+      },
+      "uv": {
+        "name": "UV index"
+      },
+      "baro_pressure": {
+        "name": "Barometric pressure"
+      },
+      "dew_point": {
+        "name": "Dew point"
+      },
+      "wind_speed": {
+        "name": "Wind speed"
+      },
+      "wind_dir": {
+        "name": "Wind direction"
+      },
+      "wind_gust": {
+        "name": "Wind gust"
+      },
+      "rain": {
+        "name": "Rain"
+      },
+      "daily_rain": {
+        "name": "Daily precipitation"
+      },
+      "solar_radiation": {
+        "name": "Solar irradiance"
+      },
+      "ch2_temp": {
+        "name": "Channel 2 temperature"
+      },
+      "ch2_humidity": {
+        "name": "Channel 2 humidity"
+      },
+      "ch3_temp": {
+        "name": "Channel 3 temperature"
+      },
+      "ch3_humidity": {
+        "name": "Channel 3 humidity"
+      },
+      "ch4_temp": {
+        "name": "Channel 4 temperature"
+      },
+      "ch4_humidity": {
+        "name": "Channel 4 humidity"
+      },
+      "heat_index": {
+        "name": "Apparent temperature"
+      },
+      "chill_index": {
+        "name": "Wind chill"
+      },
+      "wind_azimut": {
+        "name": "Bearing",
+        "state": {
+          "n": "N",
+          "nne": "NNE",
+          "ne": "NE",
+          "ene": "ENE",
+          "e": "E",
+          "ese": "ESE",
+          "se": "SE",
+          "sse": "SSE",
+          "s": "S",
+          "ssw": "SSW",
+          "sw": "SW",
+          "wsw": "WSW",
+          "w": "W",
+          "wnw": "WNW",
+          "nw": "NW",
+          "nnw": "NNW"
+        },
+        "outside_battery": {
+          "name": "Outside battery level",
+          "state": {
+            "normal": "OK",
+            "low": "Low",
+            "unknown": "Unknown / drained out"
+          }
+        }
+      }
+    }
+  },
+  "notify": {
+    "added": {
+      "title": "New sensors for SWS 12500 found.",
+      "message": "{added_sensors}\n"
+    }
   }
+}

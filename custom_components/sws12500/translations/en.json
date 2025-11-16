@@ -77,7 +77,7 @@
           "POCASI_API_KEY": "Key from your Pocasi Meteo APP",
           "POCASI_SEND_INTERVAL": "Resend interval in seconds",
           "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
-          "pocasi_logger_choeckbox": "Log data and responses"
+          "pocasi_logger_checkbox": "Log data and responses"
         },
         "data_description": {
           "POCASI_API_ID": "You can obtain your ID in Pocasi Meteo App",
