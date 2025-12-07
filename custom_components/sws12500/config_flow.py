@@ -13,6 +13,8 @@ from .const import (
     API_KEY,
     DEV_DBG,
     DOMAIN,
+    ECOWITT,
+    ECOWITT_WEBHOOK_ID,
     INVALID_CREDENTIALS,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
@@ -53,6 +55,8 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.migrate_schema = {}
         self.pocasi_cz: dict[str, Any] = {}
         self.pocasi_cz_schema = {}
+        self.ecowitt: dict[str, Any] = {}
+        self.ecowitt_schema = {}
 
     async def _get_entry_data(self):
         """Get entry data."""
@@ -117,9 +121,15 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             ): bool,
         }
 
+        self.ecowitt = {
+            ECOWITT_WEBHOOK_ID: self.config_entry.options.get(ECOWITT_WEBHOOK_ID, "")
+        }
+
     async def async_step_init(self, user_input=None):
         """Manage the options - show menu first."""
-        return self.async_show_menu(step_id="init", menu_options=["basic", "windy", "pocasi"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
+        )
 
     async def async_step_basic(self, user_input=None):
         """Manage basic options - credentials."""
@@ -141,14 +151,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            # retain windy data
-            user_input.update(self.windy_data)
-
-            # retain sensors
-            user_input.update(self.sensors)
-
-            # retain pocasi data
-            user_input.update(self.pocasi_cz)
+            self.retain_data(user_input)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -188,15 +191,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                     errors=errors,
                 )
 
-        # retain user_data
-        user_input.update(self.user_data)
-
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain pocasi cz
-
-        user_input.update(self.pocasi_cz)
+        self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -229,16 +224,22 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 data_schema=vol.Schema(self.pocasi_cz_schema),
                 errors=errors,
             )
-        # retain user data
-        user_input.update(self.user_data)
 
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain windy
-        user_input.update(self.windy_data)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Retain user_data."""
+
+        return {
+            **self.user_data,
+            **self.windy_data,
+            **self.pocasi_cz,
+            **self.sensors,
+            **self.ecowitt,
+            **dict(data),
+        }
 
 
 class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
