@@ -26,6 +26,7 @@ WSLINK: Final = "wslink"
 
 ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
+ECOWITT_ENABLED: Final = "ecowitt_enabled"
 
 POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
 POCASI_CZ_API_ID = "POCASI_CZ_API_ID"

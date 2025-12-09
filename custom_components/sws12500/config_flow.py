@@ -1,19 +1,22 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
 
+import secrets
 from typing import Any
 
 import voluptuous as vol
+from yarl import URL
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.network import get_url
 
 from .const import (
     API_ID,
     API_KEY,
     DEV_DBG,
     DOMAIN,
-    ECOWITT,
+    ECOWITT_ENABLED,
     ECOWITT_WEBHOOK_ID,
     INVALID_CREDENTIALS,
     POCASI_CZ_API_ID,
@@ -138,10 +141,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.ecowitt = {
-            ECOWITT_WEBHOOK_ID: self.config_entry.options.get(ECOWITT_WEBHOOK_ID, "")
+            ECOWITT_WEBHOOK_ID: self.config_entry.options.get(ECOWITT_WEBHOOK_ID, ""),
+            ECOWITT_ENABLED: self.config_entry.options.get(ECOWITT_ENABLED, False),
         }
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict[str, Any] = {}):
         """Manage the options - show menu first."""
         return self.async_show_menu(
             step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
@@ -167,7 +171,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            self.retain_data(user_input)
+            user_input = self.retain_data(user_input)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -201,7 +205,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        self.retain_data(user_input)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -237,6 +241,46 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         user_input = self.retain_data(user_input)
 
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
+        """Ecowitt stations setup."""
+
+        errors = {}
+        await self._get_entry_data()
+
+        if not (webhook := self.ecowitt.get(ECOWITT_WEBHOOK_ID)):
+            webhook = secrets.token_hex(8)
+
+        if user_input is None:
+            url: URL = URL(get_url(self.hass))
+
+            if not url.host:
+                url.host = "UNKNOWN"
+
+            ecowitt_schema = {
+                vol.Required(
+                    ECOWITT_WEBHOOK_ID,
+                    default=webhook,
+                ): str,
+                vol.Optional(
+                    ECOWITT_ENABLED,
+                    default=self.ecowitt.get(ECOWITT_ENABLED, False),
+                ): bool,
+            }
+
+            return self.async_show_form(
+                step_id="ecowitt",
+                data_schema=vol.Schema(ecowitt_schema),
+                description_placeholders={
+                    "url": url.host,
+                    "port": str(url.port),
+                    "webhook_id": webhook,
+                },
+                errors=errors,
+            )
+
+        user_input = self.retain_data(user_input)
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
     def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:

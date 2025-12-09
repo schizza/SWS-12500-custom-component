@@ -42,6 +42,7 @@
           "basic": "Základní - přístupové údaje (přihlášení)",
           "windy": "Nastavení pro přeposílání dat na Windy",
           "pocasi": "Nastavení pro přeposlání dat na Počasí Meteo CZ",
+          "ecowitt": "Nastavení pro stanice Ecowitt",
           "migration": "Migrace statistiky senzoru"
         }
       },
@@ -90,6 +91,18 @@
           "POCASI_SEND_INTERVAL": "Interval v jakém se mají data na server přeposílat (minimum 12s, defaultně 30s)",
           "pocasi_enabled_checkbox": "Zapne přeposílání data na server Počasí Meteo",
           "pocasi_logger_checkbox": "Zapnout pouze v případě, že chcete zaslat ladící informace vývojáři."
+        }
+      },
+      "ecowitt": {
+        "description": "Nastavení pro Ecowitt",
+        "title": "Konfigurace pro stanice Ecowitt",
+        "data": {
+          "ecowitt_webhook_id": "Unikátní webhook ID",
+          "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
+        },
+        "data_description": {
+          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
         }
       },
       "migration": {

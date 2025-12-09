@@ -87,6 +87,18 @@
           "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
         }
       },
+      "ecowitt": {
+        "description": "Nastavení pro Ecowitt",
+        "title": "Konfigurace pro stanice Ecowitt",
+        "data": {
+          "ecowitt_webhook_id": "Unikátní webhook ID",
+          "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
+        },
+        "data_description": {
+          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
+        }
+      },
       "migration": {
         "title": "Statistic migration.",
         "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
