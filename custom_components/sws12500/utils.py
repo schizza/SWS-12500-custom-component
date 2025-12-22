@@ -218,15 +218,22 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return celsius * 9.0 / 5.0 + 32
 
 
-def heat_index(data: Any, convert: bool = False) -> float:
+def heat_index(data: Any, convert: bool = False) -> float | None:
     """Calculate heat index from temperature.
 
     data: dict with temperature and humidity
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
 
-    temp = float(data[OUTSIDE_TEMP])
-    rh = float(data[OUTSIDE_HUMIDITY])
+    temp = data.get(OUTSIDE_TEMP, None)
+    rh = data.get(OUTSIDE_HUMIDITY, None)
+
+    if not temp or not rh:
+        return None
+
+    temp = float(temp)
+    rh = float(rh)
+
     adjustment = None
 
     if convert:
@@ -256,15 +263,21 @@ def heat_index(data: Any, convert: bool = False) -> float:
     return simple
 
 
-def chill_index(data: Any, convert: bool = False) -> float:
+def chill_index(data: Any, convert: bool = False) -> float | None:
     """Calculate wind chill index from temperature and wind speed.
 
     data: dict with temperature and wind speed
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
 
-    temp = float(data[OUTSIDE_TEMP])
-    wind = float(data[WIND_SPEED])
+    temp = data.get(OUTSIDE_TEMP, None)
+    wind = data.get(WIND_SPEED, None)
+
+    if not temp or not wind:
+        return None
+
+    temp = float(temp)
+    wind = float(wind)
 
     if convert:
         temp = celsius_to_fahrenheit(temp)
