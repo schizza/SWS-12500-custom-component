@@ -160,6 +160,30 @@
       "ch4_humidity": {
         "name": "Channel 4 humidity"
       },
+      "ch5_temp": {
+        "name": "Channel 5 temperature"
+      },
+      "ch5_humidity": {
+        "name": "Channel 5 humidity"
+      },
+      "ch6_temp": {
+        "name": "Channel 6 temperature"
+      },
+      "ch6_humidity": {
+        "name": "Channel 6 humidity"
+      },
+      "ch7_temp": {
+        "name": "Channel 7 temperature"
+      },
+      "ch7_humidity": {
+        "name": "Channel 7 humidity"
+      },
+      "ch8_temp": {
+        "name": "Channel 8 temperature"
+      },
+      "ch8_humidity": {
+        "name": "Channel 8 humidity"
+      },
       "heat_index": {
         "name": "Apparent temperature"
       },
@@ -185,15 +209,82 @@
           "wnw": "WNW",
           "nw": "NW",
           "nnw": "NNW"
-        },
-        "outside_battery": {
-          "name": "Outside battery level",
-          "state": {
-            "normal": "OK",
-            "low": "Low",
-            "unknown": "Unknown / drained out"
-          }
         }
+      },
+      "outside_battery": {
+        "name": "Outside battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "indoor_battery": {
+        "name": "Indoor battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch2_battery": {
+        "name": "Channel 2 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch3_battery": {
+        "name": "Channel 3 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch4_battery": {
+        "name": "Channel 4 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch5_battery": {
+        "name": "Channel 5 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch6_battery": {
+        "name": "Channel 6 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch7_battery": {
+        "name": "Channel 7 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch8_battery": {
+        "name": "Channel 8 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "wbgt_temp": {
+        "name": "WBGT temperature"
       }
     }
   },
