@@ -32,7 +32,7 @@ class Routes:
         """Dispatch."""
         info = self.routes.get(request.path)
         if not info:
-            _LOGGER.debug("Route %s is not registered!")
+            _LOGGER.debug("Route %s is not registered!", request.path)
             return await unregistred(request)
         handler = info.handler if info.enabled else info.fallback
         return await handler(request)
