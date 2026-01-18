@@ -1,77 +1,67 @@
-"""Store routes info."""
+"""Routes implementation."""
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from logging import getLogger
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+import logging
 
-from aiohttp.web import AbstractRoute, Response
+from aiohttp.web import Request, Response
 
-_LOGGER = getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
+
+Handler = Callable[[Request], Awaitable[Response]]
 
 
 @dataclass
-class Route:
-    """Store route info."""
+class RouteInfo:
+    """Route struct."""
 
     url_path: str
-    route: AbstractRoute
-    handler: Callable
+    handler: Handler
     enabled: bool = False
-
-    def __str__(self):
-        """Return string representation."""
-        return f"{self.url_path} -> {self.handler}"
+    fallback: Handler = field(default_factory=lambda: unregistred)
 
 
 class Routes:
-    """Store routes info."""
+    """Routes class."""
 
     def __init__(self) -> None:
-        """Initialize routes."""
-        self.routes = {}
+        """Init."""
+        self.routes: dict[str, RouteInfo] = {}
 
-    def switch_route(self, coordinator: Callable, url_path: str):
-        """Switch route."""
+    async def dispatch(self, request: Request) -> Response:
+        """Dispatch."""
+        info = self.routes.get(request.path)
+        if not info:
+            _LOGGER.debug("Route %s is not registered!")
+            return await unregistred(request)
+        handler = info.handler if info.enabled else info.fallback
+        return await handler(request)
 
-        for url, route in self.routes.items():
-            if url == url_path:
-                _LOGGER.info("New coordinator to route: %s", route.url_path)
-                route.enabled = True
-                route.handler = coordinator
-                route.route._handler = coordinator  # noqa: SLF001
-            else:
-                route.enabled = False
-                route.handler = unregistred
-                route.route._handler = unregistred  # noqa: SLF001
+    def switch_route(self, url_path: str) -> None:
+        """Switch route to new handler."""
+        for path, info in self.routes.items():
+            info.enabled = path == url_path
 
     def add_route(
-        self,
-        url_path: str,
-        route: AbstractRoute,
-        handler: Callable,
-        enabled: bool = False,
-    ):
-        """Add route."""
-        self.routes[url_path] = Route(url_path, route, handler, enabled)
+        self, url_path: str, handler: Handler, *, enabled: bool = False
+    ) -> None:
+        """Add route to dispatcher."""
 
-    def get_route(self, url_path: str) -> Route:
-        """Get route."""
-        return self.routes.get(url_path, Route)
+        self.routes[url_path] = RouteInfo(url_path, handler, enabled=enabled)
+        _LOGGER.debug("Registered dispatcher for route %s", url_path)
 
-    def get_enabled(self) -> str:
-        """Get enabled routes."""
-        enabled_routes = [
-            route.url_path for route in self.routes.values() if route.enabled
-        ]
-        return "".join(enabled_routes) if enabled_routes else "None"
-
-    def __str__(self):
-        """Return string representation."""
-        return "\n".join([str(route) for route in self.routes.values()])
+    def show_enabled(self) -> str:
+        """Show info of enabled route."""
+        for url, route in self.routes.items():
+            if route.enabled:
+                return (
+                    f"Dispatcher enabled for URL: {url}, with handler: {route.handler}"
+                )
+        return "No routes is enabled."
 
 
-async def unregistred(*args, **kwargs):
-    """Unregister path to handle incoming data."""
-
-    _LOGGER.error("Recieved data to unregistred webhook. Check your settings")
-    return Response(body=f"{'Unregistred webhook.'}", status=404)
+async def unregistred(request: Request) -> Response:
+    """Return unregistred error."""
+    _ = request
+    _LOGGER.debug("Received data to unregistred or disabled webhook.")
+    return Response(text="Unregistred webhook. Check your settings.", status=400)

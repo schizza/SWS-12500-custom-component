@@ -2,11 +2,11 @@
 
 import logging
 import math
-from pathlib import Path
-import sqlite3
-from typing import Any
+from typing import cast
 
 import numpy as np
+from py_typecheck import checked
+from py_typecheck.core import checked_or
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
@@ -15,7 +15,6 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
-    DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
@@ -37,19 +36,19 @@ async def translations(
     *,
     key: str = "message",
     category: str = "notify",
-) -> str:
+) -> str | None:
     """Get translated keys for domain."""
 
     localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
 
-    language = hass.config.language
+    language: str = hass.config.language
 
     _translations = await async_get_translations(
         hass, language, category, [translation_domain]
     )
     if localize_key in _translations:
         return _translations[localize_key]
-    return ""
+    return None
 
 
 async def translated_notification(
@@ -70,7 +69,7 @@ async def translated_notification(
         f"component.{translation_domain}.{category}.{translation_key}.title"
     )
 
-    language = hass.config.language
+    language: str = cast("str", hass.config.language)
 
     _translations = await async_get_translations(
         hass, language, category, [translation_domain]
@@ -91,7 +90,10 @@ async def translated_notification(
 
 
 async def update_options(
-    hass: HomeAssistant, entry: ConfigEntry, update_key, update_value
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    update_key: str,
+    update_value: str | list[str] | bool,
 ) -> bool:
     """Update config.options entry."""
     conf = {**entry.options}
@@ -100,46 +102,43 @@ async def update_options(
     return hass.config_entries.async_update_entry(entry, options=conf)
 
 
-def anonymize(data):
+def anonymize(
+    data: dict[str, str | int | float | bool],
+) -> dict[str, str | int | float | bool]:
     """Anoynimize recieved data."""
+    anonym: dict[str, str] = {}
+    return {
+        anonym[key]: value
+        for key, value in data.items()
+        if key not in {"ID", "PASSWORD", "wsid", "wspw"}
+    }
 
-    anonym = {}
-    for k in data:
-        if k not in {"ID", "PASSWORD", "wsid", "wspw"}:
-            anonym[k] = data[k]
 
-    return anonym
-
-
-def remap_items(entities):
+def remap_items(entities: dict[str, str]) -> dict[str, str]:
     """Remap items in query."""
-    items = {}
-    for item in entities:
-        if item in REMAP_ITEMS:
-            items[REMAP_ITEMS[item]] = entities[item]
-
-    return items
+    return {
+        REMAP_ITEMS[key]: value for key, value in entities.items() if key in REMAP_ITEMS
+    }
 
 
-def remap_wslink_items(entities):
+def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
     """Remap items in query for WSLink API."""
-    items = {}
-    for item in entities:
-        if item in REMAP_WSLINK_ITEMS:
-            items[REMAP_WSLINK_ITEMS[item]] = entities[item]
+    return {
+        REMAP_WSLINK_ITEMS[key]: value
+        for key, value in entities.items()
+        if key in REMAP_WSLINK_ITEMS
+    }
 
-    return items
 
-
-def loaded_sensors(config_entry: ConfigEntry) -> list | None:
+def loaded_sensors(config_entry: ConfigEntry) -> list[str]:
     """Get loaded sensors."""
 
     return config_entry.options.get(SENSORS_TO_LOAD) or []
 
 
 def check_disabled(
-    hass: HomeAssistant, items, config_entry: ConfigEntry
-) -> list | None:
+    items: dict[str, str], config_entry: ConfigEntry
+) -> list[str] | None:
     """Check if we have data for unloaded sensors.
 
     If so, then add sensor to load queue.
@@ -147,10 +146,11 @@ def check_disabled(
     Returns list of found sensors or None
     """
 
-    log: bool = config_entry.options.get(DEV_DBG, False)
+    log = checked_or(config_entry.options.get(DEV_DBG), bool, False)
+
     entityFound: bool = False
-    _loaded_sensors = loaded_sensors(config_entry)
-    missing_sensors: list = []
+    _loaded_sensors: list[str] = loaded_sensors(config_entry)
+    missing_sensors: list[str] = []
 
     for item in items:
         if log:
@@ -188,10 +188,10 @@ def battery_level_to_text(battery: int) -> UnitOfBat:
         1: UnitOfBat.NORMAL,
     }
 
-    if battery is None:
+    if (v := checked(battery, int)) is None:
         return UnitOfBat.UNKNOWN
 
-    return level_map.get(int(battery), UnitOfBat.UNKNOWN)
+    return level_map.get(v, UnitOfBat.UNKNOWN)
 
 
 def battery_level_to_icon(battery: UnitOfBat) -> str:
@@ -218,21 +218,21 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return celsius * 9.0 / 5.0 + 32
 
 
-def heat_index(data: Any, convert: bool = False) -> float | None:
+def heat_index(
+    data: dict[str, int | float | str], convert: bool = False
+) -> float | None:
     """Calculate heat index from temperature.
 
     data: dict with temperature and humidity
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-
-    temp = data.get(OUTSIDE_TEMP, None)
-    rh = data.get(OUTSIDE_HUMIDITY, None)
-
-    if not temp or not rh:
+    if (temp := checked(data.get(OUTSIDE_TEMP), float)) is None:
+        _LOGGER.error("We are missing OUTSIDE TEMP, cannot calculate heat index.")
         return None
 
-    temp = float(temp)
-    rh = float(rh)
+    if (rh := checked(data.get(OUTSIDE_HUMIDITY), float)) is None:
+        _LOGGER.error("We are missing OUTSIDE HUMIDITY, cannot calculate heat index.")
+        return None
 
     adjustment = None
 
@@ -263,21 +263,20 @@ def heat_index(data: Any, convert: bool = False) -> float | None:
     return simple
 
 
-def chill_index(data: Any, convert: bool = False) -> float | None:
+def chill_index(
+    data: dict[str, str | float | int], convert: bool = False
+) -> float | None:
     """Calculate wind chill index from temperature and wind speed.
 
     data: dict with temperature and wind speed
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-
-    temp = data.get(OUTSIDE_TEMP, None)
-    wind = data.get(WIND_SPEED, None)
-
-    if not temp or not wind:
+    if (temp := checked(data.get(OUTSIDE_TEMP), float)) is None:
+        _LOGGER.error("We are missing OUTSIDE TEMP, cannot calculate wind chill index.")
         return None
-
-    temp = float(temp)
-    wind = float(wind)
+    if (wind := checked(data.get(WIND_SPEED), float)) is None:
+        _LOGGER.error("We are missing WIND SPEED, cannot calculate wind chill index.")
+        return None
 
     if convert:
         temp = celsius_to_fahrenheit(temp)
@@ -294,109 +293,3 @@ def chill_index(data: Any, convert: bool = False) -> float | None:
         if temp < 50 and wind > 3
         else temp
     )
-
-
-def long_term_units_in_statistics_meta():
-    """Get units in long term statitstics."""
-    sensor_units = []
-    if not Path(DATABASE_PATH).exists():
-        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
-        return False
-
-    conn = sqlite3.connect(DATABASE_PATH)
-    db = conn.cursor()
-
-    try:
-        db.execute(
-            """
-            SELECT statistic_id, unit_of_measurement from statistics_meta
-            WHERE statistic_id LIKE 'sensor.weather_station_sws%'
-         """
-        )
-        rows = db.fetchall()
-        sensor_units = {
-            statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows
-        }
-
-    except sqlite3.Error as e:
-        _LOGGER.error("Error during data migration: %s", e)
-    finally:
-        conn.close()
-
-    return sensor_units
-
-
-async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> int | bool:
-    """Migrate data from mm/d to mm."""
-
-    _LOGGER.debug("Sensor %s is required for data migration", sensor_id)
-    updated_rows = 0
-
-    if not Path(DATABASE_PATH).exists():
-        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
-        return False
-
-    conn = sqlite3.connect(DATABASE_PATH)
-    db = conn.cursor()
-
-    try:
-        _LOGGER.info(sensor_id)
-        db.execute(
-            """
-            UPDATE statistics_meta
-            SET unit_of_measurement = 'mm'
-            WHERE statistic_id = ?
-            AND unit_of_measurement = 'mm/d';
-         """,
-            (sensor_id,),
-        )
-        updated_rows = db.rowcount
-        conn.commit()
-        _LOGGER.info(
-            "Data migration completed successfully. Updated rows: %s for %s",
-            updated_rows,
-            sensor_id,
-        )
-
-    except sqlite3.Error as e:
-        _LOGGER.error("Error during data migration: %s", e)
-    finally:
-        conn.close()
-    return updated_rows
-
-
-def migrate_data_old(sensor_id: str | None = None):
-    """Migrate data from mm/d to mm."""
-    updated_rows = 0
-
-    if not Path(DATABASE_PATH).exists():
-        _LOGGER.error("Database file not found: %s", DATABASE_PATH)
-        return False
-
-    conn = sqlite3.connect(DATABASE_PATH)
-    db = conn.cursor()
-
-    try:
-        _LOGGER.info(sensor_id)
-        db.execute(
-            """
-            UPDATE statistics_meta
-            SET unit_of_measurement = 'mm'
-            WHERE statistic_id = ?
-            AND unit_of_measurement = 'mm/d';
-         """,
-            (sensor_id,),
-        )
-        updated_rows = db.rowcount
-        conn.commit()
-        _LOGGER.info(
-            "Data migration completed successfully. Updated rows: %s for %s",
-            updated_rows,
-            sensor_id,
-        )
-
-    except sqlite3.Error as e:
-        _LOGGER.error("Error during data migration: %s", e)
-    finally:
-        conn.close()
-    return updated_rows

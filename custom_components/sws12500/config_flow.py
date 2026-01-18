@@ -6,7 +6,12 @@ from typing import Any
 import voluptuous as vol
 from yarl import URL
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.network import get_url
@@ -59,9 +64,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.ecowitt: dict[str, Any] = {}
         self.ecowitt_schema = {}
 
-        @property
-        def config_entry(self):
-            return self.hass.config_entries.async_get_entry(self.handler)
+        # @property
+        # def config_entry(self) -> ConfigEntry:
+        #     return self.hass.config_entries.async_get_entry(self.handler)
 
     async def _get_entry_data(self):
         """Get entry data."""
@@ -151,9 +156,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
         )
 
-    async def async_step_basic(self, user_input=None):
+    async def async_step_basic(self, user_input: Any = None):
         """Manage basic options - credentials."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -184,9 +189,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_windy(self, user_input=None):
+    async def async_step_windy(self, user_input: Any = None):
         """Manage windy options."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -212,7 +217,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
     async def async_step_pocasi(self, user_input: Any = None) -> ConfigFlowResult:
         """Handle the pocasi step."""
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -246,7 +251,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
     async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
         """Ecowitt stations setup."""
 
-        errors = {}
+        errors: dict[str, str] = {}
         await self._get_entry_data()
 
         if not (webhook := self.ecowitt.get(ECOWITT_WEBHOOK_ID)):
@@ -308,7 +313,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: Any = None):
         """Handle the initial step."""
         if user_input is None:
             await self.async_set_unique_id(DOMAIN)
@@ -319,7 +324,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema(self.data_schema),
             )
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input[API_ID] in INVALID_CREDENTIALS:
             errors[API_ID] = "valid_credentials_api"
@@ -340,6 +345,6 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry) -> ConfigOptionsFlowHandler:
+    def async_get_options_flow(config_entry: ConfigEntry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
         return ConfigOptionsFlowHandler()
