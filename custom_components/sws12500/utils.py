@@ -2,7 +2,8 @@
 
 import logging
 import math
-from typing import cast
+from multiprocessing import Value
+from typing import Any, cast
 
 import numpy as np
 from py_typecheck import checked
@@ -218,6 +219,19 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return celsius * 9.0 / 5.0 + 32
 
 
+def _to_float(val: Any) -> float | None:
+    """Convert int or string to float."""
+
+    if not val:
+        return None
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return None
+    else:
+        return v
+
+
 def heat_index(
     data: dict[str, int | float | str], convert: bool = False
 ) -> float | None:
@@ -226,12 +240,18 @@ def heat_index(
     data: dict with temperature and humidity
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-    if (temp := checked(data.get(OUTSIDE_TEMP), float)) is None:
-        _LOGGER.error("We are missing OUTSIDE TEMP, cannot calculate heat index.")
+    if (temp := _to_float(data.get(OUTSIDE_TEMP))) is None:
+        _LOGGER.error(
+            "We are missing/invalid OUTSIDE TEMP (%s), cannot calculate wind chill index.",
+            temp,
+        )
         return None
 
-    if (rh := checked(data.get(OUTSIDE_HUMIDITY), float)) is None:
-        _LOGGER.error("We are missing OUTSIDE HUMIDITY, cannot calculate heat index.")
+    if (rh := _to_float(data.get(OUTSIDE_HUMIDITY))) is None:
+        _LOGGER.error(
+            "We are missing/invalid OUTSIDE HUMIDITY (%s), cannot calculate wind chill index.",
+            rh,
+        )
         return None
 
     adjustment = None
@@ -271,11 +291,21 @@ def chill_index(
     data: dict with temperature and wind speed
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-    if (temp := checked(data.get(OUTSIDE_TEMP), float)) is None:
-        _LOGGER.error("We are missing OUTSIDE TEMP, cannot calculate wind chill index.")
+    temp = _to_float(data.get(OUTSIDE_TEMP))
+    wind = _to_float(data.get(WIND_SPEED))
+
+    if temp is None:
+        _LOGGER.error(
+            "We are missing/invalid OUTSIDE TEMP (%s), cannot calculate wind chill index.",
+            temp,
+        )
         return None
-    if (wind := checked(data.get(WIND_SPEED), float)) is None:
-        _LOGGER.error("We are missing WIND SPEED, cannot calculate wind chill index.")
+
+    if wind is None:
+        _LOGGER.error(
+            "We are missing/invalid WIND SPEED (%s), cannot calculate wind chill index.",
+            wind,
+        )
         return None
 
     if convert:
