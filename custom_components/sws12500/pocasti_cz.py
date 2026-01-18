@@ -5,6 +5,7 @@ import logging
 from typing import Any, Literal
 
 from aiohttp import ClientError
+from py_typecheck.core import checked
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -75,8 +76,20 @@ class PocasiPush:
         """Pushes weather data to server."""
 
         _data = data.copy()
-        _api_id = self.config.options.get(POCASI_CZ_API_ID)
-        _api_key = self.config.options.get(POCASI_CZ_API_KEY)
+
+        if (_api_id := checked(self.config.options.get(POCASI_CZ_API_ID), str)) is None:
+            _LOGGER.error(
+                "No API ID is provided for Pocasi Meteo. Check your configuration."
+            )
+            return
+
+        if (
+            _api_key := checked(self.config.options.get(POCASI_CZ_API_KEY), str)
+        ) is None:
+            _LOGGER.error(
+                "No API Key is provided for Pocasi Meteo. Check your configuration."
+            )
+            return
 
         if self.log:
             _LOGGER.info(
@@ -91,7 +104,7 @@ class PocasiPush:
                 self._interval,
                 self.next_update,
             )
-            return False
+            return
 
         request_url: str = ""
         if mode == "WSLINK":
@@ -139,5 +152,3 @@ class PocasiPush:
 
         if self.log:
             _LOGGER.info("Next update: %s", str(self.next_update))
-
-        return None
