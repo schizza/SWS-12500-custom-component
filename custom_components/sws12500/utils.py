@@ -177,8 +177,8 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     return None
 
 
-def battery_level_to_text(battery: int) -> UnitOfBat:
-    """Return battery level in text representation.
+def battery_level(battery: int) -> UnitOfBat:
+    """Return battery level.
 
     Returns UnitOfBat
     """
