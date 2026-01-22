@@ -109,9 +109,27 @@ CH2_BATTERY: Final = "ch2_battery"
 CH3_TEMP: Final = "ch3_temp"
 CH3_HUMIDITY: Final = "ch3_humidity"
 CH3_CONNECTION: Final = "ch3_connection"
+CH3_BATTERY: Final = "ch3_battery"
 CH4_TEMP: Final = "ch4_temp"
 CH4_HUMIDITY: Final = "ch4_humidity"
 CH4_CONNECTION: Final = "ch4_connection"
+CH4_BATTERY: Final = "ch4_battery"
+CH5_TEMP: Final = "ch5_temp"
+CH5_HUMIDITY: Final = "ch5_humidity"
+CH5_CONNECTION: Final = "ch5_connection"
+CH5_BATTERY: Final = "ch5_battery"
+CH6_TEMP: Final = "ch6_temp"
+CH6_HUMIDITY: Final = "ch6_humidity"
+CH6_CONNECTION: Final = "ch6_connection"
+CH6_BATTERY: Final = "ch6_battery"
+CH7_TEMP: Final = "ch7_temp"
+CH7_HUMIDITY: Final = "ch7_humidity"
+CH7_CONNECTION: Final = "ch7_connection"
+CH7_BATTERY: Final = "ch7_battery"
+CH8_TEMP: Final = "ch8_temp"
+CH8_HUMIDITY: Final = "ch8_humidity"
+CH8_CONNECTION: Final = "ch8_connection"
+CH8_BATTERY: Final = "ch8_battery"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 WBGT_TEMP: Final = "wbgt_temp"
@@ -137,6 +155,14 @@ REMAP_ITEMS: dict[str, str] = {
     "soilmoisture2": CH3_HUMIDITY,
     "soiltemp3f": CH4_TEMP,
     "soilmoisture3": CH4_HUMIDITY,
+    "soiltemp4f": CH5_TEMP,
+    "soilmoisture4": CH5_HUMIDITY,
+    "soiltemp5f": CH6_TEMP,
+    "soilmoisture5": CH6_HUMIDITY,
+    "soiltemp6f": CH7_TEMP,
+    "soilmoisture6": CH7_HUMIDITY,
+    "soiltemp7f": CH8_TEMP,
+    "soilmoisture7": CH8_HUMIDITY,
 }
 
 REMAP_WSLINK_ITEMS: dict[str, str] = {
@@ -158,6 +184,11 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t1cn": OUTSIDE_CONNECTION,
     "t234c1cn": CH2_CONNECTION,
     "t234c2cn": CH3_CONNECTION,
+    "t234c3cn": CH4_CONNECTION,
+    "t234c4cn": CH5_CONNECTION,
+    "t234c5cn": CH6_CONNECTION,
+    "t234c6cn": CH7_CONNECTION,
+    "t234c7cn": CH8_CONNECTION,
     "t1chill": CHILL_INDEX,
     "t1heat": HEAT_INDEX,
     "t1rainhr": HOURLY_RAIN,
@@ -166,9 +197,25 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t1rainyr": YEARLY_RAIN,
     "t234c2tem": CH3_TEMP,
     "t234c2hum": CH3_HUMIDITY,
+    "t234c3tem": CH4_TEMP,
+    "t234c3hum": CH4_HUMIDITY,
+    "t234c4tem": CH5_TEMP,
+    "t234c4hum": CH5_HUMIDITY,
+    "t234c5tem": CH6_TEMP,
+    "t234c5hum": CH6_HUMIDITY,
+    "t234c6tem": CH7_TEMP,
+    "t234c6hum": CH7_HUMIDITY,
+    "t234c7tem": CH8_TEMP,
+    "t234c7hum": CH8_HUMIDITY,
     "t1bat": OUTSIDE_BATTERY,
     "inbat": INDOOR_BATTERY,
     "t234c1bat": CH2_BATTERY,
+    "t234c2bat": CH3_BATTERY,
+    "t234c3bat": CH4_BATTERY,
+    "t234c4bat": CH5_BATTERY,
+    "t234c5bat": CH6_BATTERY,
+    "t234c6bat": CH7_BATTERY,
+    "t234c7bat": CH8_BATTERY,
     "t1wbgt": WBGT_TEMP,
 }
 
@@ -185,8 +232,22 @@ DISABLED_BY_DEFAULT: Final = [
     CH2_BATTERY,
     CH3_TEMP,
     CH3_HUMIDITY,
+    CH3_BATTERY,
     CH4_TEMP,
     CH4_HUMIDITY,
+    CH4_BATTERY,
+    CH5_TEMP,
+    CH5_HUMIDITY,
+    CH5_BATTERY,
+    CH6_TEMP,
+    CH6_HUMIDITY,
+    CH6_BATTERY,
+    CH7_TEMP,
+    CH7_HUMIDITY,
+    CH7_BATTERY,
+    CH8_TEMP,
+    CH8_HUMIDITY,
+    CH8_BATTERY,
     OUTSIDE_BATTERY,
     WBGT_TEMP,
 ]
@@ -195,6 +256,12 @@ BATTERY_LIST = [
     OUTSIDE_BATTERY,
     INDOOR_BATTERY,
     CH2_BATTERY,
+    CH3_BATTERY,
+    CH4_BATTERY,
+    CH5_BATTERY,
+    CH6_BATTERY,
+    CH7_BATTERY,
+    CH8_BATTERY,
 ]
 
 
