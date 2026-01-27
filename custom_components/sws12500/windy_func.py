@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 
 from aiohttp.client_exceptions import ClientError
+from py_typecheck.core import checked
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -23,8 +24,6 @@ from .const import (
 from .utils import update_options
 
 _LOGGER = logging.getLogger(__name__)
-
-RESPONSE_FOR_TEST = False
 
 
 class WindyNotInserted(Exception):
@@ -58,16 +57,16 @@ class WindyPush:
         """ lets wait for 1 minute to get initial data from station
             and then try to push first data to Windy
         """
-        self.last_update = datetime.now()
-        self.next_update = datetime.now() + timed(minutes=1)
+        self.last_update: datetime = datetime.now()
+        self.next_update: datetime = datetime.now() + timed(minutes=1)
 
-        self.log = self.config.options.get(WINDY_LOGGER_ENABLED)
-        self.invalid_response_count = 0
+        self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
+        self.invalid_response_count: int = 0
 
-    def verify_windy_response(  # pylint: disable=useless-return
+    def verify_windy_response(
         self,
         response: str,
-    ) -> WindyNotInserted | WindySuccess | WindyApiKeyError | None:
+    ):
         """Verify answer form Windy."""
 
         if self.log:
@@ -85,9 +84,7 @@ class WindyPush:
         if "Unauthorized" in response:
             raise WindyApiKeyError
 
-        return None
-
-    async def push_data_to_windy(self, data):
+    async def push_data_to_windy(self, data: dict[str, str]) -> bool:
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.
@@ -95,8 +92,6 @@ class WindyPush:
         we are sending almost the same data as we received
         from station. But we need to do some clean up.
         """
-
-        text_for_test = None
 
         if self.log:
             _LOGGER.info(
@@ -112,13 +107,18 @@ class WindyPush:
 
         for purge in PURGE_DATA:
             if purge in purged_data:
-                purged_data.pop(purge)
+                _ = purged_data.pop(purge)
 
         if "dewptf" in purged_data:
             dewpoint = round(((float(purged_data.pop("dewptf")) - 32) / 1.8), 1)
             purged_data["dewpoint"] = str(dewpoint)
 
-        windy_api_key = self.config.options.get(WINDY_API_KEY)
+        if (
+            windy_api_key := checked(self.config.options.get(WINDY_API_KEY), str)
+        ) is None:
+            _LOGGER.error("Windy API key is not provided! Check your configuration.")
+            return False
+
         request_url = f"{WINDY_URL}{windy_api_key}"
 
         if self.log:
@@ -133,27 +133,33 @@ class WindyPush:
                     # log despite of settings
                     _LOGGER.error(WINDY_NOT_INSERTED)
 
-                    text_for_test = WINDY_NOT_INSERTED
-
                 except WindyApiKeyError:
                     # log despite of settings
                     _LOGGER.critical(WINDY_INVALID_KEY)
-                    text_for_test = WINDY_INVALID_KEY
 
-                    await update_options(self.hass, self.config, WINDY_ENABLED, False)
+                    if not (
+                        await update_options(
+                            self.hass, self.config, WINDY_ENABLED, False
+                        )
+                    ):
+                        _LOGGER.debug("Failed to set Windy option to false.")
 
                 except WindySuccess:
                     if self.log:
                         _LOGGER.info(WINDY_SUCCESS)
-                    text_for_test = WINDY_SUCCESS
+                else:
+                    if self.log:
+                        _LOGGER.debug(WINDY_NOT_INSERTED)
 
         except ClientError as ex:
             _LOGGER.critical("Invalid response from Windy: %s", str(ex))
             self.invalid_response_count += 1
             if self.invalid_response_count > 3:
                 _LOGGER.critical(WINDY_UNEXPECTED)
-                text_for_test = WINDY_UNEXPECTED
-                await update_options(self.hass, self.config, WINDY_ENABLED, False)
+                if not await update_options(
+                    self.hass, self.config, WINDY_ENABLED, False
+                ):
+                    _LOGGER.debug("Failed to set Windy options to false.")
 
         self.last_update = datetime.now()
         self.next_update = self.last_update + timed(minutes=5)
@@ -161,6 +167,4 @@ class WindyPush:
         if self.log:
             _LOGGER.info("Next update: %s", str(self.next_update))
 
-        if RESPONSE_FOR_TEST and text_for_test:
-            return text_for_test
-        return None
+        return True

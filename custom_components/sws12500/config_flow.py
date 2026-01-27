@@ -1,18 +1,28 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
 
+import secrets
 from typing import Any
 
 import voluptuous as vol
+from yarl import URL
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.network import get_url
 
 from .const import (
     API_ID,
     API_KEY,
     DEV_DBG,
     DOMAIN,
+    ECOWITT_ENABLED,
+    ECOWITT_WEBHOOK_ID,
     INVALID_CREDENTIALS,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
@@ -51,10 +61,12 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.migrate_schema = {}
         self.pocasi_cz: dict[str, Any] = {}
         self.pocasi_cz_schema = {}
+        self.ecowitt: dict[str, Any] = {}
+        self.ecowitt_schema = {}
 
-        @property
-        def config_entry(self):
-            return self.hass.config_entries.async_get_entry(self.handler)
+        # @property
+        # def config_entry(self) -> ConfigEntry:
+        #     return self.hass.config_entries.async_get_entry(self.handler)
 
     async def _get_entry_data(self):
         """Get entry data."""
@@ -133,15 +145,20 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             ): bool,
         }
 
-    async def async_step_init(self, user_input=None):
+        self.ecowitt = {
+            ECOWITT_WEBHOOK_ID: self.config_entry.options.get(ECOWITT_WEBHOOK_ID, ""),
+            ECOWITT_ENABLED: self.config_entry.options.get(ECOWITT_ENABLED, False),
+        }
+
+    async def async_step_init(self, user_input: dict[str, Any] = {}):
         """Manage the options - show menu first."""
         return self.async_show_menu(
-            step_id="init", menu_options=["basic", "windy", "pocasi"]
+            step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
         )
 
-    async def async_step_basic(self, user_input=None):
+    async def async_step_basic(self, user_input: Any = None):
         """Manage basic options - credentials."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -159,14 +176,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            # retain windy data
-            user_input.update(self.windy_data)
-
-            # retain sensors
-            user_input.update(self.sensors)
-
-            # retain pocasi data
-            user_input.update(self.pocasi_cz)
+            user_input = self.retain_data(user_input)
 
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -179,9 +189,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_windy(self, user_input=None):
+    async def async_step_windy(self, user_input: Any = None):
         """Manage windy options."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -200,22 +210,14 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        # retain user_data
-        user_input.update(self.user_data)
-
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain pocasi cz
-
-        user_input.update(self.pocasi_cz)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
     async def async_step_pocasi(self, user_input: Any = None) -> ConfigFlowResult:
         """Handle the pocasi step."""
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -241,16 +243,62 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 data_schema=vol.Schema(self.pocasi_cz_schema),
                 errors=errors,
             )
-        # retain user data
-        user_input.update(self.user_data)
 
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain windy
-        user_input.update(self.windy_data)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
+        """Ecowitt stations setup."""
+
+        errors: dict[str, str] = {}
+        await self._get_entry_data()
+
+        if not (webhook := self.ecowitt.get(ECOWITT_WEBHOOK_ID)):
+            webhook = secrets.token_hex(8)
+
+        if user_input is None:
+            url: URL = URL(get_url(self.hass))
+
+            if not url.host:
+                url.host = "UNKNOWN"
+
+            ecowitt_schema = {
+                vol.Required(
+                    ECOWITT_WEBHOOK_ID,
+                    default=webhook,
+                ): str,
+                vol.Optional(
+                    ECOWITT_ENABLED,
+                    default=self.ecowitt.get(ECOWITT_ENABLED, False),
+                ): bool,
+            }
+
+            return self.async_show_form(
+                step_id="ecowitt",
+                data_schema=vol.Schema(ecowitt_schema),
+                description_placeholders={
+                    "url": url.host,
+                    "port": str(url.port),
+                    "webhook_id": webhook,
+                },
+                errors=errors,
+            )
+
+        user_input = self.retain_data(user_input)
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Retain user_data."""
+
+        return {
+            **self.user_data,
+            **self.windy_data,
+            **self.pocasi_cz,
+            **self.sensors,
+            **self.ecowitt,
+            **dict(data),
+        }
 
 
 class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
@@ -265,7 +313,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: Any = None):
         """Handle the initial step."""
         if user_input is None:
             await self.async_set_unique_id(DOMAIN)
@@ -276,7 +324,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema(self.data_schema),
             )
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input[API_ID] in INVALID_CREDENTIALS:
             errors[API_ID] = "valid_credentials_api"
@@ -297,6 +345,6 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry) -> ConfigOptionsFlowHandler:
+    def async_get_options_flow(config_entry: ConfigEntry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
         return ConfigOptionsFlowHandler()

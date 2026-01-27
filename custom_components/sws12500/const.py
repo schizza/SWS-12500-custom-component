@@ -12,6 +12,7 @@ DATABASE_PATH = "/config/home-assistant_v2.db"
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
 
+
 ICON = "mdi:weather"
 
 API_KEY = "API_KEY"
@@ -22,6 +23,10 @@ SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
 
 DEV_DBG: Final = "dev_debug_checkbox"
 WSLINK: Final = "wslink"
+
+ECOWITT: Final = "ecowitt"
+ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
+ECOWITT_ENABLED: Final = "ecowitt_enabled"
 
 POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
 POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
@@ -244,7 +249,7 @@ class UnitOfBat(StrEnum):
 
     LOW = "low"
     NORMAL = "normal"
-    UNKNOWN = "unknown"
+    UNKNOWN = "drained"
 
 
 BATTERY_LEVEL: list[UnitOfBat] = [
