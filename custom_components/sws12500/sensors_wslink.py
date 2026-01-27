@@ -48,11 +48,12 @@ from .const import (
     WIND_GUST,
     WIND_SPEED,
     YEARLY_RAIN,
+    UnitOfBat,
     UnitOfDir,
     VOCLevel,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_5step_to_pct, voc_level_to_text, wind_dir_to_text
+from .utils import battery_level, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -144,8 +145,11 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         key=WIND_AZIMUT,
         icon="mdi:sign-direction",
         value_fn=lambda data: cast("str", wind_dir_to_text(data)),
+        value_from_data_fn=lambda data: cast(
+            "str", wind_dir_to_text(cast("float", data.get(WIND_DIR) or 0.0))
+        ),
         device_class=SensorDeviceClass.ENUM,
-        options=list(UnitOfDir),
+        options=[e.value for e in UnitOfDir],
         translation_key=WIND_AZIMUT,
     ),
     WeatherSensorEntityDescription(
@@ -270,25 +274,6 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         translation_key=CH3_HUMIDITY,
         value_fn=lambda data: cast("int", data),
     ),
-    # WeatherSensorEntityDescription(
-    #     key=CH4_TEMP,
-    #     native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
-    #     state_class=SensorStateClass.MEASUREMENT,
-    #     device_class=SensorDeviceClass.TEMPERATURE,
-    #     suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
-    #     icon="mdi:weather-sunny",
-    #     translation_key=CH4_TEMP,
-    #     value_fn=lambda data: cast(float, data),
-    # ),
-    # WeatherSensorEntityDescription(
-    #     key=CH4_HUMIDITY,
-    #     native_unit_of_measurement=PERCENTAGE,
-    #     state_class=SensorStateClass.MEASUREMENT,
-    #     device_class=SensorDeviceClass.HUMIDITY,
-    #     icon="mdi:weather-sunny",
-    #     translation_key=CH4_HUMIDITY,
-    #     value_fn=lambda data: cast(int, data),
-    # ),
     WeatherSensorEntityDescription(
         key=HEAT_INDEX,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -314,23 +299,32 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=OUTSIDE_BATTERY,
         translation_key=OUTSIDE_BATTERY,
-        icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: data,
+        options=[e.value for e in UnitOfBat],
+        value_fn=None,
+        value_from_data_fn=lambda data: battery_level(
+            data.get(OUTSIDE_BATTERY, None)
+        ).value,
     ),
     WeatherSensorEntityDescription(
         key=CH2_BATTERY,
         translation_key=CH2_BATTERY,
-        icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: data,
+        options=[e.value for e in UnitOfBat],
+        value_fn=None,
+        value_from_data_fn=lambda data: battery_level(
+            data.get(CH2_BATTERY, None)
+        ).value,
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_BATTERY,
         translation_key=INDOOR_BATTERY,
-        icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: data,
+        options=[e.value for e in UnitOfBat],
+        value_fn=None,
+        value_from_data_fn=lambda data: battery_level(
+            data.get(INDOOR_BATTERY, None)
+        ).value,
     ),
     WeatherSensorEntityDescription(
         key=WBGT_TEMP,

@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "sensor": {
+      "indoor_battery": {
+        "default": "mdi:battery-unknown",
+        "state": {
+          "low": "mdi:battery-low",
+          "normal": "mdi:battery",
+          "drained": "mdi:battery-alert"
+        }
+      }
+    }
+  }
+}

@@ -273,7 +273,7 @@ class UnitOfBat(StrEnum):
 
     LOW = "low"
     NORMAL = "normal"
-    UNKNOWN = "unknown"
+    UNKNOWN = "drained"
 
 
 BATTERY_LEVEL: list[UnitOfBat] = [
