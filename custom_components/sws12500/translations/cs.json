@@ -233,7 +233,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch2_battery": {

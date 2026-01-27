@@ -2,7 +2,6 @@
 
 from datetime import datetime, timedelta
 import logging
-from typing import Final
 
 from aiohttp.client_exceptions import ClientError
 from py_typecheck.core import checked
@@ -25,8 +24,6 @@ from .const import (
 from .utils import update_options
 
 _LOGGER = logging.getLogger(__name__)
-
-RESPONSE_FOR_TEST = False
 
 
 class WindyNotInserted(Exception):
@@ -54,8 +51,8 @@ class WindyPush:
 
     def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
         """Init."""
-        self.hass: Final = hass
-        self.config: Final = config
+        self.hass = hass
+        self.config = config
 
         """ lets wait for 1 minute to get initial data from station
             and then try to push first data to Windy
@@ -66,7 +63,7 @@ class WindyPush:
         self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
         self.invalid_response_count: int = 0
 
-    def verify_windy_response(  # pylint: disable=useless-return
+    def verify_windy_response(
         self,
         response: str,
     ):
@@ -87,7 +84,7 @@ class WindyPush:
         if "Unauthorized" in response:
             raise WindyApiKeyError
 
-    async def push_data_to_windy(self, data: dict[str, str]) ->  bool:
+    async def push_data_to_windy(self, data: dict[str, str]) -> bool:
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.

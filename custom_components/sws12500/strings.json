@@ -87,6 +87,18 @@
           "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
         }
       },
+      "ecowitt": {
+        "description": "Nastavení pro Ecowitt",
+        "title": "Konfigurace pro stanice Ecowitt",
+        "data": {
+          "ecowitt_webhook_id": "Unikátní webhook ID",
+          "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
+        },
+        "data_description": {
+          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
+        }
+      },
       "migration": {
         "title": "Statistic migration.",
         "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
@@ -166,6 +178,21 @@
       "chill_index": {
         "name": "Wind chill"
       },
+      "hourly_rain": {
+        "name": "Hourly precipitation"
+      },
+      "weekly_rain": {
+        "name": "Weekly precipitation"
+      },
+      "monthly_rain": {
+        "name": "Monthly precipitation"
+      },
+      "yearly_rain": {
+        "name": "Yearly precipitation"
+      },
+      "wbgt_index": {
+        "name": "WBGT index"
+      },
       "wind_azimut": {
         "name": "Bearing",
         "state": {
@@ -185,14 +212,30 @@
           "wnw": "WNW",
           "nw": "NW",
           "nnw": "NNW"
-        },
-        "outside_battery": {
-          "name": "Outside battery level",
-          "state": {
-            "normal": "OK",
-            "low": "Low",
-            "unknown": "Unknown / drained out"
-          }
+        }
+      },
+      "outside_battery": {
+        "name": "Outside battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "ch2_battery": {
+        "name": "Channel 2 battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
+        }
+      },
+      "indoor_battery": {
+        "name": "Console battery level",
+        "state": {
+          "normal": "OK",
+          "low": "Low",
+          "unknown": "Unknown / drained out"
         }
       }
     }

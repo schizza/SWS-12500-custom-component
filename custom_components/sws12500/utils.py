@@ -1,12 +1,21 @@
-"""Utils for SWS12500."""
+"""Utils for SWS12500.
+
+This module contains small helpers used across the integration.
+
+Notable responsibilities:
+- Payload remapping: convert raw station/webhook field names into stable internal keys.
+- Auto-discovery helpers: detect new payload fields that are not enabled yet and persist them
+  to config entry options so sensors can be created dynamically.
+- Formatting/conversion helpers (wind direction text, battery mapping, temperature conversions).
+
+Keeping these concerns in one place avoids duplicating logic in the webhook handler and entity code.
+"""
 
 import logging
 import math
-from multiprocessing import Value
 from typing import Any, cast
 
 import numpy as np
-from py_typecheck import checked
 from py_typecheck.core import checked_or
 
 from homeassistant.components import persistent_notification
@@ -106,24 +115,35 @@ async def update_options(
 def anonymize(
     data: dict[str, str | int | float | bool],
 ) -> dict[str, str | int | float | bool]:
-    """Anoynimize recieved data."""
-    anonym: dict[str, str] = {}
-    return {
-        anonym[key]: value
-        for key, value in data.items()
-        if key not in {"ID", "PASSWORD", "wsid", "wspw"}
-    }
+    """Anonymize received data for safe logging.
+
+    - Keep all keys, but mask sensitive values.
+    - Do not raise on unexpected/missing keys.
+    """
+    secrets = {"ID", "PASSWORD", "wsid", "wspw"}
+
+    return {k: ("***" if k in secrets else v) for k, v in data.items()}
 
 
 def remap_items(entities: dict[str, str]) -> dict[str, str]:
-    """Remap items in query."""
+    """Remap legacy (WU-style) payload field names into internal sensor keys.
+
+    The station sends short/legacy field names (e.g. "tempf", "humidity"). Internally we use
+    stable keys from `const.py` (e.g. "outside_temp", "outside_humidity"). This function produces
+    a normalized dict that the rest of the integration can work with.
+    """
     return {
         REMAP_ITEMS[key]: value for key, value in entities.items() if key in REMAP_ITEMS
     }
 
 
 def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
-    """Remap items in query for WSLink API."""
+    """Remap WSLink payload field names into internal sensor keys.
+
+    WSLink uses a different naming scheme than the legacy endpoint (e.g. "t1tem", "t1ws").
+    Just like `remap_items`, this function normalizes the payload to the integration's stable
+    internal keys.
+    """
     return {
         REMAP_WSLINK_ITEMS[key]: value
         for key, value in entities.items()
@@ -132,19 +152,32 @@ def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
 
 
 def loaded_sensors(config_entry: ConfigEntry) -> list[str]:
-    """Get loaded sensors."""
+    """Return sensor keys currently enabled for this config entry.
 
+    Auto-discovery persists new keys into `config_entry.options[SENSORS_TO_LOAD]`. The sensor
+    platform uses this list to decide which entities to create.
+    """
     return config_entry.options.get(SENSORS_TO_LOAD) or []
 
 
 def check_disabled(
     items: dict[str, str], config_entry: ConfigEntry
 ) -> list[str] | None:
-    """Check if we have data for unloaded sensors.
+    """Detect payload fields that are not enabled yet (auto-discovery).
 
-    If so, then add sensor to load queue.
+    The integration supports "auto-discovery" of sensors: when the station starts sending a new
+    field, we can automatically enable and create the corresponding entity.
 
-    Returns list of found sensors or None
+    This helper compares the normalized payload keys (`items`) with the currently enabled sensor
+    keys stored in options (`SENSORS_TO_LOAD`) and returns the missing keys.
+
+    Returns:
+        - list[str] of newly discovered sensor keys (to be added/enabled), or
+        - None if no new keys were found.
+
+    Notes:
+        - Logging is controlled via `DEV_DBG` because payloads can arrive frequently.
+
     """
 
     log = checked_or(config_entry.options.get(DEV_DBG), bool, False)
@@ -178,8 +211,11 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     return None
 
 
-def battery_level(battery: int) -> UnitOfBat:
+def battery_level(battery: int | str | None) -> UnitOfBat:
     """Return battery level.
+
+    WSLink payload values often arrive as strings (e.g. "0"/"1"), so we accept
+    both ints and strings and coerce to int before mapping.
 
     Returns UnitOfBat
     """
@@ -189,10 +225,19 @@ def battery_level(battery: int) -> UnitOfBat:
         1: UnitOfBat.NORMAL,
     }
 
-    if (v := checked(battery, int)) is None:
+    if (battery is None) or (battery == ""):
         return UnitOfBat.UNKNOWN
 
-    return level_map.get(v, UnitOfBat.UNKNOWN)
+    vi: int
+    if isinstance(battery, int):
+        vi = battery
+    else:
+        try:
+            vi = int(battery)
+        except ValueError:
+            return UnitOfBat.UNKNOWN
+
+    return level_map.get(vi, UnitOfBat.UNKNOWN)
 
 
 def battery_level_to_icon(battery: UnitOfBat) -> str:

@@ -41,7 +41,7 @@ from .const import (
     UnitOfDir,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import wind_dir_to_text
+from .utils import chill_index, heat_index, wind_dir_to_text
 
 SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -133,8 +133,11 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         key=WIND_AZIMUT,
         icon="mdi:sign-direction",
         value_fn=lambda data: cast("str", wind_dir_to_text(data)),
+        value_from_data_fn=lambda data: cast(
+            "str", wind_dir_to_text(cast("float", data.get(WIND_DIR) or 0.0))
+        ),
         device_class=SensorDeviceClass.ENUM,
-        options=list(UnitOfDir),
+        options=[e.value for e in UnitOfDir],
         translation_key=WIND_AZIMUT,
     ),
     WeatherSensorEntityDescription(
@@ -244,6 +247,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=HEAT_INDEX,
         value_fn=lambda data: cast("int", data),
+        value_from_data_fn=lambda data: heat_index(data),
     ),
     WeatherSensorEntityDescription(
         key=CHILL_INDEX,
@@ -255,5 +259,6 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
         value_fn=lambda data: cast("int", data),
+        value_from_data_fn=lambda data: chill_index(data),
     ),
 )
