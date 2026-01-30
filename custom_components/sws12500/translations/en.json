@@ -60,12 +60,14 @@
         "description": "Resend weather data to your Windy stations.",
         "title": "Configure Windy",
         "data": {
-          "WINDY_API_KEY": "API KEY provided by Windy",
+          "WINDY_STATION_ID": "Station ID obtained form Windy",
+          "WINDY_STATION_PWD": "Station password obtained from Windy",
           "windy_enabled_checkbox": "Enable resending data to Windy",
           "windy_logger_checkbox": "Log Windy data and responses"
         },
         "data_description": {
-          "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
+          "WINDY_STATION_ID": "Windy station ID obtained from https://stations.windy.com/stations",
+          "WINDY_STATION_PWD": "Windy station password obtained from https://stations.windy.com/stations",
           "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
         }
       },

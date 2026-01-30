@@ -86,7 +86,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             raise HTTPUnauthorized
 
         if self.config_entry.options.get(WINDY_ENABLED):
-            response = await self.windy.push_data_to_windy(data)
+            response = await self.windy.push_data_to_windy(data, _wslink)
 
         if self.config.options.get(POCASI_CZ_ENABLED):
             await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
@@ -160,7 +160,7 @@ def register_path(
             if debug:
                 _LOGGER.debug("Default route: %s", default_route)
 
-            wslink_route = hass.http.app.router.add_get(
+            wslink_route = hass.http.app.router.add_post(
                 WSLINK_URL,
                 coordinator.recieved_data if _wslink else unregistred,
                 name="weather_wslink_url",

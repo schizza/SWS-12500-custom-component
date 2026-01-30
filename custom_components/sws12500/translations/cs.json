@@ -65,12 +65,14 @@
         "description": "Přeposílání dat z metostanice na Windy",
         "title": "Konfigurace Windy",
         "data": {
-          "WINDY_API_KEY": "Klíč API KEY získaný z Windy",
+          "WINDY_STATION_ID": "ID stanice, získaný z Windy",
+          "WINDY_STATION_PWD": "Heslo stanice, získané z Windy",
           "windy_enabled_checkbox": "Povolit přeposílání dat na Windy",
           "windy_logger_checkbox": "Logovat data a odpovědi z Windy"
         },
         "data_description": {
-          "WINDY_API_KEY": "Klíč API KEY získaný z https://api.windy.com/keys",
+          "WINDY_STATION_ID": "ID stanice získaný z https://stations.windy.com/station",
+          "WINDY_STATION_PWD": "Heslo stanice získané z https://stations.windy.com/station",
           "windy_logger_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
         }
       },
