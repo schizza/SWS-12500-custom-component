@@ -11,11 +11,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     PURGE_DATA,
-    WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_INVALID_KEY,
     WINDY_LOGGER_ENABLED,
     WINDY_NOT_INSERTED,
+    WINDY_STATION_ID,
+    WINDY_STATION_PW,
     WINDY_SUCCESS,
     WINDY_UNEXPECTED,
     WINDY_URL,
@@ -87,7 +88,7 @@ class WindyPush:
 
         return None
 
-    async def push_data_to_windy(self, data):
+    async def push_data_to_windy(self, data, wslink: bool = False):
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.
@@ -114,18 +115,46 @@ class WindyPush:
             if purge in purged_data:
                 purged_data.pop(purge)
 
-        if "dewptf" in purged_data:
-            dewpoint = round(((float(purged_data.pop("dewptf")) - 32) / 1.8), 1)
-            purged_data["dewpoint"] = str(dewpoint)
+        if wslink:
+            # WSLink -> Windy params
+            if "t1ws" in purged_data:
+                purged_data["wind"] = purged_data.pop("t1ws")
+            if "t1wgust" in purged_data:
+                purged_data["gust"] = purged_data.pop("t1wgust")
+            if "t1wdir" in purged_data:
+                purged_data["winddir"] = purged_data.pop("t1wdir")
+            if "t1hum" in purged_data:
+                purged_data["humidity"] = purged_data.pop("t1hum")
+            if "t1dew" in purged_data:
+                purged_data["dewpoint"] = purged_data.pop("t1dew")
+            if "t1tem" in purged_data:
+                purged_data["temp"] = purged_data.pop("t1tem")
+            if "rbar" in purged_data:
+                purged_data["mbar"] = purged_data.pop("rbar")
+            if "t1rainhr" in purged_data:
+                purged_data["precip"] = purged_data.pop("t1rainhr")
+            if "t1uvi" in purged_data:
+                purged_data["uv"] = purged_data.pop("t1uvi")
+            if "t1solrad" in purged_data:
+                purged_data["solarradiation"] = purged_data.pop("t1solrad")
 
-        windy_api_key = self.config.options.get(WINDY_API_KEY)
-        request_url = f"{WINDY_URL}{windy_api_key}"
+        windy_station_id = self.config.options.get(WINDY_STATION_ID)
+        windy_station_pw = self.config.options.get(WINDY_STATION_PW)
+
+        request_url = f"{WINDY_URL}"
+
+        purged_data["id"] = windy_station_id
+        purged_data["time"] = "now"
+
+        headers = {"Authorization": f"Bearer {windy_station_pw}"}
 
         if self.log:
             _LOGGER.info("Dataset for windy: %s", purged_data)
         session = async_get_clientsession(self.hass, verify_ssl=False)
         try:
-            async with session.get(request_url, params=purged_data) as resp:
+            async with session.get(
+                request_url, params=purged_data, headers=headers
+            ) as resp:
                 status = await resp.text()
                 try:
                     self.verify_windy_response(status)
