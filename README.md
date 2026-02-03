@@ -7,6 +7,16 @@ This integration will listen for data from your station and passes them to respe
 
 _This custom component replaces [old integration via Node-RED and proxy server](https://github.com/schizza/WeatherStation-SWS12500)._
 
+---
+
+### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data.
+
+- The transition date hasn’t been set yet, but it’s currently expected to happen within the next ~2–3 months. At the moment, I’m working on a full refactor and general code cleanup. Looking further ahead, the goal is to have the integration fully incorporated into Home Assistant as a native component—meaning it won’t need to be installed via HACS, but will become part of the official Home Assistant distribution.
+
+- I’m also looking for someone who owns an Ecowitt weather station and would be willing to help with testing the integration for these devices.
+
+---
+
 ## Warning - WSLink APP (applies also for SWS 12500 with firmware >3.0)
 
 For stations that are using WSLink app to setup station and WSLink API for resending data (SWS 12500 manufactured in 2024 and later). You will need to install [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to your Home Assistant if you are not running your Home Assistant instance in SSL mode or you do not have SSL proxy for your Home Assistant.
