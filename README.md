@@ -13,6 +13,8 @@ This integration will listen for data from your station and passes them to respe
 
 - The transition date hasn’t been set yet, but it’s currently expected to happen within the next ~2–3 months. At the moment, I’m working on a full refactor and general code cleanup. Looking further ahead, the goal is to have the integration fully incorporated into Home Assistant as a native component—meaning it won’t need to be installed via HACS, but will become part of the official Home Assistant distribution.
 
+- I’m also looking for someone who owns an Ecowitt weather station and would be willing to help with testing the integration for these devices.
+
 ---
 
 ## Warning - WSLink APP (applies also for SWS 12500 with firmware >3.0)
