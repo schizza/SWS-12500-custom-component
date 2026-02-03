@@ -1,34 +1,42 @@
 ![GitHub Downloads](https://img.shields.io/github/downloads/schizza/SWS-12500-custom-component/total?label=downloads%20%28all%20releases%29)
 ![Latest release downloads](https://img.shields.io/github/downloads/schizza/SWS-12500-custom-component/latest/total?label=downloads%20%28latest%29)
 
-# Integrates your Sencor SWS 12500 or 16600, GARNI, BRESSER weather stations seamlessly into Home Assistant
+# Integrates your Sencor SWS 12500, SWS16600, SWS 10500, GARNI, BRESSER weather stations seamlessly into Home Assistant
 
-This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to Windy API.
+This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to `Windy API` or `Pocasi Meteo`.
 
-_This custom component replaces [old integration via Node-RED and proxy server](https://github.com/schizza/WeatherStation-SWS12500)._
+### In the next major release, I there will be support for Ecowitt stations as well
+
+---
+
+### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data.
+
+- The transition date hasn’t been set yet, but it’s currently expected to happen within the next ~2–3 months. At the moment, I’m working on a full refactor and general code cleanup. Looking further ahead, the goal is to have the integration fully incorporated into Home Assistant as a native component—meaning it won’t need to be installed via HACS, but will become part of the official Home Assistant distribution.
+
+---
 
 ## Warning - WSLink APP (applies also for SWS 12500 with firmware >3.0)
 
-For stations that are using WSLink app to setup station and WSLink API for resending data (SWS 12500 manufactured in 2024 and later). You will need to install [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to your Home Assistant if you are not running your Home Assistant instance in SSL mode or you do not have SSL proxy for your Home Assistant.
+For stations that are using WSLink app to setup station and WSLink API for resending data (also SWS 12500 manufactured in 2024 and later). You will need to install [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to your Home Assistant if you are not running your Home Assistant instance in SSL mode or you do not have SSL proxy for your Home Assistant.
 
 ## Requirements
 
 - Weather station that supports sending data to custom server in their API [(list of supported stations.)](#list-of-supported-stations)
 - Configure station to send data directly to Home Assistant.
 - If you want to push data to Windy, you have to create an account at [Windy](https://stations.windy.com).
+- If you want to resend data to `Pocasi Meteo`, you have to create accout at [Pocasi Meteo](https://pocasimeteo.cz)
 
-## List of supported stations
+## Example of supported stations
 
 - [Sencor SWS 12500 Weather Station](https://www.sencor.cz/profesionalni-meteorologicka-stanice/sws-12500)
 - [Sencor SWS 16600 WiFi SH](https://www.sencor.cz/meteorologicka-stanice/sws-16600)
+- SWS 10500 (newer releases are also supported with [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon))
 - Bresser stations that support custom server upload. [for example, this is known to work](https://www.bresser.com/p/bresser-wi-fi-clearview-weather-station-with-7-in-1-sensor-7002586)
 - Garni stations with WSLink support or custom server support.
 
 ## Installation
 
-### If your SWS12500 station's firmware is 1.0 or your station is configured as described in this README and you still can not see any data incoming to Home Assistant please [read here](https://github.com/schizza/SWS-12500-custom-component/issues/17) and [here](firmware_bug.md)
-
-### For stations that send through WSLink API
+### For stations that send data through WSLink API
 
 Make sure you have your Home Assistant cofigured in SSL mode or use [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to bypass SSL configuration of whole Home Assistant.
 
@@ -85,6 +93,13 @@ If you change `API ID` or `API KEY` in the station, you have to reconfigure inte
 ![reconfigure dialog](README/reconfigure.png)
 
 As soon as the integration is added into Home Assistant it will listen for incoming data from the station and starts to fill sensors as soon as data will first arrive.
+
+## Upgrading from PWS to WSLink
+
+If you upgrade your station, that was previously sending data in PWS protocol, to station with WSLink protocol, you have to remove the integration a reinstall it. WSLink protocol is using metric scale instead of imperial used in PWS protocol.
+So, deleteing integration and reinstalling will make sure, that sensors will be avare of change of the measurement scale. 
+
+- as sensors unique IDs are the same, you will not loose any of historical data
 
 ## Resending data to Windy API
 
