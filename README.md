@@ -129,6 +129,43 @@ So, deleteing integration and reinstalling will make sure, that sensors will be 
 
 - You are done.
 
+## Multi-channel sensor support (CH2-CH8)
+
+This integration supports up to 8 external sensor channels for temperature, humidity, and battery monitoring.
+
+### Supported channels
+
+- **CH2-CH3**: Enabled by default
+- **CH4-CH8**: Available but disabled by default (enable manually in Home Assistant)
+
+### Available sensors per channel
+
+Each channel provides:
+- **Temperature sensor** (with configurable unit conversion)
+- **Humidity sensor** (percentage)
+- **Battery level sensor** (percentage)
+- **Connection status** (connected/disconnected)
+
+### Enabling additional channels
+
+By default, channels 4-8 are disabled to avoid cluttering your interface. To enable them:
+
+1. Go to **Settings** → **Devices & Services**
+2. Find **Sencor SWS 12500** and click on it
+3. You'll see all available entities, including disabled ones
+4. Click on any disabled channel sensor (e.g., "Channel 5 Temperature")
+5. Click the settings icon and enable the entity
+6. Repeat for other sensors you want to use
+
+### Station configuration
+
+Your weather station must be configured to send data for these channels. Refer to your station's manual on how to pair and configure external sensors to specific channels.
+
+**Note**: The integration automatically detects incoming data from any channel. If you don't see data for a channel you've enabled, verify that:
+- The external sensor is properly paired with your station
+- The sensor is sending data (check battery level)
+- Your station firmware supports the channel you're trying to use
+
 ## WSLink notes
 
 While your station is using WSLink you have to have Home Assistant in SSL mode or behind SSL proxy server.
