@@ -165,7 +165,7 @@ class WindyPush:
 
         if self.log:
             _LOGGER.info("Dataset for windy: %s", purged_data)
-        session = async_get_clientsession(self.hass, verify_ssl=False)
+        session = async_get_clientsession(self.hass)
         try:
             async with session.get(
                 request_url, params=purged_data, headers=headers

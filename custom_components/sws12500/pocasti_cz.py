@@ -117,7 +117,7 @@ class PocasiPush:
             _data["PASSWORD"] = _api_key
             request_url = f"{POCASI_CZ_URL}{DEFAULT_URL}"
 
-        session = async_get_clientsession(self.hass, verify_ssl=False)
+        session = async_get_clientsession(self.hass)
         _LOGGER.debug(
             "Payload for Pocasi Meteo server: [mode=%s] [request_url=%s] = %s",
             mode,
