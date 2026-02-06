@@ -37,7 +37,7 @@ class RouteInfo:
     url_path: str
     handler: Handler
     enabled: bool = False
-    fallback: Handler = field(default_factory=lambda: unregistred)
+    fallback: Handler = field(default_factory=lambda: unregistered)
 
 
 class Routes:
@@ -57,7 +57,7 @@ class Routes:
         info = self.routes.get(request.path)
         if not info:
             _LOGGER.debug("Route %s is not registered!", request.path)
-            return await unregistred(request)
+            return await unregistered(request)
         handler = info.handler if info.enabled else info.fallback
         return await handler(request)
 
@@ -91,7 +91,7 @@ class Routes:
         return "No routes is enabled."
 
 
-async def unregistred(request: Request) -> Response:
+async def unregistered(request: Request) -> Response:
     """Fallback response for unknown/disabled routes.
 
     This should normally never happen for correctly configured stations, but it provides
