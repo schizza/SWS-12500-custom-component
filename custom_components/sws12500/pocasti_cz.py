@@ -24,7 +24,7 @@ from .const import (
     POCASI_INVALID_KEY,
     WSLINK_URL,
 )
-from .utils import update_options
+from .utils import anonymize, update_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class PocasiPush:
             "Payload for Pocasi Meteo server: [mode=%s] [request_url=%s] = %s",
             mode,
             request_url,
-            _data,
+            anonymize(_data),
         )
         try:
             async with session.get(request_url, params=_data) as resp:
