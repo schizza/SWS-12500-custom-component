@@ -15,7 +15,6 @@ import logging
 import math
 from typing import Any, cast
 
-import numpy as np
 from py_typecheck.core import checked_or
 
 from homeassistant.components import persistent_notification
@@ -317,10 +316,10 @@ def heat_index(
             + 0.00085282 * temp * rh * rh
             - 0.00000199 * temp * temp * rh * rh
         )
-        if rh < 13 and (temp in np.arange(80, 112, 0.1)):
+        if rh < 13 and (80 <= temp <= 112):
             adjustment = ((13 - rh) / 4) * math.sqrt((17 - abs(temp - 95)) / 17)
 
-        if rh > 80 and (temp in np.arange(80, 87, 0.1)):
+        if rh > 80 and (80 <= temp <= 87):
             adjustment = ((rh - 85) / 10) * ((87 - temp) / 5)
 
         return round((full_index + adjustment if adjustment else full_index), 2)
