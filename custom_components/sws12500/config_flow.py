@@ -95,16 +95,23 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.windy_data = {
-            WINDY_STATION_ID: entry_data.get(WINDY_STATION_ID),
-            WINDY_STATION_PW: entry_data.get(WINDY_STATION_PW),
-            WINDY_ENABLED: entry_data.get(WINDY_ENABLED, False),
-            WINDY_LOGGER_ENABLED: entry_data.get(WINDY_LOGGER_ENABLED, False),
+            WINDY_STATION_ID: self.config_entry.options.get(WINDY_STATION_ID, ""),
+            WINDY_STATION_PW: self.config_entry.options.get(WINDY_STATION_PW, ""),
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(
+                WINDY_LOGGER_ENABLED, False
+            ),
         }
 
         self.windy_data_schema = {
-            vol.Optional(WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")): str,
-            vol.Optional(WINDY_STATION_PW, default=self.windy_data.get(WINDY_STATION_PW, "")): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool or False,
+            vol.Optional(
+                WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")
+            ): str,
+            vol.Optional(
+                WINDY_STATION_PW,
+                default=self.windy_data.get(WINDY_STATION_PW, ""),
+            ): str,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool
+            or False,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
@@ -190,19 +197,15 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        station_id = (user_input.get(WINDY_STATION_ID) or "").strip()
-        station_pw = (user_input.get(WINDY_STATION_PW) or "").strip()
-        if user_input.get(WINDY_ENABLED):
-            if not station_id:
-                errors[WINDY_STATION_ID] = "windy_id_required"
-            if not station_pw:
-                errors[WINDY_STATION_PW] = "windy_pw_required"
-            if errors:
-                return self.async_show_form(
-                    step_id="windy",
-                    data_schema=vol.Schema(self.windy_data_schema),
-                    errors=errors,
-                )
+        if (user_input[WINDY_ENABLED] is True) and (
+            (user_input[WINDY_STATION_ID] == "") or (user_input[WINDY_STATION_PW] == "")
+        ):
+            errors[WINDY_STATION_ID] = "windy_key_required"
+            return self.async_show_form(
+                step_id="windy",
+                data_schema=vol.Schema(self.windy_data_schema),
+                errors=errors,
+            )
 
         user_input = self.retain_data(user_input)
 

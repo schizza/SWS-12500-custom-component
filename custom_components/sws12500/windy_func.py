@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import logging
 
 from aiohttp.client_exceptions import ClientError
-from py_typecheck.core import checked
+from py_typecheck import checked
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
@@ -86,7 +86,34 @@ class WindyPush:
         if "Unauthorized" in response:
             raise WindyApiKeyError
 
-    async def push_data_to_windy(self, data: dict[str, str]) -> bool:
+    def _covert_wslink_to_pws(self, indata: dict[str, str]) -> dict[str, str]:
+        """Convert WSLink API data to Windy API data protocol."""
+        if "t1ws" in indata:
+            indata["wind"] = indata.pop("t1ws")
+        if "t1wgust" in indata:
+            indata["gust"] = indata.pop("t1wgust")
+        if "t1wdir" in indata:
+            indata["winddir"] = indata.pop("t1wdir")
+        if "t1hum" in indata:
+            indata["humidity"] = indata.pop("t1hum")
+        if "t1dew" in indata:
+            indata["dewpoint"] = indata.pop("t1dew")
+        if "t1tem" in indata:
+            indata["temp"] = indata.pop("t1tem")
+        if "rbar" in indata:
+            indata["mbar"] = indata.pop("rbar")
+        if "t1rainhr" in indata:
+            indata["precip"] = indata.pop("t1rainhr")
+        if "t1uvi" in indata:
+            indata["uv"] = indata.pop("t1uvi")
+        if "t1solrad" in indata:
+            indata["solarradiation"] = indata.pop("t1solrad")
+
+        return indata
+
+    async def push_data_to_windy(
+        self, data: dict[str, str], wslink: bool = False
+    ) -> bool:
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.
@@ -113,40 +140,37 @@ class WindyPush:
 
         if wslink:
             # WSLink -> Windy params
-            if "t1ws" in purged_data:
-                purged_data["wind"] = purged_data.pop("t1ws")
-            if "t1wgust" in purged_data:
-                purged_data["gust"] = purged_data.pop("t1wgust")
-            if "t1wdir" in purged_data:
-                purged_data["winddir"] = purged_data.pop("t1wdir")
-            if "t1hum" in purged_data:
-                purged_data["humidity"] = purged_data.pop("t1hum")
-            if "t1dew" in purged_data:
-                purged_data["dewpoint"] = purged_data.pop("t1dew")
-            if "t1tem" in purged_data:
-                purged_data["temp"] = purged_data.pop("t1tem")
-            if "rbar" in purged_data:
-                purged_data["mbar"] = purged_data.pop("rbar")
-            if "t1rainhr" in purged_data:
-                purged_data["precip"] = purged_data.pop("t1rainhr")
-            if "t1uvi" in purged_data:
-                purged_data["uv"] = purged_data.pop("t1uvi")
-            if "t1solrad" in purged_data:
-                purged_data["solarradiation"] = purged_data.pop("t1solrad")
+            self._covert_wslink_to_pws(purged_data)
 
         if (
-            windy_api_key := checked(self.config.options.get(WINDY_API_KEY), str)
+            windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)
         ) is None:
             _LOGGER.error("Windy API key is not provided! Check your configuration.")
             return False
 
-        request_url = f"{WINDY_URL}{windy_api_key}"
+        if (
+            windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)
+        ) is None:
+            _LOGGER.error(
+                "Windy station password is missing! Check your configuration."
+            )
+            return False
+
+        request_url = f"{WINDY_URL}"
+
+        purged_data["id"] = windy_station_id
+
+        purged_data["time"] = "now"
+
+        headers = {"Authorization": f"Bearer {windy_station_pw}"}
 
         if self.log:
             _LOGGER.info("Dataset for windy: %s", purged_data)
         session = async_get_clientsession(self.hass, verify_ssl=False)
         try:
-            async with session.get(request_url, params=purged_data, headers=headers) as resp:
+            async with session.get(
+                request_url, params=purged_data, headers=headers
+            ) as resp:
                 status = await resp.text()
                 try:
                     self.verify_windy_response(status)
