@@ -6,7 +6,7 @@ from typing import Final
 DOMAIN = "sws12500"
 DEFAULT_URL = "/weatherstation/updateweatherstation.php"
 WSLINK_URL = "/data/upload.php"
-WINDY_URL = "https://stations.windy.com/pws/update/"
+WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 DATABASE_PATH = "/config/home-assistant_v2.db"
 
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
@@ -41,7 +41,8 @@ POCASI_CZ_UNEXPECTED: Final = (
     "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
 )
 
-WINDY_API_KEY = "WINDY_API_KEY"
+WINDY_STATION_ID = "WINDY_STATION_ID"
+WINDY_STATION_PW = "WINDY_STATION_PWD"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
 WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"

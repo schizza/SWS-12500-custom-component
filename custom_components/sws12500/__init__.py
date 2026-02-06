@@ -161,7 +161,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         # Optional forwarding to external services. This is kept here (in the webhook handler)
         # to avoid additional background polling tasks.
         if self.config.options.get(WINDY_ENABLED, False):
-            await self.windy.push_data_to_windy(data)
+            await self.windy.push_data_to_windy(data, _wslink)
 
         if self.config.options.get(POCASI_CZ_ENABLED, False):
             await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")

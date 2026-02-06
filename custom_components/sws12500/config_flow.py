@@ -31,9 +31,10 @@ from .const import (
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_SEND_MINIMUM,
     SENSORS_TO_LOAD,
-    WINDY_API_KEY,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
+    WINDY_STATION_ID,
+    WINDY_STATION_PW,
     WSLINK,
 )
 
@@ -94,8 +95,8 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.windy_data = {
-            WINDY_API_KEY: self.config_entry.options.get(WINDY_API_KEY),
-            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
+            WINDY_STATION_ID: self.config_entry.options.get(WINDY_STATION_ID, ""),
+            WINDY_STATION_PW: self.config_entry.options.get(WINDY_STATION_PW, ""),
             WINDY_LOGGER_ENABLED: self.config_entry.options.get(
                 WINDY_LOGGER_ENABLED, False
             ),
@@ -103,7 +104,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.windy_data_schema = {
             vol.Optional(
-                WINDY_API_KEY, default=self.windy_data.get(WINDY_API_KEY, "")
+                WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")
+            ): str,
+            vol.Optional(
+                WINDY_STATION_PW,
+                default=self.windy_data.get(WINDY_STATION_PW, ""),
             ): str,
             vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool
             or False,
@@ -202,8 +207,10 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        if (user_input[WINDY_ENABLED] is True) and (user_input[WINDY_API_KEY] == ""):
-            errors[WINDY_API_KEY] = "windy_key_required"
+        if (user_input[WINDY_ENABLED] is True) and (
+            (user_input[WINDY_STATION_ID] == "") or (user_input[WINDY_STATION_PW] == "")
+        ):
+            errors[WINDY_STATION_ID] = "windy_key_required"
             return self.async_show_form(
                 step_id="windy",
                 data_schema=vol.Schema(self.windy_data_schema),
