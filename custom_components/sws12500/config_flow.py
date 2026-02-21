@@ -23,6 +23,7 @@ from .const import (
     DOMAIN,
     ECOWITT_ENABLED,
     ECOWITT_WEBHOOK_ID,
+    # HEALTH_BEARER_TOKEN,
     INVALID_CREDENTIALS,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
@@ -100,6 +101,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             WINDY_LOGGER_ENABLED: self.config_entry.options.get(
                 WINDY_LOGGER_ENABLED, False
             ),
+            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
         }
 
         self.windy_data_schema = {

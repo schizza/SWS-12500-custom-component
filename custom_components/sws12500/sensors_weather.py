@@ -247,7 +247,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=HEAT_INDEX,
         value_fn=lambda data: cast("int", data),
-        value_from_data_fn=lambda data: heat_index(data),
+        value_from_data_fn=heat_index,
     ),
     WeatherSensorEntityDescription(
         key=CHILL_INDEX,
@@ -259,6 +259,6 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
         value_fn=lambda data: cast("int", data),
-        value_from_data_fn=lambda data: chill_index(data),
+        value_from_data_fn=chill_index,
     ),
 )
