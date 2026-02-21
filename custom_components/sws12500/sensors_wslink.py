@@ -297,9 +297,9 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=[e.value for e in UnitOfBat],
         value_fn=None,
-        value_from_data_fn=lambda data: battery_level(
-            data.get(OUTSIDE_BATTERY, None)
-        ).value,
+        value_from_data_fn=lambda data: (
+            battery_level(data.get(OUTSIDE_BATTERY, None)).value
+        ),
     ),
     WeatherSensorEntityDescription(
         key=CH2_BATTERY,
@@ -307,9 +307,9 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=[e.value for e in UnitOfBat],
         value_fn=None,
-        value_from_data_fn=lambda data: battery_level(
-            data.get(CH2_BATTERY, None)
-        ).value,
+        value_from_data_fn=lambda data: (
+            battery_level(data.get(CH2_BATTERY, None)).value
+        ),
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_BATTERY,
@@ -317,9 +317,9 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=[e.value for e in UnitOfBat],
         value_fn=None,
-        value_from_data_fn=lambda data: battery_level(
-            data.get(INDOOR_BATTERY, None)
-        ).value,
+        value_from_data_fn=lambda data: (
+            battery_level(data.get(INDOOR_BATTERY, None)).value
+        ),
     ),
     WeatherSensorEntityDescription(
         key=WBGT_TEMP,

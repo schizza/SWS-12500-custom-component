@@ -30,6 +30,7 @@ from homeassistant.helpers.entity import DeviceInfo, generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import health_sensor
 from .const import (
     CHILL_INDEX,
     DOMAIN,
@@ -109,6 +110,10 @@ async def async_setup_entry(
 
     # Store the platform callback so we can add entities later (auto-discovery) without reload.
     entry_data[ENTRY_ADD_ENTITIES] = async_add_entities
+
+    # Wire up the integration health diagnostic sensor.
+    # This is kept in a dedicated module (`health_sensor.py`) for readability.
+    await health_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
     wslink_enabled = checked_or(config_entry.options.get(WSLINK), bool, False)
     sensor_types = SENSOR_TYPES_WSLINK if wslink_enabled else SENSOR_TYPES_WEATHER_API
@@ -202,6 +207,15 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         self.entity_description = description
         self._attr_unique_id = description.key
 
+        config_entry = getattr(self.coordinator, "config", None)
+        self._dev_log = checked_or(
+            config_entry.options.get("dev_debug_checkbox")
+            if config_entry is not None
+            else False,
+            bool,
+            False,
+        )
+
     @property
     def native_value(self):  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current sensor state.
@@ -218,17 +232,60 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         key = self.entity_description.key
 
         description = cast("WeatherSensorEntityDescription", self.entity_description)
+
+        if self._dev_log:
+            _LOGGER.debug(
+                "native_value start: key=%s, has_value_from_data_fn=%s, has_value_fn=%s, data_keys=%s",
+                key,
+                description.value_from_data_fn is not None,
+                description.value_fn is not None,
+                sorted(data),
+            )
+
         if description.value_from_data_fn is not None:
-            return description.value_from_data_fn(data)
+            try:
+                value = description.value_from_data_fn(data)
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "native_value compute failed via value_from_data_fn for key=%s", key
+                )
+                return None
+            if self._dev_log:
+                _LOGGER.debug(
+                    "native_value computed via value_from_data_fn: key=%s -> %s",
+                    key,
+                    value,
+                )
+            return value
 
         raw = data.get(key)
         if raw is None or raw == "":
+            if self._dev_log:
+                _LOGGER.debug("native_value missing raw: key=%s raw=%s", key, raw)
             return None
 
         if description.value_fn is None:
+            if self._dev_log:
+                _LOGGER.debug("native_value has no value_fn: key=%s raw=%s", key, raw)
             return None
 
-        return description.value_fn(raw)
+        try:
+            value = description.value_fn(raw)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "native_value compute failed via value_fn for key=%s raw=%s", key, raw
+            )
+            return None
+
+        if self._dev_log:
+            _LOGGER.debug(
+                "native_value computed via value_fn: key=%s raw=%s -> %s",
+                key,
+                raw,
+                value,
+            )
+
+        return value
 
     @property
     def suggested_entity_id(self) -> str:

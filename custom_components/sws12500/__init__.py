@@ -26,13 +26,16 @@ With a high-frequency push source (webhook), a reload at the wrong moment can le
 period where no entities are subscribed, causing stale states until another full reload/restart.
 """
 
+from asyncio import timeout
 import logging
 from typing import Any, cast
 
+from aiohttp import ClientConnectionError
 import aiohttp.web
 from aiohttp.web_exceptions import HTTPUnauthorized
 from py_typecheck import checked, checked_or
 
+from homeassistant.components.network import async_get_source_ip
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -41,6 +44,8 @@ from homeassistant.exceptions import (
     InvalidStateError,
     PlatformNotReady,
 )
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.network import get_url
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -48,13 +53,14 @@ from .const import (
     API_KEY,
     DEFAULT_URL,
     DOMAIN,
+    HEALTH_URL,
     POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
     WSLINK,
     WSLINK_URL,
 )
-from .data import ENTRY_COORDINATOR, ENTRY_LAST_OPTIONS
+from .data import ENTRY_COORDINATOR, ENTRY_HEALTH_COORD, ENTRY_LAST_OPTIONS
 from .pocasti_cz import PocasiPush
 from .routes import Routes
 from .utils import (
@@ -75,6 +81,76 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 class IncorrectDataError(InvalidStateError):
     """Invalid exception."""
+
+
+"""Helper coordinator for health status endpoint.
+
+This is separate from the main `WeatherDataUpdateCoordinator`
+Coordinator checks the WSLink Addon reachability and returns basic health info.
+
+Serves health status for diagnostic sensors and the integration health page in HA UI.
+"""
+
+
+class HealthCoordinator(DataUpdateCoordinator):
+    """Coordinator for health status of integration.
+
+    This coordinator will listen on `/station/health`.
+    """
+
+    # TODO Add update interval and periodic checks for WSLink Addon reachability, so that health status is always up-to-date even without incoming station pushes.
+
+    def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
+        """Initialize coordinator for health status."""
+
+        self.hass: HomeAssistant = hass
+        self.config: ConfigEntry = config
+        self.data: dict[str, str] = {}
+
+        super().__init__(hass, logger=_LOGGER, name=DOMAIN)
+
+    async def health_status(self, _: aiohttp.web.Request) -> aiohttp.web.Response:
+        """Handle and inform of integration status.
+
+        Note: aiohttp route handlers must accept the incoming Request.
+        """
+
+        session = async_get_clientsession(self.hass, False)
+
+        # Keep this endpoint lightweight and always available.
+        url = get_url(self.hass)
+        ip = await async_get_source_ip(self.hass)
+
+        request_url = f"https://{ip}"
+
+        try:
+            async with timeout(5), session.get(request_url) as response:
+                if checked(response.status, int) == 200:
+                    resp = await response.text()
+                else:
+                    resp = {"error": f"Unexpected status code {response.status}"}
+        except ClientConnectionError:
+            resp = {"error": "Connection error, WSLink addon is unreachable."}
+
+        data = {
+            "Integration status": "ok",
+            "HomeAssistant source_ip": str(ip),
+            "HomeAssistant base_url": url,
+            "WSLink Addon response": resp,
+        }
+
+        self.async_set_updated_data(data)
+
+        # TODO Remove this response, as it is intentded to tests only.
+        return aiohttp.web.json_response(
+            {
+                "Integration status": "ok",
+                "HomeAssistant source_ip": str(ip),
+                "HomeAssistant base_url": url,
+                "WSLink Addon response": resp,
+            },
+            status=200,
+        )
 
 
 # NOTE:
@@ -245,6 +321,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 def register_path(
     hass: HomeAssistant,
     coordinator: WeatherDataUpdateCoordinator,
+    coordinator_h: HealthCoordinator,
     config: ConfigEntry,
 ) -> bool:
     """Register webhook paths.
@@ -264,11 +341,13 @@ def register_path(
     routes: Routes = Routes()
     routes.add_route(DEFAULT_URL, coordinator.received_data, enabled=not _wslink)
     routes.add_route(WSLINK_URL, coordinator.received_data, enabled=_wslink)
+    routes.add_route(HEALTH_URL, coordinator_h.health_status, enabled=True)
 
     # Register webhooks in HomeAssistant with dispatcher
     try:
         _ = hass.http.app.router.add_get(DEFAULT_URL, routes.dispatch)
         _ = hass.http.app.router.add_post(WSLINK_URL, routes.dispatch)
+        _ = hass.http.app.router.add_get(HEALTH_URL, routes.dispatch)
 
         # Save initialised routes
         hass_data["routes"] = routes
@@ -324,6 +403,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = WeatherDataUpdateCoordinator(hass, entry)
         entry_data[ENTRY_COORDINATOR] = coordinator
 
+    # Similar to the coordinator, we want to reuse the same health coordinator instance across
+    # reloads so that the health endpoint remains responsive and doesn't lose its listeners.
+    coordinator_health = entry_data.get(ENTRY_HEALTH_COORD)
+    if isinstance(coordinator_health, HealthCoordinator):
+        coordinator_health.config = entry
+    else:
+        coordinator_health = HealthCoordinator(hass, entry)
+        entry_data[ENTRY_HEALTH_COORD] = coordinator_health
+
     routes: Routes | None = hass_data.get("routes", None)
 
     # Keep an options snapshot so update_listener can skip reloads when only `SENSORS_TO_LOAD` changes.
@@ -339,7 +427,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         routes.switch_route(DEFAULT_URL if not _wslink else WSLINK_URL)
         _LOGGER.debug("%s", routes.show_enabled())
     else:
-        routes_enabled = register_path(hass, coordinator, entry)
+        routes_enabled = register_path(hass, coordinator, coordinator_health, entry)
 
         if not routes_enabled:
             _LOGGER.error("Fatal: path not registered!")
