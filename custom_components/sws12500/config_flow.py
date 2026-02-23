@@ -197,13 +197,19 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        if (user_input[WINDY_ENABLED] is True) and ((user_input[WINDY_STATION_ID] == "") or (user_input[WINDY_STATION_PW] == "")):
-            errors[WINDY_STATION_ID] = "windy_key_required"
-            return self.async_show_form(
-                step_id="windy",
-                data_schema=vol.Schema(self.windy_data_schema),
-                errors=errors,
-            )
+        station_id = (user_input.get(WINDY_STATION_ID) or "").strip()
+        station_pw = (user_input.get(WINDY_STATION_PW) or "").strip()
+        if user_input.get(WINDY_ENABLED):
+            if not station_id:
+                errors[WINDY_STATION_ID] = "windy_id_required"
+            if not station_pw:
+                errors[WINDY_STATION_PW] = "windy_pw_required"
+            if errors:
+                return self.async_show_form(
+                    step_id="windy",
+                    data_schema=vol.Schema(self.windy_data_schema),
+                    errors=errors,
+                )
 
         # retain user_data
         user_input.update(self.user_data)
