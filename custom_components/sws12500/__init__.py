@@ -86,7 +86,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             raise HTTPUnauthorized
 
         if self.config_entry.options.get(WINDY_ENABLED):
-            response = await self.windy.push_data_to_windy(data, _wslink)
+            _ = await self.windy.push_data_to_windy(data)
 
         if self.config.options.get(POCASI_CZ_ENABLED):
             await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")

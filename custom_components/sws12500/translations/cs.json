@@ -29,7 +29,8 @@
       "valid_credentials_api": "Vyplňte platné API ID",
       "valid_credentials_key": "Vyplňte platný API KEY",
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
-      "windy_key_required": "Je vyžadován Windy API key, pokud chcete aktivovat přeposílání dat na Windy",
+      "windy_id_required": "Je vyžadováno Windy ID, pokud chcete aktivovat přeposílání dat na Windy",
+      "windy_pw_required": "Je vyžadován Windy KEY, pokud chcete aktivovat přeposílání dat na Windy",
       "pocasi_id_required": "Je vyžadován Počasí ID, pokud chcete aktivovat přeposílání dat na Počasí Meteo CZ",
       "pocasi_key_required": "Klíč k účtu Počasí Meteo je povinný.",
       "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund."

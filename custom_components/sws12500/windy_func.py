@@ -5,6 +5,7 @@ import logging
 
 from aiohttp.client_exceptions import ClientError
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -138,8 +139,22 @@ class WindyPush:
             if "t1solrad" in purged_data:
                 purged_data["solarradiation"] = purged_data.pop("t1solrad")
 
-        windy_station_id = self.config.options.get(WINDY_STATION_ID)
-        windy_station_pw = self.config.options.get(WINDY_STATION_PW)
+        windy_station_id = self.config.options.get(WINDY_STATION_ID, "")
+        windy_station_pw = self.config.options.get(WINDY_STATION_PW, "")
+
+        if windy_station_id == "" or windy_station_pw == "":
+            _LOGGER.error(
+                "Windy ID or PASSWORD is not set correctly. Please reconfigure your WINDY resend credentials. Disabling WINDY resend for now!"
+            )
+
+            persistent_notification.async_create(
+                self.hass,
+                "Your Windy credentials are not set correctly. Disabling Windy resending for now. Update Windy options and enable reseding.",
+                "Windy resending disabled.",
+            )
+
+            await update_options(self.hass, self.config, WINDY_ENABLED, False)
+            return False
 
         request_url = f"{WINDY_URL}"
 
