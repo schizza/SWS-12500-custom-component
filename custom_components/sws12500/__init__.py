@@ -56,10 +56,13 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self.pocasi: PocasiPush = PocasiPush(hass, config)
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
-    async def recieved_data(self, webdata):
+    async def recieved_data(self, webdata: aiohttp.web.Request):
         """Handle incoming data query."""
         _wslink = self.config_entry.options.get(WSLINK)
-        data = webdata.query
+        get_data = webdata.query
+        post_data = await webdata.post()
+
+        data = dict(get_data) | dict(post_data)
 
         response = None
 
