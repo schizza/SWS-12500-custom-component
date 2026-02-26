@@ -27,7 +27,6 @@ period where no entities are subscribed, causing stale states until another full
 """
 
 from asyncio import timeout
-from inspect import isawaitable
 import logging
 from typing import Any, cast
 
