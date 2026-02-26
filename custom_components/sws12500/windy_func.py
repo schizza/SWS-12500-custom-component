@@ -139,10 +139,12 @@ class WindyPush:
             if "t1solrad" in purged_data:
                 purged_data["solarradiation"] = purged_data.pop("t1solrad")
 
-        windy_station_id = self.config.options.get(WINDY_STATION_ID, "")
-        windy_station_pw = self.config.options.get(WINDY_STATION_PW, "")
+        windy_station_id = (self.config.options.get(WINDY_STATION_ID) or "").strip()
+        windy_station_pw = (self.config.options.get(WINDY_STATION_PW) or "").strip()
 
-        if windy_station_id == "" or windy_station_pw == "":
+        # Both values are required. Options can sometimes be None, so normalize to
+        # empty string and strip whitespace before validating.
+        if not windy_station_id or not windy_station_pw:
             _LOGGER.error(
                 "Windy ID or PASSWORD is not set correctly. Please reconfigure your WINDY resend credentials. Disabling WINDY resend for now!"
             )
