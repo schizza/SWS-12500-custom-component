@@ -27,6 +27,7 @@ period where no entities are subscribed, causing stale states until another full
 """
 
 from asyncio import timeout
+from inspect import isawaitable
 import logging
 from typing import Any, cast
 
@@ -198,7 +199,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Incoming station payload is delivered as query params.
         # We copy it to a plain dict so it can be passed around safely.
-        data: dict[str, Any] = dict(webdata.query)
+        get_data = webdata.query
+        post_data = await webdata.post()
+
+        # normalize incoming data to dict[str, Any]
+        data: dict[str, Any] = {**dict(get_data), **dict(post_data)}
 
         # Validate auth keys (different parameter names depending on endpoint mode).
         if not _wslink and ("ID" not in data or "PASSWORD" not in data):
