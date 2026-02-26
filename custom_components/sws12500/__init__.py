@@ -163,13 +163,21 @@ def register_path(
             if debug:
                 _LOGGER.debug("Default route: %s", default_route)
 
-            wslink_route = hass.http.app.router.add_post(
+            wslink_route = hass.http.app.router.add_get(
                 WSLINK_URL,
                 coordinator.recieved_data if _wslink else unregistred,
                 name="weather_wslink_url",
             )
             if debug:
                 _LOGGER.debug("WSLink route: %s", wslink_route)
+
+            wslink_post_route = hass.http.app.router.add_post(
+                WSLINK_URL,
+                coordinator.recieved_data if _wslink else unregistred,
+                name="weather_wslink_post_route_url",
+            )
+            if debug:
+                _LOGGER.debug("WSLink route: %s", wslink_post_route)
 
             routes.add_route(
                 DEFAULT_URL,
@@ -179,6 +187,10 @@ def register_path(
             )
             routes.add_route(
                 WSLINK_URL, wslink_route, coordinator.recieved_data, _wslink
+            )
+
+            routes.add_route(
+                WSLINK_URL, wslink_post_route, coordinator.recieved_data, _wslink
             )
 
             hass_data["routes"] = routes
