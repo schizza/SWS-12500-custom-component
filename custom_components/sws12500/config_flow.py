@@ -40,9 +40,10 @@ class InvalidAuth(HomeAssistantError):
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
-    def __init__(self) -> None:
+    def __init__(self, config_entry) -> None:
         """Initialize flow."""
         super().__init__()
+        self.config_entry = config_entry
 
         self.windy_data: dict[str, Any] = {}
         self.windy_data_schema = {}
@@ -53,18 +54,15 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.pocasi_cz: dict[str, Any] = {}
         self.pocasi_cz_schema = {}
 
-        @property
-        def config_entry(self):
-            return self.hass.config_entries.async_get_entry(self.handler)
-
     async def _get_entry_data(self):
         """Get entry data."""
+        entry_data = {**self.config_entry.data, **self.config_entry.options}
 
         self.user_data = {
-            API_ID: self.config_entry.options.get(API_ID),
-            API_KEY: self.config_entry.options.get(API_KEY),
-            WSLINK: self.config_entry.options.get(WSLINK, False),
-            DEV_DBG: self.config_entry.options.get(DEV_DBG, False),
+            API_ID: entry_data.get(API_ID),
+            API_KEY: entry_data.get(API_KEY),
+            WSLINK: entry_data.get(WSLINK, False),
+            DEV_DBG: entry_data.get(DEV_DBG, False),
         }
 
         self.user_data_schema = {
@@ -76,19 +74,17 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.sensors = {
             SENSORS_TO_LOAD: (
-                self.config_entry.options.get(SENSORS_TO_LOAD)
-                if isinstance(self.config_entry.options.get(SENSORS_TO_LOAD), list)
+                entry_data.get(SENSORS_TO_LOAD)
+                if isinstance(entry_data.get(SENSORS_TO_LOAD), list)
                 else []
             )
         }
 
         self.windy_data = {
-            WINDY_STATION_ID: self.config_entry.options.get(WINDY_STATION_ID),
-            WINDY_STATION_PW: self.config_entry.options.get(WINDY_STATION_PW),
-            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
-            WINDY_LOGGER_ENABLED: self.config_entry.options.get(
-                WINDY_LOGGER_ENABLED, False
-            ),
+            WINDY_STATION_ID: entry_data.get(WINDY_STATION_ID),
+            WINDY_STATION_PW: entry_data.get(WINDY_STATION_PW),
+            WINDY_ENABLED: entry_data.get(WINDY_ENABLED, False),
+            WINDY_LOGGER_ENABLED: entry_data.get(WINDY_LOGGER_ENABLED, False),
         }
 
         self.windy_data_schema = {
@@ -107,15 +103,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.pocasi_cz = {
-            POCASI_CZ_API_ID: self.config_entry.options.get(POCASI_CZ_API_ID, ""),
-            POCASI_CZ_API_KEY: self.config_entry.options.get(POCASI_CZ_API_KEY, ""),
-            POCASI_CZ_ENABLED: self.config_entry.options.get(POCASI_CZ_ENABLED, False),
-            POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(
-                POCASI_CZ_LOGGER_ENABLED, False
-            ),
-            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(
-                POCASI_CZ_SEND_INTERVAL, 30
-            ),
+            POCASI_CZ_API_ID: entry_data.get(POCASI_CZ_API_ID, ""),
+            POCASI_CZ_API_KEY: entry_data.get(POCASI_CZ_API_KEY, ""),
+            POCASI_CZ_ENABLED: entry_data.get(POCASI_CZ_ENABLED, False),
+            POCASI_CZ_LOGGER_ENABLED: entry_data.get(POCASI_CZ_LOGGER_ENABLED, False),
+            POCASI_CZ_SEND_INTERVAL: entry_data.get(POCASI_CZ_SEND_INTERVAL, 30),
         }
 
         self.pocasi_cz_schema = {
@@ -310,4 +302,4 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return ConfigOptionsFlowHandler()
+        return ConfigOptionsFlowHandler(config_entry)

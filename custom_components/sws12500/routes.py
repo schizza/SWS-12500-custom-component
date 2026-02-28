@@ -33,8 +33,8 @@ class Routes:
     def switch_route(self, coordinator: Callable, url_path: str):
         """Switch route."""
 
-        for url, route in self.routes.items():
-            if url == url_path:
+        for route in self.routes.values():
+            if route.url_path == url_path:
                 _LOGGER.info("New coordinator to route: %s", route.url_path)
                 route.enabled = True
                 route.handler = coordinator
@@ -52,18 +52,20 @@ class Routes:
         enabled: bool = False,
     ):
         """Add route."""
-        self.routes[url_path] = Route(url_path, route, handler, enabled)
+        key = f"{route.method}:{url_path}"
+        self.routes[key] = Route(url_path, route, handler, enabled)
 
-    def get_route(self, url_path: str) -> Route:
+    def get_route(self, url_path: str) -> Route | None:
         """Get route."""
-        return self.routes.get(url_path, Route)
+        for route in self.routes.values():
+            if route.url_path == url_path:
+                return route
+        return None
 
     def get_enabled(self) -> str:
         """Get enabled routes."""
-        enabled_routes = [
-            route.url_path for route in self.routes.values() if route.enabled
-        ]
-        return "".join(enabled_routes) if enabled_routes else "None"
+        enabled_routes = {route.url_path for route in self.routes.values() if route.enabled}
+        return ", ".join(sorted(enabled_routes)) if enabled_routes else "None"
 
     def __str__(self):
         """Return string representation."""

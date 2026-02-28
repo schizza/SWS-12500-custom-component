@@ -52,6 +52,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         """Init global updater."""
         self.hass = hass
         self.config = config
+        self.config_entry = config
         self.windy = WindyPush(hass, config)
         self.pocasi: PocasiPush = PocasiPush(hass, config)
         super().__init__(hass, _LOGGER, name=DOMAIN)
