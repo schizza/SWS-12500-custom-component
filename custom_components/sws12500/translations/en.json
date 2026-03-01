@@ -29,7 +29,8 @@
       "valid_credentials_api": "Provide valid API ID.",
       "valid_credentials_key": "Provide valid API KEY.",
       "valid_credentials_match": "API ID and API KEY should not be the same.",
-      "windy_key_required": "Windy API key is required if you want to enable this function."
+      "windy_id_required": "Windy API ID is required if you want to enable this function.",
+      "windy_pw_required": "Windy API password is required if you want to enable this function."
     },
     "step": {
       "init": {

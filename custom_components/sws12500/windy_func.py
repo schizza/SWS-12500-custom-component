@@ -2,8 +2,10 @@
 
 from datetime import datetime, timedelta
 import logging
+import re
 
 from aiohttp.client_exceptions import ClientError
+from homeassistant.components import persistent_notification
 from py_typecheck import checked
 
 from homeassistant.config_entries import ConfigEntry
@@ -62,6 +64,9 @@ class WindyPush:
         self.next_update: datetime = datetime.now() + timed(minutes=1)
 
         self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
+
+        # Lets chcek if Windy server is responding right.
+        # Otherwise, try 3 times and then disable resending, as we might have bad credentials.
         self.invalid_response_count: int = 0
 
     def verify_windy_response(
@@ -110,6 +115,14 @@ class WindyPush:
 
         return indata
 
+    async def _disable_windy(self, reason: str) -> None:
+        """Disable Windy resending."""
+
+        if not await update_options(self.hass, self.config, WINDY_ENABLED, False):
+            _LOGGER.debug("Failed to set Windy options to false.")
+
+        persistent_notification.create(self.hass, reason, "Windy resending disabled.")
+
     async def push_data_to_windy(
         self, data: dict[str, str], wslink: bool = False
     ) -> bool:
@@ -120,6 +133,27 @@ class WindyPush:
         we are sending almost the same data as we received
         from station. But we need to do some clean up.
         """
+
+        # First check if we have valid credentials, before any data manipulation.
+        if (
+            windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)
+        ) is None:
+            _LOGGER.error("Windy API key is not provided! Check your configuration.")
+            await self._disable_windy(
+                "Windy API key is not provided. Resending is disabled for now. Reconfigure your integration."
+            )
+            return False
+
+        if (
+            windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)
+        ) is None:
+            _LOGGER.error(
+                "Windy station password is missing! Check your configuration."
+            )
+            await self._disable_windy(
+                "Windy password is not provided. Resending is disabled for now. Reconfigure your integration."
+            )
+            return False
 
         if self.log:
             _LOGGER.info(
@@ -139,21 +173,7 @@ class WindyPush:
 
         if wslink:
             # WSLink -> Windy params
-            self._covert_wslink_to_pws(purged_data)
-
-        if (
-            windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)
-        ) is None:
-            _LOGGER.error("Windy API key is not provided! Check your configuration.")
-            return False
-
-        if (
-            windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)
-        ) is None:
-            _LOGGER.error(
-                "Windy station password is missing! Check your configuration."
-            )
-            return False
+            purged_data = self._covert_wslink_to_pws(purged_data)
 
         request_url = f"{WINDY_URL}"
 
@@ -180,13 +200,9 @@ class WindyPush:
                 except WindyApiKeyError:
                     # log despite of settings
                     _LOGGER.critical(WINDY_INVALID_KEY)
-
-                    if not (
-                        await update_options(
-                            self.hass, self.config, WINDY_ENABLED, False
-                        )
-                    ):
-                        _LOGGER.debug("Failed to set Windy option to false.")
+                    await self._disable_windy(
+                        reason="Windy server refused your API key. Resending is disabled for now. Reconfigure your Windy settings."
+                    )
 
                 except WindySuccess:
                     if self.log:
@@ -200,11 +216,9 @@ class WindyPush:
             self.invalid_response_count += 1
             if self.invalid_response_count > 3:
                 _LOGGER.critical(WINDY_UNEXPECTED)
-                if not await update_options(
-                    self.hass, self.config, WINDY_ENABLED, False
-                ):
-                    _LOGGER.debug("Failed to set Windy options to false.")
-
+                await self._disable_windy(
+                    reason="Invalid response from Windy 3 times. Disabling resending option."
+                )
         self.last_update = datetime.now()
         self.next_update = self.last_update + timed(minutes=5)
 

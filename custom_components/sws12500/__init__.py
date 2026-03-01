@@ -197,6 +197,8 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         _wslink: bool = checked_or(self.config.options.get(WSLINK), bool, False)
 
         # Incoming station payload is delivered as query params.
+        # Some stations posts data in body, so we need to contracts those data.
+        #
         # We copy it to a plain dict so it can be passed around safely.
         get_data = webdata.query
         post_data = await webdata.post()
@@ -341,28 +343,52 @@ def register_path(
 
     _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
 
-    # Create internal route dispatcher with provided urls
-    routes: Routes = Routes()
-    routes.add_route(DEFAULT_URL, coordinator.received_data, enabled=not _wslink)
-    routes.add_route(WSLINK_URL, coordinator.received_data, enabled=_wslink)
-    routes.add_route(HEALTH_URL, coordinator_h.health_status, enabled=True)
+    # Load registred routes
+    routes: Routes | None = config.options.get("routes", None)
 
-    # Register webhooks in HomeAssistant with dispatcher
-    try:
-        _ = hass.http.app.router.add_get(DEFAULT_URL, routes.dispatch)
-        _ = hass.http.app.router.add_post(WSLINK_URL, routes.dispatch)
-        _ = hass.http.app.router.add_get(HEALTH_URL, routes.dispatch)
+    if not isinstance(routes, Routes):
+        routes = Routes()
 
-        # Save initialised routes
-        hass_data["routes"] = routes
+        # Register webhooks in HomeAssistant with dispatcher
+        try:
+            _default_route = hass.http.app.router.add_get(
+                DEFAULT_URL, routes.dispatch, name="_default_route"
+            )
+            _wslink_post_route = hass.http.app.router.add_post(
+                WSLINK_URL, routes.dispatch, name="_wslink_post_route"
+            )
+            _wslink_get_route = hass.http.app.router.add_get(
+                WSLINK_URL, routes.dispatch, name="_wslink_get_route"
+            )
+            _health_route = hass.http.app.router.add_get(
+                HEALTH_URL, routes.dispatch, name="_health_route"
+            )
 
-    except RuntimeError as Ex:
-        _LOGGER.critical(
-            "Routes cannot be added. Integration will not work as expected. %s", Ex
+            # Save initialised routes
+            hass_data["routes"] = routes
+
+        except RuntimeError as Ex:
+            _LOGGER.critical(
+                "Routes cannot be added. Integration will not work as expected. %s", Ex
+            )
+            raise ConfigEntryNotReady from Ex
+
+        # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
+        routes.add_route(
+            DEFAULT_URL, _default_route, coordinator.received_data, enabled=not _wslink
         )
-        raise ConfigEntryNotReady from Ex
+        routes.add_route(
+            WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_wslink
+        )
+        routes.add_route(
+            WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_wslink
+        )
+        routes.add_route(
+            HEALTH_URL, _health_route, coordinator_h.health_status, enabled=True
+        )
     else:
-        return True
+        _LOGGER.info("We have already registered routes: %s", routes.show_enabled())
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -428,7 +454,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if routes:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
-        routes.switch_route(DEFAULT_URL if not _wslink else WSLINK_URL)
+        routes.switch_route(
+            coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL
+        )
         _LOGGER.debug("%s", routes.show_enabled())
     else:
         routes_enabled = register_path(hass, coordinator, coordinator_health, entry)
