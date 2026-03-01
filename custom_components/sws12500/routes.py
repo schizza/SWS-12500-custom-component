@@ -78,7 +78,11 @@ class Routes:
         """
         for route in self.routes.values():
             if route.url_path == url_path:
-                _LOGGER.info("New coordinator to route: %s", route.url_path)
+                _LOGGER.info(
+                    "New coordinator to route: (%s):%s",
+                    route.route.method,
+                    route.url_path,
+                )
                 route.enabled = True
                 route.handler = handler
             else:
@@ -102,7 +106,7 @@ class Routes:
         self.routes[key] = RouteInfo(
             url_path, route=route, handler=handler, enabled=enabled
         )
-        _LOGGER.debug("Registered dispatcher for route %s", url_path)
+        _LOGGER.debug("Registered dispatcher for route (%s):%s", route.method, url_path)
 
     def show_enabled(self) -> str:
         """Return a human-readable description of the currently enabled route."""
