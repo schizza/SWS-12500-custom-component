@@ -233,15 +233,6 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
 
         description = cast("WeatherSensorEntityDescription", self.entity_description)
 
-        if self._dev_log:
-            _LOGGER.debug(
-                "native_value start: key=%s, has_value_from_data_fn=%s, has_value_fn=%s, data_keys=%s",
-                key,
-                description.value_from_data_fn is not None,
-                description.value_fn is not None,
-                sorted(data),
-            )
-
         if description.value_from_data_fn is not None:
             try:
                 value = description.value_from_data_fn(data)
@@ -250,12 +241,7 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
                     "native_value compute failed via value_from_data_fn for key=%s", key
                 )
                 return None
-            if self._dev_log:
-                _LOGGER.debug(
-                    "native_value computed via value_from_data_fn: key=%s -> %s",
-                    key,
-                    value,
-                )
+
             return value
 
         raw = data.get(key)
@@ -276,14 +262,6 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
                 "native_value compute failed via value_fn for key=%s raw=%s", key, raw
             )
             return None
-
-        if self._dev_log:
-            _LOGGER.debug(
-                "native_value computed via value_fn: key=%s raw=%s -> %s",
-                key,
-                raw,
-                value,
-            )
 
         return value
 
