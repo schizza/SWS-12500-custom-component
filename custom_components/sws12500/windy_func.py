@@ -2,12 +2,12 @@
 
 from datetime import datetime, timedelta
 import logging
-import re
 
+from aiohttp.client import ClientResponse
 from aiohttp.client_exceptions import ClientError
-from homeassistant.components import persistent_notification
 from py_typecheck import checked
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -17,6 +17,7 @@ from .const import (
     WINDY_ENABLED,
     WINDY_INVALID_KEY,
     WINDY_LOGGER_ENABLED,
+    WINDY_MAX_RETRIES,
     WINDY_NOT_INSERTED,
     WINDY_STATION_ID,
     WINDY_STATION_PW,
@@ -30,15 +31,36 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WindyNotInserted(Exception):
-    """NotInserted state."""
+    """NotInserted state.
+
+    Possible variants are:
+       - station password is invalid
+       - station password does not match the station
+       - payload failed validation
+    """
 
 
 class WindySuccess(Exception):
     """WindySucces state."""
 
 
-class WindyApiKeyError(Exception):
-    """Windy API Key error."""
+class WindyPasswordMissing(Exception):
+    """Windy password is missing in query or Authorization header.
+
+    This should not happend, while we are checking if we have password set and do exits early.
+    """
+
+
+class WindyDuplicatePayloadDetected(Exception):
+    """Duplicate payload detected."""
+
+
+class WindyRateLimitExceeded(Exception):
+    """Rate limit exceeded. Minimum interval is 5 minutes.
+
+    This should not happend in runnig integration.
+    Might be seen, if restart of HomeAssistant occured and we are not aware of previous update.
+    """
 
 
 def timed(minutes: int):
@@ -66,29 +88,32 @@ class WindyPush:
         self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
 
         # Lets chcek if Windy server is responding right.
-        # Otherwise, try 3 times and then disable resending, as we might have bad credentials.
+        # Otherwise, try 3 times and then disable resending.
         self.invalid_response_count: int = 0
 
-    def verify_windy_response(
-        self,
-        response: str,
-    ):
+    # Refactored responses verification.
+    #
+    # We now comply to API at https://stations.windy.com/api-reference
+    def verify_windy_response(self, response: ClientResponse):
         """Verify answer form Windy."""
 
-        if self.log:
-            _LOGGER.info("Windy response raw response: %s", response)
+        if self.log and response:
+            _LOGGER.info("Windy raw response: %s", response.text)
 
-        if "NOTICE" in response:
-            raise WindyNotInserted
-
-        if "SUCCESS" in response:
+        if response.status == 200:
             raise WindySuccess
 
-        if "Invalid API key" in response:
-            raise WindyApiKeyError
+        if response.status == 400:
+            raise WindyNotInserted
 
-        if "Unauthorized" in response:
-            raise WindyApiKeyError
+        if response.status == 401:
+            raise WindyPasswordMissing
+
+        if response.status == 409:
+            raise WindyDuplicatePayloadDetected
+
+        if response.status == 429:
+            raise WindyRateLimitExceeded
 
     def _covert_wslink_to_pws(self, indata: dict[str, str]) -> dict[str, str]:
         """Convert WSLink API data to Windy API data protocol."""
@@ -190,19 +215,25 @@ class WindyPush:
             async with session.get(
                 request_url, params=purged_data, headers=headers
             ) as resp:
-                status = await resp.text()
                 try:
-                    self.verify_windy_response(status)
+                    self.verify_windy_response(response=resp)
                 except WindyNotInserted:
                     # log despite of settings
                     _LOGGER.error(WINDY_NOT_INSERTED)
+                    self.invalid_response_count += 1
 
-                except WindyApiKeyError:
+                except WindyPasswordMissing:
                     # log despite of settings
                     _LOGGER.critical(WINDY_INVALID_KEY)
                     await self._disable_windy(
-                        reason="Windy server refused your API key. Resending is disabled for now. Reconfigure your Windy settings."
+                        reason="Windy password is missing in payload or Authorization header. Resending is disabled for now. Reconfigure your Windy settings."
                     )
+                except WindyDuplicatePayloadDetected:
+                    _LOGGER.critical(
+                        "Duplicate payload detected by Windy server. Will try again later. Max retries before disabling resend function: %s",
+                        (WINDY_MAX_RETRIES - self.invalid_response_count),
+                    )
+                    self.invalid_response_count += 1
 
                 except WindySuccess:
                     if self.log:
@@ -212,9 +243,13 @@ class WindyPush:
                         _LOGGER.debug(WINDY_NOT_INSERTED)
 
         except ClientError as ex:
-            _LOGGER.critical("Invalid response from Windy: %s", str(ex))
+            _LOGGER.critical(
+                "Invalid response from Windy: %s. Will try again later, max retries before disabling resend function: %s",
+                str(ex),
+                (WINDY_MAX_RETRIES - self.invalid_response_count),
+            )
             self.invalid_response_count += 1
-            if self.invalid_response_count > 3:
+            if self.invalid_response_count >= WINDY_MAX_RETRIES:
                 _LOGGER.critical(WINDY_UNEXPECTED)
                 await self._disable_windy(
                     reason="Invalid response from Windy 3 times. Disabling resending option."

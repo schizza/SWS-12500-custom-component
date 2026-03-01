@@ -25,6 +25,8 @@ SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
 DEV_DBG: Final = "dev_debug_checkbox"
 WSLINK: Final = "wslink"
 
+WINDY_MAX_RETRIES: Final = 3
+
 __all__ = [
     "DOMAIN",
     "DEFAULT_URL",
