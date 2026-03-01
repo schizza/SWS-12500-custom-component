@@ -19,7 +19,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 import logging
 
-from aiohttp.web import Request, Response
+from aiohttp.web import AbstractRoute, Request, Response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,9 +35,15 @@ class RouteInfo:
     """
 
     url_path: str
+    route: AbstractRoute
     handler: Handler
     enabled: bool = False
+
     fallback: Handler = field(default_factory=lambda: unregistered)
+
+    def __str__(self):
+        """Return string representation."""
+        return f"RouteInfo(url_path={self.url_path}, route={self.route}, handler={self.handler}, enabled={self.enabled}, fallback={self.fallback})"
 
 
 class Routes:
@@ -54,41 +60,61 @@ class Routes:
 
     async def dispatch(self, request: Request) -> Response:
         """Dispatch incoming request to either the enabled handler or a fallback."""
-        info = self.routes.get(request.path)
+        key = f"{request.method}:{request.path}"
+        info = self.routes.get(key)
         if not info:
-            _LOGGER.debug("Route %s is not registered!", request.path)
+            _LOGGER.debug(
+                "Route (%s):%s is not registered!", request.method, request.path
+            )
             return await unregistered(request)
         handler = info.handler if info.enabled else info.fallback
         return await handler(request)
 
-    def switch_route(self, url_path: str) -> None:
+    def switch_route(self, handler: Handler, url_path: str) -> None:
         """Enable exactly one route and disable all others.
 
         This is called when options change (e.g. WSLink toggle). The aiohttp router stays
         untouched; we only flip which internal handler is active.
         """
-        for path, info in self.routes.items():
-            info.enabled = path == url_path
+        for route in self.routes.values():
+            if route.url_path == url_path:
+                _LOGGER.info("New coordinator to route: %s", route.url_path)
+                route.enabled = True
+                route.handler = handler
+            else:
+                route.enabled = False
+                route.handler = unregistered
 
     def add_route(
-        self, url_path: str, handler: Handler, *, enabled: bool = False
+        self,
+        url_path: str,
+        route: AbstractRoute,
+        handler: Handler,
+        *,
+        enabled: bool = False,
     ) -> None:
         """Register a route in the dispatcher.
 
         This does not register anything in aiohttp. It only stores routing metadata that
         `dispatch` uses after aiohttp has routed the request by path.
         """
-        self.routes[url_path] = RouteInfo(url_path, handler, enabled=enabled)
+        key = f"{route.method}:{url_path}"
+        self.routes[key] = RouteInfo(
+            url_path, route=route, handler=handler, enabled=enabled
+        )
         _LOGGER.debug("Registered dispatcher for route %s", url_path)
 
     def show_enabled(self) -> str:
         """Return a human-readable description of the currently enabled route."""
-        for url, route in self.routes.items():
-            if route.enabled:
-                return (
-                    f"Dispatcher enabled for URL: {url}, with handler: {route.handler}"
-                )
-        return "No routes is enabled."
+
+        enabled_routes = {
+            f"Dispatcher enabled for ({route.route.method}):{route.url_path}, with handler: {route.handler}"
+            for route in self.routes.values()
+            if route.enabled
+        }
+        return ", ".join(
+            sorted(enabled_routes) if enabled_routes else "No routes are enabled."
+        )
 
 
 async def unregistered(request: Request) -> Response:

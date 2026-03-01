@@ -51,7 +51,7 @@ class InvalidAuth(HomeAssistantError):
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
-    def __init__(self) -> None:
+    def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize flow."""
         super().__init__()
         # self.config_entry = config_entry
@@ -67,19 +67,14 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.ecowitt: dict[str, Any] = {}
         self.ecowitt_schema = {}
 
-        # @property
-        # def config_entry(self) -> ConfigEntry:
-        #     return self.hass.config_entries.async_get_entry(self.handler)
-
     async def _get_entry_data(self):
         """Get entry data."""
-        entry_data = {**self.config_entry.data, **self.config_entry.options}
 
         self.user_data = {
-            API_ID: entry_data.get(API_ID),
-            API_KEY: entry_data.get(API_KEY),
-            WSLINK: entry_data.get(WSLINK, False),
-            DEV_DBG: entry_data.get(DEV_DBG, False),
+            API_ID: self.config_entry.options.get(API_ID, ""),
+            API_KEY: self.config_entry.options.get(API_KEY, ""),
+            WSLINK: self.config_entry.options.get(WSLINK, False),
+            DEV_DBG: self.config_entry.options.get(DEV_DBG, False),
         }
 
         self.user_data_schema = {
@@ -149,6 +144,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] = {}):
         """Manage the options - show menu first."""
+        _ = user_input
         return self.async_show_menu(
             step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
         )
@@ -344,4 +340,4 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return ConfigOptionsFlowHandler()
+        return ConfigOptionsFlowHandler(config_entry=config_entry)
