@@ -28,7 +28,7 @@ period where no entities are subscribed, causing stale states until another full
 
 from asyncio import timeout
 import logging
-from typing import Any, cast
+from typing import Any
 
 from aiohttp import ClientConnectionError
 import aiohttp.web
@@ -242,10 +242,16 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Optional forwarding to external services. This is kept here (in the webhook handler)
         # to avoid additional background polling tasks.
-        if self.config.options.get(WINDY_ENABLED, False):
+
+        _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
+        _pocasi_enabled = checked_or(
+            self.config.options.get(POCASI_CZ_ENABLED), bool, False
+        )
+
+        if _windy_enabled:
             await self.windy.push_data_to_windy(data, _wslink)
 
-        if self.config.options.get(POCASI_CZ_ENABLED, False):
+        if _pocasi_enabled:
             await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
 
         # Convert raw payload keys to our internal sensor keys (stable identifiers).
@@ -402,18 +408,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     """
 
-    hass_data_any = hass.data.setdefault(DOMAIN, {})
-    hass_data = cast("dict[str, Any]", hass_data_any)
+    hass_data = hass.data.setdefault(DOMAIN, {})
+    # hass_data = cast("dict[str, Any]", hass_data_any)
 
     # Per-entry runtime storage:
     # hass.data[DOMAIN][entry_id] is always a dict (never the coordinator itself).
     # Mixing types here (sometimes dict, sometimes coordinator) is a common source of hard-to-debug
     # issues where entities stop receiving updates.
-    entry_data_any = hass_data.get(entry.entry_id)
-    if not isinstance(entry_data_any, dict):
-        entry_data_any = {}
-        hass_data[entry.entry_id] = entry_data_any
-    entry_data = cast("dict[str, Any]", entry_data_any)
+
+    if (entry_data := checked(hass_data.get(entry.entry_id), dict[str, Any])) is None:
+        entry_data = {}
+    hass_data[entry.entry_id] = entry_data
 
     # Reuse the existing coordinator across reloads so webhook handlers and entities
     # remain connected to the same coordinator instance.
@@ -421,14 +426,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Note: Routes store a bound method (`coordinator.received_data`). If we replaced the coordinator
     # instance on reload, the dispatcher could keep calling the old instance while entities listen
     # to the new one, causing updates to "disappear".
-    coordinator_any = entry_data.get(ENTRY_COORDINATOR)
-    if isinstance(coordinator_any, WeatherDataUpdateCoordinator):
-        coordinator_any.config = entry
+    coordinator = entry_data.get(ENTRY_COORDINATOR)
+    if isinstance(coordinator, WeatherDataUpdateCoordinator):
+        coordinator.config = entry
 
         # Recreate helper instances so they pick up updated options safely.
-        coordinator_any.windy = WindyPush(hass, entry)
-        coordinator_any.pocasi = PocasiPush(hass, entry)
-        coordinator = coordinator_any
+        coordinator.windy = WindyPush(hass, entry)
+        coordinator.pocasi = PocasiPush(hass, entry)
     else:
         coordinator = WeatherDataUpdateCoordinator(hass, entry)
         entry_data[ENTRY_COORDINATOR] = coordinator
@@ -482,16 +486,16 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
     - Reloading a push-based integration temporarily unloads platforms and removes
       coordinator listeners, which can make the UI appear "stuck" until restart.
     """
-    hass_data_any = hass.data.get(DOMAIN)
-    if isinstance(hass_data_any, dict):
-        hass_data = cast("dict[str, Any]", hass_data_any)
-        entry_data_any = hass_data.get(entry.entry_id)
-        if isinstance(entry_data_any, dict):
-            entry_data = cast("dict[str, Any]", entry_data_any)
 
-            old_options_any = entry_data.get(ENTRY_LAST_OPTIONS)
-            if isinstance(old_options_any, dict):
-                old_options = cast("dict[str, Any]", old_options_any)
+    if (hass_data := checked(hass.data.get(DOMAIN), dict[str, Any])) is not None:
+        if (
+            entry_data := checked(hass_data.get(entry.entry_id), dict[str, Any])
+        ) is not None:
+            if (
+                old_options := checked(
+                    entry_data.get(ENTRY_LAST_OPTIONS), dict[str, Any]
+                )
+            ) is not None:
                 new_options = dict(entry.options)
 
                 changed_keys = {
