@@ -6,17 +6,48 @@ This file is a helper module and must be wired from `sensor.py`.
 
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Any, cast
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .data import ENTRY_HEALTH_COORD
+
+
+class HealthSensorEntityDescription(SensorEntityDescription):
+    """Description for health diagnostic sensors."""
+
+
+HEALTH_SENSOR_DESCRIPTIONS: tuple[HealthSensorEntityDescription, ...] = (
+    HealthSensorEntityDescription(
+        key="Integration status",
+        name="Integration status",
+        icon="mdi:heart-pulse",
+    ),
+    HealthSensorEntityDescription(
+        key="HomeAssistant source_ip",
+        name="Home Assistant source IP",
+        icon="mdi:ip",
+    ),
+    HealthSensorEntityDescription(
+        key="HomeAssistant base_url",
+        name="Home Assistant base URL",
+        icon="mdi:link-variant",
+    ),
+    HealthSensorEntityDescription(
+        key="WSLink Addon response",
+        name="WSLink Addon response",
+        icon="mdi:server-network",
+    ),
+)
 
 
 async def async_setup_entry(
@@ -40,7 +71,14 @@ async def async_setup_entry(
     if coordinator_any is None:
         return
 
-    async_add_entities([HealthDiagnosticSensor(coordinator_any, entry)])
+    entities = [
+        HealthDiagnosticSensor(
+            coordinator=coordinator_any, entry=entry, description=description
+        )
+        for description in HEALTH_SENSOR_DESCRIPTIONS
+    ]
+    async_add_entities(entities)
+    # async_add_entities([HealthDiagnosticSensor(coordinator_any, entry)])
 
 
 class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -51,14 +89,19 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: Any,
+        entry: ConfigEntry,
+        description: HealthSensorEntityDescription,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
 
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_unique_id = f"{entry.entry_id}_health"
-        self._attr_name = "Health"
-        self._attr_icon = "mdi:heart-pulse"
+        self._attr_unique_id = f"{description.key}_health"
+        # self._attr_name = description.name
+        # self._attr_icon = "mdi:heart-pulse"
 
     @property
     def native_value(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -76,3 +119,15 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
         if not isinstance(data_any, dict):
             return None
         return cast("dict[str, Any]", data_any)
+
+    @cached_property
+    def device_info(self) -> DeviceInfo:
+        """Device info."""
+        return DeviceInfo(
+            connections=set(),
+            name="Weather Station SWS 12500",
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN,)},  # type: ignore[arg-type]
+            manufacturer="Schizza",
+            model="Weather Station SWS 12500",
+        )
