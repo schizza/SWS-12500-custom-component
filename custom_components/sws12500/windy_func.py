@@ -218,9 +218,14 @@ class WindyPush:
                 try:
                     self.verify_windy_response(response=resp)
                 except WindyNotInserted:
-                    # log despite of settings
-                    _LOGGER.error(WINDY_NOT_INSERTED)
                     self.invalid_response_count += 1
+
+                    # log despite of settings
+                    _LOGGER.error(
+                        "%s Max retries before disable resend function: %s",
+                        WINDY_NOT_INSERTED,
+                        (WINDY_MAX_RETRIES - self.invalid_response_count),
+                    )
 
                 except WindyPasswordMissing:
                     # log despite of settings
@@ -236,11 +241,25 @@ class WindyPush:
                     self.invalid_response_count += 1
 
                 except WindySuccess:
+                    # reset invalid_response_count
+                    self.invalid_response_count = 0
                     if self.log:
                         _LOGGER.info(WINDY_SUCCESS)
                 else:
                     if self.log:
-                        _LOGGER.debug(WINDY_NOT_INSERTED)
+                        self.invalid_response_count += 1
+                        _LOGGER.debug(
+                            "Unexpected response from Windy. Max retries before disabling resend function: %s",
+                            (WINDY_MAX_RETRIES - self.invalid_response_count),
+                        )
+                finally:
+                    if self.invalid_response_count >= 3:
+                        _LOGGER.critical(
+                            "Invalid response from Windy 3 times. Disabling resend option."
+                        )
+                        await self._disable_windy(
+                            reason="Unable to send data to Windy (3 times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
+                        )
 
         except ClientError as ex:
             _LOGGER.critical(
