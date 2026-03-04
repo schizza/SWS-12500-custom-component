@@ -22,8 +22,8 @@ from custom_components.sws12500.const import (
     WINDY_URL,
 )
 from custom_components.sws12500.windy_func import (
-    WindyApiKeyError,
     WindyNotInserted,
+    WindyPasswordMissing,
     WindyPush,
     WindySuccess,
 )
@@ -31,7 +31,8 @@ from custom_components.sws12500.windy_func import (
 
 @dataclass(slots=True)
 class _FakeResponse:
-    text_value: str
+    status: int
+    text_value: str = ""
 
     async def text(self) -> str:
         return self.text_value
@@ -87,20 +88,19 @@ def _make_entry(**options: Any):
 def test_verify_windy_response_notice_raises_not_inserted(hass):
     wp = WindyPush(hass, _make_entry())
     with pytest.raises(WindyNotInserted):
-        wp.verify_windy_response("NOTICE: something")
+        wp.verify_windy_response(_FakeResponse(status=400, text_value="Bad Request"))
 
 
 def test_verify_windy_response_success_raises_success(hass):
     wp = WindyPush(hass, _make_entry())
     with pytest.raises(WindySuccess):
-        wp.verify_windy_response("SUCCESS")
+        wp.verify_windy_response(_FakeResponse(status=200, text_value="OK"))
 
 
-@pytest.mark.parametrize("msg", ["Invalid API key", "Unauthorized"])
-def test_verify_windy_response_api_key_errors_raise(msg, hass):
+def test_verify_windy_response_password_missing_raises(hass):
     wp = WindyPush(hass, _make_entry())
-    with pytest.raises(WindyApiKeyError):
-        wp.verify_windy_response(msg)
+    with pytest.raises(WindyPasswordMissing):
+        wp.verify_windy_response(_FakeResponse(status=401, text_value="Unauthorized"))
 
 
 def test_covert_wslink_to_pws_maps_keys(hass):
@@ -155,7 +155,7 @@ async def test_push_data_to_windy_respects_initial_next_update(monkeypatch, hass
 
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
-        lambda _h: _FakeSession(response=_FakeResponse("SUCCESS")),
+        lambda _h: _FakeSession(response=_FakeResponse(status=200, text_value="OK")),
     )
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is False
@@ -169,7 +169,7 @@ async def test_push_data_to_windy_purges_data_and_sets_auth(monkeypatch, hass):
     # Force it to send now
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("SUCCESS"))
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -200,7 +200,7 @@ async def test_push_data_to_windy_wslink_conversion_applied(monkeypatch, hass):
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("SUCCESS"))
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -221,10 +221,19 @@ async def test_push_data_to_windy_missing_station_id_returns_false(monkeypatch, 
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("SUCCESS"))
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
+    )
+
+    update_options = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.update_options", update_options
+    )
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
     )
 
     ok = await wp.push_data_to_windy({"a": "b"})
@@ -239,10 +248,19 @@ async def test_push_data_to_windy_missing_station_pw_returns_false(monkeypatch, 
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("SUCCESS"))
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
+    )
+
+    update_options = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.update_options", update_options
+    )
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
     )
 
     ok = await wp.push_data_to_windy({"a": "b"})
@@ -256,8 +274,10 @@ async def test_push_data_to_windy_invalid_api_key_disables_windy(monkeypatch, ha
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    # Response triggers WindyApiKeyError
-    session = _FakeSession(response=_FakeResponse("Invalid API key"))
+    # Response triggers WindyPasswordMissing (401)
+    session = _FakeSession(
+        response=_FakeResponse(status=401, text_value="Unauthorized")
+    )
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -266,6 +286,10 @@ async def test_push_data_to_windy_invalid_api_key_disables_windy(monkeypatch, ha
     update_options = AsyncMock(return_value=True)
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.update_options", update_options
+    )
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
     )
 
     ok = await wp.push_data_to_windy({"a": "b"})
@@ -281,7 +305,9 @@ async def test_push_data_to_windy_invalid_api_key_update_options_failure_logs_de
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("Unauthorized"))
+    session = _FakeSession(
+        response=_FakeResponse(status=401, text_value="Unauthorized")
+    )
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -294,6 +320,10 @@ async def test_push_data_to_windy_invalid_api_key_update_options_failure_logs_de
 
     dbg = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.debug", dbg)
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
+    )
 
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is True
@@ -307,7 +337,7 @@ async def test_push_data_to_windy_notice_logs_not_inserted(monkeypatch, hass):
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("NOTICE: no insert"))
+    session = _FakeSession(response=_FakeResponse(status=400, text_value="Bad Request"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -330,7 +360,7 @@ async def test_push_data_to_windy_success_logs_info_when_logger_enabled(
     wp = WindyPush(hass, entry)
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("SUCCESS"))
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -363,7 +393,7 @@ async def test_push_data_to_windy_verify_no_raise_logs_debug_not_inserted_when_l
     wp.next_update = datetime.now() - timedelta(seconds=1)
 
     # Response text that does not contain any of the known markers (NOTICE/SUCCESS/Invalid/Unauthorized)
-    session = _FakeSession(response=_FakeResponse("OK"))
+    session = _FakeSession(response=_FakeResponse(status=500, text_value="Error"))
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: session,
@@ -392,6 +422,10 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
 
     crit = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.critical", crit)
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
+    )
 
     # Cause ClientError on session.get
     session = _FakeSession(exc=ClientError("boom"))
@@ -434,6 +468,10 @@ async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
 
     dbg = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.debug", dbg)
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.create",
+        MagicMock(),
+    )
 
     session = _FakeSession(exc=ClientError("boom"))
     monkeypatch.setattr(

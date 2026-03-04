@@ -116,9 +116,9 @@ class Routes:
             for route in self.routes.values()
             if route.enabled
         }
-        return ", ".join(
-            sorted(enabled_routes) if enabled_routes else "No routes are enabled."
-        )
+        if not enabled_routes:
+            return "No routes are enabled."
+        return ", ".join(sorted(enabled_routes))
 
 
 async def unregistered(request: Request) -> Response:

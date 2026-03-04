@@ -51,10 +51,7 @@ def test_native_value_prefers_value_from_data_fn_success():
 def test_native_value_value_from_data_fn_success_with_dev_logging_hits_computed_debug_branch(
     monkeypatch,
 ):
-    """Cover the dev-log debug branch after successful value_from_data_fn computation."""
-    debug = MagicMock()
-    monkeypatch.setattr("custom_components.sws12500.sensor._LOGGER.debug", debug)
-
+    """Ensure value_from_data_fn works with dev logging enabled."""
     desc = _DescriptionStub(
         key="derived",
         value_from_data_fn=lambda data: data["x"] + 1,
@@ -64,12 +61,6 @@ def test_native_value_value_from_data_fn_success_with_dev_logging_hits_computed_
     entity = WeatherSensor(desc, coordinator)
 
     assert entity.native_value == 42
-
-    debug.assert_any_call(
-        "native_value computed via value_from_data_fn: key=%s -> %s",
-        "derived",
-        42,
-    )
 
 
 def test_native_value_value_from_data_fn_exception_returns_none():

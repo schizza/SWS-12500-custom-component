@@ -26,10 +26,14 @@ from custom_components.sws12500.const import (
 class _RequestStub:
     """Minimal aiohttp Request stub.
 
-    The coordinator only uses `webdata.query` (a mapping of query parameters).
+    The coordinator uses `webdata.query` and `await webdata.post()`.
     """
 
     query: dict[str, Any]
+    post_data: dict[str, Any] | None = None
+
+    async def post(self) -> dict[str, Any]:
+        return self.post_data or {}
 
 
 def _make_entry(

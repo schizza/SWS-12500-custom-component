@@ -10,6 +10,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sws12500 import (
+    HealthCoordinator,
     IncorrectDataError,
     WeatherDataUpdateCoordinator,
     async_setup_entry,
@@ -22,6 +23,7 @@ from custom_components.sws12500.const import (
     API_KEY,
     DEFAULT_URL,
     DOMAIN,
+    HEALTH_URL,
     SENSORS_TO_LOAD,
     WSLINK,
     WSLINK_URL,
@@ -35,6 +37,9 @@ class _RequestStub:
 
     query: dict[str, Any]
 
+    async def post(self) -> dict[str, Any]:
+        return {}
+
 
 class _RouterStub:
     """Router stub that records route registrations."""
@@ -44,17 +49,17 @@ class _RouterStub:
         self.add_post_calls: list[tuple[str, Any]] = []
         self.raise_on_add: Exception | None = None
 
-    def add_get(self, path: str, handler: Any) -> Any:
+    def add_get(self, path: str, handler: Any, **_kwargs: Any) -> Any:
         if self.raise_on_add is not None:
             raise self.raise_on_add
         self.add_get_calls.append((path, handler))
-        return object()
+        return SimpleNamespace(method="GET")
 
-    def add_post(self, path: str, handler: Any) -> Any:
+    def add_post(self, path: str, handler: Any, **_kwargs: Any) -> Any:
         if self.raise_on_add is not None:
             raise self.raise_on_add
         self.add_post_calls.append((path, handler))
-        return object()
+        return SimpleNamespace(method="POST")
 
 
 @pytest.fixture
@@ -79,13 +84,18 @@ async def test_register_path_registers_routes_and_stores_dispatcher(hass_with_ht
     entry.add_to_hass(hass_with_http)
 
     coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
 
-    ok = register_path(hass_with_http, coordinator, entry)
+    ok = register_path(hass_with_http, coordinator, coordinator_health, entry)
     assert ok is True
 
     # Router registrations
     router: _RouterStub = hass_with_http.http.app.router
-    assert [p for (p, _h) in router.add_get_calls] == [DEFAULT_URL]
+    assert [p for (p, _h) in router.add_get_calls] == [
+        DEFAULT_URL,
+        WSLINK_URL,
+        HEALTH_URL,
+    ]
     assert [p for (p, _h) in router.add_post_calls] == [WSLINK_URL]
 
     # Dispatcher stored
@@ -115,13 +125,14 @@ async def test_register_path_raises_config_entry_not_ready_on_router_runtime_err
     entry.add_to_hass(hass_with_http)
 
     coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
 
     # Make router raise RuntimeError on add
     router: _RouterStub = hass_with_http.http.app.router
     router.raise_on_add = RuntimeError("router broken")
 
     with pytest.raises(ConfigEntryNotReady):
-        register_path(hass_with_http, coordinator, entry)
+        register_path(hass_with_http, coordinator, coordinator_health, entry)
 
 
 @pytest.mark.asyncio
@@ -143,12 +154,13 @@ async def test_register_path_checked_hass_data_wrong_type_raises_config_entry_no
     entry.add_to_hass(hass_with_http)
 
     coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
 
     # Force wrong type under DOMAIN so `checked(..., dict)` fails.
     hass_with_http.data[DOMAIN] = []
 
     with pytest.raises(ConfigEntryNotReady):
-        register_path(hass_with_http, coordinator, entry)
+        register_path(hass_with_http, coordinator, coordinator_health, entry)
 
 
 @pytest.mark.asyncio
@@ -213,7 +225,7 @@ async def test_async_setup_entry_fatal_when_register_path_returns_false(
     # Force register_path to return False
     monkeypatch.setattr(
         "custom_components.sws12500.register_path",
-        lambda _hass, _coordinator, _entry: False,
+        lambda _hass, _coordinator, _coordinator_h, _entry: False,
     )
 
     # Forwarding shouldn't be reached; patch anyway to avoid accidental loader calls.
@@ -251,7 +263,8 @@ async def test_async_setup_entry_reuses_existing_coordinator_and_switches_routes
     routes = hass_with_http.data[DOMAIN].get("routes")
     if routes is None:
         # Create a dispatcher via register_path once
-        register_path(hass_with_http, existing_coordinator, entry)
+        coordinator_health = HealthCoordinator(hass_with_http, entry)
+        register_path(hass_with_http, existing_coordinator, coordinator_health, entry)
         routes = hass_with_http.data[DOMAIN]["routes"]
 
     # Turn on WSLINK to trigger dispatcher switching.
