@@ -40,7 +40,7 @@ async def test_async_setup_entry_creates_runtime_state(
     # Patch it out so the test doesn't depend on aiohttp being initialized.
     monkeypatch.setattr(
         "custom_components.sws12500.register_path",
-        lambda _hass, _coordinator, _entry: True,
+        lambda _hass, _coordinator, _coordinator_h, _entry: True,
     )
 
     # Avoid depending on Home Assistant integration loader in this test.
@@ -69,7 +69,7 @@ async def test_async_setup_entry_forwards_sensor_platform(
     # Patch it out so the test doesn't depend on aiohttp being initialized.
     monkeypatch.setattr(
         "custom_components.sws12500.register_path",
-        lambda _hass, _coordinator, _entry: True,
+        lambda _hass, _coordinator, _coordinator_h, _entry: True,
     )
 
     # Patch forwarding so we don't need to load real platforms for this unit/integration test.
