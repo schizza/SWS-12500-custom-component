@@ -3,26 +3,92 @@
 from enum import StrEnum
 from typing import Final
 
+from .channels import *
+
+# Integration specific constants.
 DOMAIN = "sws12500"
-DEFAULT_URL = "/weatherstation/updateweatherstation.php"
-WSLINK_URL = "/data/upload.php"
-HEALTH_URL = "/station/health"
-WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 DATABASE_PATH = "/config/home-assistant_v2.db"
-
-POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
-POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
-
-
 ICON = "mdi:weather"
+DEV_DBG: Final = "dev_debug_checkbox"
 
+
+# Common constants
 API_KEY = "API_KEY"
 API_ID = "API_ID"
 
 SENSORS_TO_LOAD: Final = "sensors_to_load"
 SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
 
-DEV_DBG: Final = "dev_debug_checkbox"
+INVALID_CREDENTIALS: Final = [
+    "API",
+    "API_ID",
+    "API ID",
+    "_ID",
+    "ID",
+    "API KEY",
+    "API_KEY",
+    "KEY",
+    "_KEY",
+]
+
+
+# Health specific constants
+HEALTH_URL = "/station/health"
+
+
+# PWS specific constants
+DEFAULT_URL = "/weatherstation/updateweatherstation.php"
+
+PURGE_DATA: Final = [
+    "ID",
+    "PASSWORD",
+    "action",
+    "rtfreq",
+    "realtime",
+    "dateutc",
+    "solarradiation",
+    "indoortempf",
+    "indoorhumidity",
+    "dailyrainin",
+]
+
+REMAP_ITEMS: dict[str, str] = {
+    "baromin": .channels.BARO_PRESSURE,
+    "tempf": OUTSIDE_TEMP,
+    "dewptf": DEW_POINT,
+    "humidity": OUTSIDE_HUMIDITY,
+    "windspeedmph": WIND_SPEED,
+    "windgustmph": WIND_GUST,
+    "winddir": WIND_DIR,
+    "rainin": RAIN,
+    "dailyrainin": DAILY_RAIN,
+    "solarradiation": SOLAR_RADIATION,
+    "indoortempf": INDOOR_TEMP,
+    "indoorhumidity": INDOOR_HUMIDITY,
+    "UV": UV,
+    "soiltempf": CH2_TEMP,
+    "soilmoisture": CH2_HUMIDITY,
+    "soiltemp2f": CH3_TEMP,
+    "soilmoisture2": CH3_HUMIDITY,
+    "soiltemp3f": CH4_TEMP,
+    "soilmoisture3": CH4_HUMIDITY,
+    "soiltemp4f": CH5_TEMP,
+    "soilmoisture4": CH5_HUMIDITY,
+}
+
+
+
+WSLINK_URL = "/data/upload.php"
+
+WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
+
+POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
+POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
+
+
+
+
+
 WSLINK: Final = "wslink"
 
 WINDY_MAX_RETRIES: Final = 3
@@ -139,32 +205,7 @@ WINDY_INVALID_KEY: Final = (
 WINDY_SUCCESS: Final = "Windy successfully sent data and data was successfully inserted by Windy API"
 WINDY_UNEXPECTED: Final = "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
 
-INVALID_CREDENTIALS: Final = [
-    "API",
-    "API_ID",
-    "API ID",
-    "_ID",
-    "ID",
-    "API KEY",
-    "API_KEY",
-    "KEY",
-    "_KEY",
-]
 
-PURGE_DATA: Final = [
-    "ID",
-    "PASSWORD",
-    "action",
-    "rtfreq",
-    "realtime",
-    "dateutc",
-    "solarradiation",
-    "indoortempf",
-    "indoorhumidity",
-    "dailyrainin",
-    "wspw",
-    "wsid",
-]
 
 PURGE_DATA_POCAS: Final = [
     "ID",
@@ -174,87 +215,41 @@ PURGE_DATA_POCAS: Final = [
 ]
 
 
-BARO_PRESSURE: Final = "baro_pressure"
-OUTSIDE_TEMP: Final = "outside_temp"
-DEW_POINT: Final = "dew_point"
-OUTSIDE_HUMIDITY: Final = "outside_humidity"
-OUTSIDE_CONNECTION: Final = "outside_connection"
-OUTSIDE_BATTERY: Final = "outside_battery"
-WIND_SPEED: Final = "wind_speed"
-WIND_GUST: Final = "wind_gust"
-WIND_DIR: Final = "wind_dir"
-WIND_AZIMUT: Final = "wind_azimut"
-RAIN: Final = "rain"
-HOURLY_RAIN: Final = "hourly_rain"
-WEEKLY_RAIN: Final = "weekly_rain"
-MONTHLY_RAIN: Final = "monthly_rain"
-YEARLY_RAIN: Final = "yearly_rain"
-DAILY_RAIN: Final = "daily_rain"
-SOLAR_RADIATION: Final = "solar_radiation"
-INDOOR_TEMP: Final = "indoor_temp"
-INDOOR_HUMIDITY: Final = "indoor_humidity"
-INDOOR_BATTERY: Final = "indoor_battery"
-UV: Final = "uv"
-CH2_TEMP: Final = "ch2_temp"
-CH2_HUMIDITY: Final = "ch2_humidity"
-CH2_CONNECTION: Final = "ch2_connection"
-CH2_BATTERY: Final = "ch2_battery"
-CH3_TEMP: Final = "ch3_temp"
-CH3_HUMIDITY: Final = "ch3_humidity"
-CH3_CONNECTION: Final = "ch3_connection"
-CH3_BATTERY: Final = "ch3_battery"
-CH4_TEMP: Final = "ch4_temp"
-CH4_HUMIDITY: Final = "ch4_humidity"
-CH4_CONNECTION: Final = "ch4_connection"
-CH4_BATTERY: Final = "ch4_battery"
-CH5_TEMP: Final = "ch5_temp"
-CH5_HUMIDITY: Final = "ch5_humidity"
-CH5_CONNECTION: Final = "ch5_connection"
-CH5_BATTERY: Final = "ch5_battery"
-CH6_TEMP: Final = "ch6_temp"
-CH6_HUMIDITY: Final = "ch6_humidity"
-CH6_CONNECTION: Final = "ch6_connection"
-CH6_BATTERY: Final = "ch6_battery"
-CH7_TEMP: Final = "ch7_temp"
-CH7_HUMIDITY: Final = "ch7_humidity"
-CH7_CONNECTION: Final = "ch7_connection"
-CH7_BATTERY: Final = "ch7_battery"
-CH8_TEMP: Final = "ch8_temp"
-CH8_HUMIDITY: Final = "ch8_humidity"
-CH8_CONNECTION: Final = "ch8_connection"
-CH8_BATTERY: Final = "ch8_battery"
-HEAT_INDEX: Final = "heat_index"
-CHILL_INDEX: Final = "chill_index"
-WBGT_TEMP: Final = "wbgt_temp"
-HCHO: Final = "hcho"
-VOC: Final = "voc"
-T9_BATTERY: Final = "t9_battery"  # T9 sensors are HCHO and VOC
-T9_CONN: Final = "t9_conn"
 
 
-REMAP_ITEMS: dict[str, str] = {
-    "baromin": BARO_PRESSURE,
-    "tempf": OUTSIDE_TEMP,
-    "dewptf": DEW_POINT,
-    "humidity": OUTSIDE_HUMIDITY,
-    "windspeedmph": WIND_SPEED,
-    "windgustmph": WIND_GUST,
-    "winddir": WIND_DIR,
-    "rainin": RAIN,
-    "dailyrainin": DAILY_RAIN,
-    "solarradiation": SOLAR_RADIATION,
-    "indoortempf": INDOOR_TEMP,
-    "indoorhumidity": INDOOR_HUMIDITY,
-    "UV": UV,
-    "soiltempf": CH2_TEMP,
-    "soilmoisture": CH2_HUMIDITY,
-    "soiltemp2f": CH3_TEMP,
-    "soilmoisture2": CH3_HUMIDITY,
-    "soiltemp3f": CH4_TEMP,
-    "soilmoisture3": CH4_HUMIDITY,
-    "soiltemp4f": CH5_TEMP,
-    "soilmoisture4": CH5_HUMIDITY,
-}
+
+"""NOTE: These are sensors that should be available with PWS protocol acording to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:
+
+I have no option to test, if it will work correctly. So their implementatnion will be in future releases.
+
+leafwetness  - [%]
++ for sensor 2 use leafwetness2
+visibility - [nm visibility]
+pweather - [text] -- metar style (+RA)
+clouds - [text] -- SKC, FEW, SCT, BKN, OVC
+Pollution Fields:
+
+AqNO - [ NO (nitric oxide) ppb ]
+AqNO2T - (nitrogen dioxide), true measure ppb
+AqNO2 - NO2 computed, NOx-NO ppb
+AqNO2Y - NO2 computed, NOy-NO ppb
+AqNOX - NOx (nitrogen oxides) - ppb
+AqNOY - NOy (total reactive nitrogen) - ppb
+AqNO3 - NO3 ion (nitrate, not adjusted for ammonium ion) UG/M3
+AqSO4 - SO4 ion (sulfate, not adjusted for ammonium ion) UG/M3
+AqSO2 - (sulfur dioxide), conventional ppb
+AqSO2T - trace levels ppb
+AqCO - CO (carbon monoxide), conventional ppm
+AqCOT -CO trace levels ppb
+AqEC - EC (elemental carbon) – PM2.5 UG/M3
+AqOC - OC (organic carbon, not adjusted for oxygen and hydrogen) – PM2.5 UG/M3
+AqBC - BC (black carbon at 880 nm) UG/M3
+AqUV-AETH  - UV-AETH (second channel of Aethalometer at 370 nm) UG/M3
+AqPM2.5 - PM2.5 mass - UG/M3
+AqPM10 - PM10 mass - PM10 mass
+AqOZONE - Ozone - ppb
+
+"""
 
 REMAP_WSLINK_ITEMS: dict[str, str] = {
     "intem": INDOOR_TEMP,
@@ -312,6 +307,65 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t9voclv": VOC,
     "t9bat": T9_BATTERY,  # T9 battery is 0-5, where 5 is full
 }
+
+# NOTE: Add more sensors
+#
+# 'inbat'  indoor battery level (1 normal, 0 low)
+# 't1bat': outdoor battery level (1 normal, 0 low)
+# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLin
+#
+# In the following there are sensors that should be available by WSLink.
+# We need to compare them to PWS API to make sure, we have the same intarnal
+# representation of same sensors.
+
+### TODO: These are sensors, that should be supported in WSLink API according to their API documentation:
+# &t5lst= Last Lightning strike time integer
+# &t5lskm= Lightning distance integer km
+# &t5lsf= Lightning strike count last 1 Hours integer
+# &t5ls5mtc= Lightning count total of during 5 minutes integer
+# &t5ls30mtc= Lightning count total of during 30 minutes integer
+# &t5ls1htc= Lightning count total of during 1 Hour integer
+# &t5ls1dtc= Lightning count total of during 1 day integer
+# &t5lsbat= Lightning Sensor battery (Normal=1, Low battery=0) integer
+# &t5lscn= Lightning Sensor connection (Connected=1, No connect=0) integer
+# &t6c1wls= Water leak sensor CH1 (Leak=1, No leak=0) integer
+# &t6c1bat= Water leak sensor CH1 battery (Normal=1, Low battery=0) integer
+# &t6c1cn= Water leak sensor CH1 connection (Connected=1, No connect=0) integer
+# &t6c2wls= Water leak sensor CH2 (Leak=1, No leak=0) integer
+# &t6c2bat= Water leak sensor CH2 battery (Normal=1, Low battery=0) integer
+# &t6c2cn= Water leak sensor CH2 connection (Connected=1, No connect=0) integer
+# &t6c3wls= Water leak sensor CH3 (Leak=1, No leak=0) integer
+# &t6c3bat= Water leak sensor CH3 battery (Normal=1, Low battery=0) integer
+# &t6c3cn= Water leak sensor CH3 connection (Connected=1, No connect=0) integer
+# &t6c4wls= Water leak sensor CH4 (Leak=1, No leak=0) integer
+# &t6c4bat= Water leak sensor CH4 battery (Normal=1, Low battery=0) integer
+# &t6c4cn= Water leak sensor CH4 connection (Connected=1, No connect=0) integer
+# &t6c5wls= Water leak sensor CH5 (Leak=1, No leak=0) integer
+# &t6c5bat= Water leak sensor CH5 battery (Normal=1, Low battery=0) integer
+# &t6c5cn= Water leak sensor CH5 connection (Connected=1, No connect=0) integer
+# &t6c6wls= Water leak sensor CH6 (Leak=1, No leak=0) integer
+# &t6c6bat= Water leak sensor CH6 battery (Normal=1, Low battery=0) integer
+# &t6c6cn= Water leak sensor CH6 connection (Connected=1, No connect=0) integer
+# &t6c7wls= Water leak sensor CH7 (Leak=1, No leak=0) integer
+# &t6c7bat= Water leak sensor CH7 battery (Normal=1, Low battery=0) integer
+# &t6c7cn= Water leak sensor CH7 connection (Connected=1, No connect=0) integer
+# &t8pm25= PM2.5 concentration integer ug/m3
+# &t8pm10= PM10 concentration integer ug/m3
+# &t8pm25ai= PM2.5 AQI integer
+# &t8pm10ai = PM10 AQI integer
+# &t8bat= PM sensor battery level (0~5) remark: 5 is full integer
+# &t8cn= PM sensor connection (Connected=1, No connect=0) integer
+# &t9hcho= HCHO concentration integer ppb
+# &t9voclv= VOC level (1~5) 1 is the highest level, 5 is the lowest VOC level integer
+# &t9bat= HCHO / VOC sensor battery level (0~5) remark: 5 is full integer
+# &t9cn= HCHO / VOC sensor connection (Connected=1, No connect=0) integer
+# &t10co2= CO2 concentration integer ppm
+# &t10bat= CO2 sensor battery level (0~5) remark: 5 is full integer
+# &t10cn= CO2 sensor connection (Connected=1, No connect=0) integer
+# &t11co= CO concentration integer ppm
+# &t11bat= CO sensor battery level (0~5) remark: 5 is full integer
+# &t11cn= CO sensor connection (Connected=1, No connect=0) integer
+#
 
 DISABLED_BY_DEFAULT: Final = [
     CH2_TEMP,
