@@ -4,7 +4,12 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 
@@ -40,10 +45,10 @@ class InvalidAuth(HomeAssistantError):
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
-    def __init__(self, config_entry) -> None:
+    def __init__(self) -> None:
         """Initialize flow."""
         super().__init__()
-        self.config_entry = config_entry
+        # self.config_entry = config_entry
 
         self.windy_data: dict[str, Any] = {}
         self.windy_data_schema = {}
@@ -300,6 +305,6 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry) -> ConfigOptionsFlowHandler:
+    def async_get_options_flow(config_entry: ConfigEntry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return ConfigOptionsFlowHandler(config_entry)
+        return ConfigOptionsFlowHandler()
