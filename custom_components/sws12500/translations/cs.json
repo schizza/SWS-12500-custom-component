@@ -124,6 +124,101 @@
   },
   "entity": {
     "sensor": {
+      "integration_health": {
+        "name": "Stav integrace",
+        "state": {
+          "online_wu": "Online PWS/WU",
+          "online_wslink": "Online WSLink",
+          "online_idle": "Čekám na data",
+          "degraded": "Degradovaný",
+          "error": "Nefunkční"
+        }
+      },
+      "active_protocol": {
+        "name": "Aktivní protokol",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API"
+        }
+      },
+      "wslink_addon_status": {
+        "name": "Stav WSLink Addonu",
+        "state": {
+          "online": "Běží",
+          "offline": "Vypnutý"
+        }
+      },
+      "wslink_addon_name": {
+        "name": "Název WSLink Addonu"
+      },
+      "wslink_addon_version": {
+        "name": "Verze WSLink Addonu"
+      },
+      "wslink_addon_listen_port": {
+        "name": "Port WSLink Addonu"
+      },
+      "wslink_upstream_ha_port": {
+        "name": "Port upstream HA WSLink Addonu"
+      },
+      "route_wu_enabled": {
+        "name": "Protokol PWS/WU"
+      },
+      "route_wslink_enabled": {
+        "name": "Protokol WSLink"
+      },
+      "last_ingress_time": {
+        "name": "Poslední přístup"
+      },
+      "last_ingress_protocol": {
+        "name": "Protokol posledního přístupu",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API"
+        }
+      },
+      "last_ingress_route_enabled": {
+        "name": "Trasa posledního přístupu povolena"
+      },
+      "last_ingress_accepted": {
+        "name": "Poslední přístup",
+        "state": {
+          "accepted": "Prijat",
+          "rejected": "Odmítnut"
+        }
+      },
+      "last_ingress_authorized": {
+        "name": "Autorizace posledního přístupu",
+        "state": {
+          "authorized": "Autorizován",
+          "unauthorized": "Neautorizován",
+          "unknown": "Neznámý"
+        }
+      },
+      "last_ingress_reason": {
+        "name": "Zpráva přístupu"
+      },
+      "forward_windy_enabled": {
+        "name": "Přeposílání na Windy"
+      },
+      "forward_windy_status": {
+        "name": "Stav přeposílání na Windy",
+        "state": {
+          "disabled": "Vypnuto",
+          "idle": "Čekám na odeslání",
+          "ok": "Ok"
+        }
+      },
+      "forward_pocasi_enabled": {
+        "name": "Přeposílání na Počasí Meteo"
+      },
+      "forward_pocasi_status": {
+        "name": "Stav přeposílání na Počasí Meteo",
+        "state": {
+          "disabled": "Vypnuto",
+          "idle": "Čekám na odeslání",
+          "ok": "Ok"
+        }
+      },
       "indoor_temp": {
         "name": "Vnitřní teplota"
       },

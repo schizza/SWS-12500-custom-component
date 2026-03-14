@@ -26,16 +26,13 @@ With a high-frequency push source (webhook), a reload at the wrong moment can le
 period where no entities are subscribed, causing stale states until another full reload/restart.
 """
 
-from asyncio import timeout
 import logging
 from typing import Any
 
-from aiohttp import ClientConnectionError
 import aiohttp.web
 from aiohttp.web_exceptions import HTTPUnauthorized
 from py_typecheck import checked, checked_or
 
-from homeassistant.components.network import async_get_source_ip
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -44,8 +41,6 @@ from homeassistant.exceptions import (
     InvalidStateError,
     PlatformNotReady,
 )
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.network import get_url
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -61,6 +56,7 @@ from .const import (
     WSLINK_URL,
 )
 from .data import ENTRY_COORDINATOR, ENTRY_HEALTH_COORD, ENTRY_LAST_OPTIONS
+from .health_coordinator import HealthCoordinator
 from .pocasti_cz import PocasiPush
 from .routes import Routes
 from .utils import (
@@ -81,76 +77,6 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 class IncorrectDataError(InvalidStateError):
     """Invalid exception."""
-
-
-"""Helper coordinator for health status endpoint.
-
-This is separate from the main `WeatherDataUpdateCoordinator`
-Coordinator checks the WSLink Addon reachability and returns basic health info.
-
-Serves health status for diagnostic sensors and the integration health page in HA UI.
-"""
-
-
-class HealthCoordinator(DataUpdateCoordinator):
-    """Coordinator for health status of integration.
-
-    This coordinator will listen on `/station/health`.
-    """
-
-    # TODO Add update interval and periodic checks for WSLink Addon reachability, so that health status is always up-to-date even without incoming station pushes.
-
-    def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
-        """Initialize coordinator for health status."""
-
-        self.hass: HomeAssistant = hass
-        self.config: ConfigEntry = config
-        self.data: dict[str, str] = {}
-
-        super().__init__(hass, logger=_LOGGER, name=DOMAIN)
-
-    async def health_status(self, _: aiohttp.web.Request) -> aiohttp.web.Response:
-        """Handle and inform of integration status.
-
-        Note: aiohttp route handlers must accept the incoming Request.
-        """
-
-        session = async_get_clientsession(self.hass, False)
-
-        # Keep this endpoint lightweight and always available.
-        url = get_url(self.hass)
-        ip = await async_get_source_ip(self.hass)
-
-        request_url = f"https://{ip}"
-
-        try:
-            async with timeout(5), session.get(request_url) as response:
-                if checked(response.status, int) == 200:
-                    resp = await response.text()
-                else:
-                    resp = {"error": f"Unexpected status code {response.status}"}
-        except ClientConnectionError:
-            resp = {"error": "Connection error, WSLink addon is unreachable."}
-
-        data = {
-            "Integration status": "ok",
-            "HomeAssistant source_ip": str(ip),
-            "HomeAssistant base_url": url,
-            "WSLink Addon response": resp,
-        }
-
-        self.async_set_updated_data(data)
-
-        # TODO Remove this response, as it is intentded to tests only.
-        return aiohttp.web.json_response(
-            {
-                "Integration status": "ok",
-                "HomeAssistant source_ip": str(ip),
-                "HomeAssistant base_url": url,
-                "WSLink Addon response": resp,
-            },
-            status=200,
-        )
 
 
 # NOTE:
@@ -182,6 +108,16 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self.pocasi: PocasiPush = PocasiPush(hass, config)
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
+    def _health_coordinator(self) -> HealthCoordinator | None:
+        """Return the health coordinator for this config entry."""
+        if (data := checked(self.hass.data.get(DOMAIN), dict[str, Any])) is None:
+            return None
+        if (entry := checked(data.get(self.config.entry_id), dict[str, Any])) is None:
+            return None
+
+        coordinator = entry.get(ENTRY_HEALTH_COORD)
+        return coordinator if isinstance(coordinator, HealthCoordinator) else None
+
     async def received_data(self, webdata: aiohttp.web.Request) -> aiohttp.web.Response:
         """Handle incoming webhook payload from the station.
 
@@ -206,13 +142,30 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         # normalize incoming data to dict[str, Any]
         data: dict[str, Any] = {**dict(get_data), **dict(post_data)}
 
+        # Get health data coordinator
+        health = self._health_coordinator()
+
         # Validate auth keys (different parameter names depending on endpoint mode).
         if not _wslink and ("ID" not in data or "PASSWORD" not in data):
             _LOGGER.error("Invalid request. No security data provided!")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=False,
+                    reason="missing_credentials",
+                )
             raise HTTPUnauthorized
 
         if _wslink and ("wsid" not in data or "wspw" not in data):
             _LOGGER.error("Invalid request. No security data provided!")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=False,
+                    reason="missing_credentials",
+                )
             raise HTTPUnauthorized
 
         id_data: str = ""
@@ -230,29 +183,36 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         if (_id := checked(self.config.options.get(API_ID), str)) is None:
             _LOGGER.error("We don't have API ID set! Update your config!")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=None,
+                    reason="config_missing_api_id",
+                )
             raise IncorrectDataError
 
         if (_key := checked(self.config.options.get(API_KEY), str)) is None:
             _LOGGER.error("We don't have API KEY set! Update your config!")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=None,
+                    reason="config_missing_api_key",
+                )
             raise IncorrectDataError
 
         if id_data != _id or key_data != _key:
             _LOGGER.error("Unauthorised access!")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=False,
+                    reason="unauthorized",
+                )
             raise HTTPUnauthorized
-
-        # Optional forwarding to external services. This is kept here (in the webhook handler)
-        # to avoid additional background polling tasks.
-
-        _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
-        _pocasi_enabled = checked_or(
-            self.config.options.get(POCASI_CZ_ENABLED), bool, False
-        )
-
-        if _windy_enabled:
-            await self.windy.push_data_to_windy(data, _wslink)
-
-        if _pocasi_enabled:
-            await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
 
         # Convert raw payload keys to our internal sensor keys (stable identifiers).
         remaped_items: dict[str, str] = (
@@ -322,6 +282,30 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Fan-out update: notify all subscribed entities.
         self.async_set_updated_data(remaped_items)
+        if health:
+            health.update_ingress_result(
+                webdata,
+                accepted=True,
+                authorized=True,
+                reason="accepted",
+            )
+
+        # Optional forwarding to external services. This is kept here (in the webhook handler)
+        # to avoid additional background polling tasks.
+
+        _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
+        _pocasi_enabled = checked_or(
+            self.config.options.get(POCASI_CZ_ENABLED), bool, False
+        )
+
+        if _windy_enabled:
+            await self.windy.push_data_to_windy(data, _wslink)
+
+        if _pocasi_enabled:
+            await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
+
+        if health:
+            health.update_forwarding(self.windy, self.pocasi)
 
         # Optional dev logging (keep it lightweight to avoid log spam under high-frequency updates).
         if self.config.options.get("dev_debug_checkbox"):
@@ -350,10 +334,11 @@ def register_path(
     _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
 
     # Load registred routes
-    routes: Routes | None = config.options.get("routes", None)
+    routes: Routes | None = hass_data.get("routes", None)
 
     if not isinstance(routes, Routes):
         routes = Routes()
+        routes.set_ingress_observer(coordinator_h.record_dispatch)
 
         # Register webhooks in HomeAssistant with dispatcher
         try:
@@ -389,10 +374,16 @@ def register_path(
         routes.add_route(
             WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_wslink
         )
+        # Make health route `sticky` so it will not change upon updating options.
         routes.add_route(
-            HEALTH_URL, _health_route, coordinator_h.health_status, enabled=True
+            HEALTH_URL,
+            _health_route,
+            coordinator_h.health_status,
+            enabled=True,
+            sticky=True,
         )
     else:
+        routes.set_ingress_observer(coordinator_h.record_dispatch)
         _LOGGER.info("We have already registered routes: %s", routes.show_enabled())
     return True
 
@@ -461,6 +452,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         routes.switch_route(
             coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL
         )
+        routes.set_ingress_observer(coordinator_health.record_dispatch)
+        coordinator_health.update_routing(routes)
         _LOGGER.debug("%s", routes.show_enabled())
     else:
         routes_enabled = register_path(hass, coordinator, coordinator_health, entry)
@@ -468,6 +461,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not routes_enabled:
             _LOGGER.error("Fatal: path not registered!")
             raise PlatformNotReady
+        routes = hass_data.get("routes", None)
+        if isinstance(routes, Routes):
+            coordinator_health.update_routing(routes)
+
+    await coordinator_health.async_config_entry_first_refresh()
+    coordinator_health.update_forwarding(coordinator.windy, coordinator.pocasi)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

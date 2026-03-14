@@ -51,7 +51,7 @@ class InvalidAuth(HomeAssistantError):
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize flow."""
         super().__init__()
 
@@ -353,4 +353,4 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> ConfigOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return ConfigOptionsFlowHandler(config_entry=config_entry)
+        return ConfigOptionsFlowHandler()

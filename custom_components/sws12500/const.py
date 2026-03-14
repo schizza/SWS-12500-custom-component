@@ -3,8 +3,6 @@
 from enum import StrEnum
 from typing import Final
 
-from .channels import *
-
 # Integration specific constants.
 DOMAIN = "sws12500"
 DATABASE_PATH = "/config/home-assistant_v2.db"
@@ -32,6 +30,61 @@ INVALID_CREDENTIALS: Final = [
 ]
 
 
+# Sensor constants
+BARO_PRESSURE: Final = "baro_pressure"
+OUTSIDE_TEMP: Final = "outside_temp"
+DEW_POINT: Final = "dew_point"
+OUTSIDE_HUMIDITY: Final = "outside_humidity"
+OUTSIDE_CONNECTION: Final = "outside_connection"
+OUTSIDE_BATTERY: Final = "outside_battery"
+WIND_SPEED: Final = "wind_speed"
+WIND_GUST: Final = "wind_gust"
+WIND_DIR: Final = "wind_dir"
+WIND_AZIMUT: Final = "wind_azimut"
+RAIN: Final = "rain"
+HOURLY_RAIN: Final = "hourly_rain"
+WEEKLY_RAIN: Final = "weekly_rain"
+MONTHLY_RAIN: Final = "monthly_rain"
+YEARLY_RAIN: Final = "yearly_rain"
+DAILY_RAIN: Final = "daily_rain"
+SOLAR_RADIATION: Final = "solar_radiation"
+INDOOR_TEMP: Final = "indoor_temp"
+INDOOR_HUMIDITY: Final = "indoor_humidity"
+INDOOR_BATTERY: Final = "indoor_battery"
+UV: Final = "uv"
+CH2_TEMP: Final = "ch2_temp"
+CH2_HUMIDITY: Final = "ch2_humidity"
+CH2_CONNECTION: Final = "ch2_connection"
+CH2_BATTERY: Final = "ch2_battery"
+CH3_TEMP: Final = "ch3_temp"
+CH3_HUMIDITY: Final = "ch3_humidity"
+CH3_CONNECTION: Final = "ch3_connection"
+CH3_BATTERY: Final = "ch3_battery"
+CH4_TEMP: Final = "ch4_temp"
+CH4_HUMIDITY: Final = "ch4_humidity"
+CH4_CONNECTION: Final = "ch4_connection"
+CH4_BATTERY: Final = "ch4_battery"
+CH5_TEMP: Final = "ch5_temp"
+CH5_HUMIDITY: Final = "ch5_humidity"
+CH5_CONNECTION: Final = "ch5_connection"
+CH5_BATTERY: Final = "ch5_battery"
+CH6_TEMP: Final = "ch6_temp"
+CH6_HUMIDITY: Final = "ch6_humidity"
+CH6_CONNECTION: Final = "ch6_connection"
+CH6_BATTERY: Final = "ch6_battery"
+CH7_TEMP: Final = "ch7_temp"
+CH7_HUMIDITY: Final = "ch7_humidity"
+CH7_CONNECTION: Final = "ch7_connection"
+CH7_BATTERY: Final = "ch7_battery"
+CH8_TEMP: Final = "ch8_temp"
+CH8_HUMIDITY: Final = "ch8_humidity"
+CH8_CONNECTION: Final = "ch8_connection"
+CH8_BATTERY: Final = "ch8_battery"
+HEAT_INDEX: Final = "heat_index"
+CHILL_INDEX: Final = "chill_index"
+WBGT_TEMP: Final = "wbgt_temp"
+
+
 # Health specific constants
 HEALTH_URL = "/station/health"
 
@@ -53,7 +106,7 @@ PURGE_DATA: Final = [
 ]
 
 REMAP_ITEMS: dict[str, str] = {
-    "baromin": .channels.BARO_PRESSURE,
+    "baromin": BARO_PRESSURE,
     "tempf": OUTSIDE_TEMP,
     "dewptf": DEW_POINT,
     "humidity": OUTSIDE_HUMIDITY,
@@ -74,8 +127,9 @@ REMAP_ITEMS: dict[str, str] = {
     "soilmoisture3": CH4_HUMIDITY,
     "soiltemp4f": CH5_TEMP,
     "soilmoisture4": CH5_HUMIDITY,
+    "soiltemp5f": CH6_TEMP,
+    "soilmoisture5": CH6_HUMIDITY,
 }
-
 
 
 WSLINK_URL = "/data/upload.php"
@@ -84,9 +138,6 @@ WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
-
-
-
 
 
 WSLINK: Final = "wslink"
@@ -208,16 +259,12 @@ WINDY_UNEXPECTED: Final = (
 )
 
 
-
 PURGE_DATA_POCAS: Final = [
     "ID",
     "PASSWORD",
     "action",
     "rtfreq",
 ]
-
-
-
 
 
 """NOTE: These are sensors that should be available with PWS protocol acording to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:

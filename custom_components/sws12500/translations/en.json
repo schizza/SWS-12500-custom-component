@@ -118,6 +118,101 @@
   },
   "entity": {
     "sensor": {
+      "integration_health": {
+        "name": "Integration status",
+        "state": {
+          "online_wu": "Online PWS/WU",
+          "online_wslink": "Online WSLink",
+          "online_idle": "Waiting for data",
+          "degraded": "Degraded",
+          "error": "Error"
+        }
+      },
+      "active_protocol": {
+        "name": "Active protocol",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API"
+        }
+      },
+      "wslink_addon_status": {
+        "name": "WSLink Addon Status",
+        "state": {
+          "online": "Running",
+          "offline": "Offline"
+        }
+      },
+      "wslink_addon_name": {
+        "name": "WSLink Addon Name"
+      },
+      "wslink_addon_version": {
+        "name": "WSLink Addon Version"
+      },
+      "wslink_addon_listen_port": {
+        "name": "WSLink Addon Listen Port"
+      },
+      "wslink_upstream_ha_port": {
+        "name": "WSLink Addon Upstream HA Port"
+      },
+      "route_wu_enabled": {
+        "name": "PWS/WU Protocol"
+      },
+      "route_wslink_enabled": {
+        "name": "WSLink Protocol"
+      },
+      "last_ingress_time": {
+        "name": "Last access time"
+      },
+      "last_ingress_protocol": {
+        "name": "Last access protocol",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API"
+        }
+      },
+      "last_ingress_route_enabled": {
+        "name": "Last ingress route enabled"
+      },
+      "last_ingress_accepted": {
+        "name": "Last access",
+        "state": {
+          "accepted": "Accepted",
+          "rejected": "Rejected"
+        }
+      },
+      "last_ingress_authorized": {
+        "name": "Last access authorization",
+        "state": {
+          "authorized": "Authorized",
+          "unauthorized": "Unauthorized",
+          "unknown": "Unknown"
+        }
+      },
+      "last_ingress_reason": {
+        "name": "Last access reason"
+      },
+      "forward_windy_enabled": {
+        "name": "Forwarding to Windy"
+      },
+      "forward_windy_status": {
+        "name": "Forwarding status to Windy",
+        "state": {
+          "disabled": "Disabled",
+          "idle": "Waiting to send",
+          "ok": "Ok"
+        }
+      },
+      "forward_pocasi_enabled": {
+        "name": "Forwarding to Počasí Meteo"
+      },
+      "forward_pocasi_status": {
+        "name": "Forwarding status to Počasí Meteo",
+        "state": {
+          "disabled": "Disabled",
+          "idle": "Waiting to send",
+          "ok": "Ok"
+        }
+      },
       "indoor_temp": {
         "name": "Indoor temperature"
       },

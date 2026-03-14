@@ -18,12 +18,14 @@ Important note:
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 import logging
+from typing import Any
 
 from aiohttp.web import AbstractRoute, Request, Response
 
 _LOGGER = logging.getLogger(__name__)
 
 Handler = Callable[[Request], Awaitable[Response]]
+IngressObserver = Callable[[Request, bool, str | None], None]
 
 
 @dataclass
@@ -38,6 +40,7 @@ class RouteInfo:
     route: AbstractRoute
     handler: Handler
     enabled: bool = False
+    sticky: bool = False
 
     fallback: Handler = field(default_factory=lambda: unregistered)
 
@@ -57,6 +60,11 @@ class Routes:
     def __init__(self) -> None:
         """Initialize dispatcher storage."""
         self.routes: dict[str, RouteInfo] = {}
+        self._ingress_observer: IngressObserver | None = None
+
+    def set_ingress_observer(self, observer: IngressObserver | None) -> None:
+        """Set a callback notified for every incoming dispatcher request."""
+        self._ingress_observer = observer
 
     async def dispatch(self, request: Request) -> Response:
         """Dispatch incoming request to either the enabled handler or a fallback."""
@@ -66,17 +74,30 @@ class Routes:
             _LOGGER.debug(
                 "Route (%s):%s is not registered!", request.method, request.path
             )
+            if self._ingress_observer is not None:
+                self._ingress_observer(request, False, "route_not_registered")
             return await unregistered(request)
+
+        if self._ingress_observer is not None:
+            self._ingress_observer(
+                request,
+                info.enabled,
+                None if info.enabled else "route_disabled",
+            )
+
         handler = info.handler if info.enabled else info.fallback
         return await handler(request)
 
     def switch_route(self, handler: Handler, url_path: str) -> None:
-        """Enable exactly one route and disable all others.
+        """Enable routes based on URL, disable all others. Leave sticky routes enabled.
 
         This is called when options change (e.g. WSLink toggle). The aiohttp router stays
         untouched; we only flip which internal handler is active.
         """
         for route in self.routes.values():
+            if route.sticky:
+                continue
+
             if route.url_path == url_path:
                 _LOGGER.info(
                     "New coordinator to route: (%s):%s",
@@ -96,6 +117,7 @@ class Routes:
         handler: Handler,
         *,
         enabled: bool = False,
+        sticky: bool = False,
     ) -> None:
         """Register a route in the dispatcher.
 
@@ -104,7 +126,7 @@ class Routes:
         """
         key = f"{route.method}:{url_path}"
         self.routes[key] = RouteInfo(
-            url_path, route=route, handler=handler, enabled=enabled
+            url_path, route=route, handler=handler, enabled=enabled, sticky=sticky
         )
         _LOGGER.debug("Registered dispatcher for route (%s):%s", route.method, url_path)
 
@@ -119,6 +141,24 @@ class Routes:
         if not enabled_routes:
             return "No routes are enabled."
         return ", ".join(sorted(enabled_routes))
+
+    def path_enabled(self, url_path: str) -> bool:
+        """Return whether any route registered for `url_path` is enabled."""
+        return any(
+            route.enabled for route in self.routes.values() if route.url_path == url_path
+        )
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a compact routing snapshot for diagnostics."""
+        return {
+            key: {
+                "path": route.url_path,
+                "method": route.route.method,
+                "enabled": route.enabled,
+                "sticky": route.sticky,
+            }
+            for key, route in self.routes.items()
+        }
 
 
 async def unregistered(request: Request) -> Response:
