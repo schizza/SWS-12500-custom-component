@@ -78,6 +78,10 @@ class WindyPush:
         """Init."""
         self.hass = hass
         self.config = config
+        self.enabled: bool = self.config.options.get(WINDY_ENABLED, False)
+        self.last_status: str = "disabled" if not self.enabled else "idle"
+        self.last_error: str | None = None
+        self.last_attempt_at: str | None = None
 
         """ lets wait for 1 minute to get initial data from station
             and then try to push first data to Windy
@@ -142,6 +146,9 @@ class WindyPush:
 
     async def _disable_windy(self, reason: str) -> None:
         """Disable Windy resending."""
+        self.enabled = False
+        self.last_status = "disabled"
+        self.last_error = reason
 
         if not await update_options(self.hass, self.config, WINDY_ENABLED, False):
             _LOGGER.debug("Failed to set Windy options to false.")
@@ -160,10 +167,15 @@ class WindyPush:
         """
 
         # First check if we have valid credentials, before any data manipulation.
+        self.enabled = self.config.options.get(WINDY_ENABLED, False)
+        self.last_attempt_at = datetime.now().isoformat()
+        self.last_error = None
+
         if (
             windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)
         ) is None:
             _LOGGER.error("Windy API key is not provided! Check your configuration.")
+            self.last_status = "config_error"
             await self._disable_windy(
                 "Windy API key is not provided. Resending is disabled for now. Reconfigure your integration."
             )
@@ -175,6 +187,7 @@ class WindyPush:
             _LOGGER.error(
                 "Windy station password is missing! Check your configuration."
             )
+            self.last_status = "config_error"
             await self._disable_windy(
                 "Windy password is not provided. Resending is disabled for now. Reconfigure your integration."
             )
@@ -188,6 +201,7 @@ class WindyPush:
             )
 
         if self.next_update > datetime.now():
+            self.last_status = "rate_limited_local"
             return False
 
         purged_data = data.copy()
@@ -218,6 +232,8 @@ class WindyPush:
                 try:
                     self.verify_windy_response(response=resp)
                 except WindyNotInserted:
+                    self.last_status = "not_inserted"
+                    self.last_error = WINDY_NOT_INSERTED
                     self.invalid_response_count += 1
 
                     # log despite of settings
@@ -229,23 +245,39 @@ class WindyPush:
 
                 except WindyPasswordMissing:
                     # log despite of settings
+                    self.last_status = "auth_error"
+                    self.last_error = WINDY_INVALID_KEY
                     _LOGGER.critical(WINDY_INVALID_KEY)
                     await self._disable_windy(
                         reason="Windy password is missing in payload or Authorization header. Resending is disabled for now. Reconfigure your Windy settings."
                     )
                 except WindyDuplicatePayloadDetected:
+                    self.last_status = "duplicate"
+                    self.last_error = "Duplicate payload detected by Windy server."
                     _LOGGER.critical(
                         "Duplicate payload detected by Windy server. Will try again later. Max retries before disabling resend function: %s",
                         (WINDY_MAX_RETRIES - self.invalid_response_count),
                     )
                     self.invalid_response_count += 1
+                except WindyRateLimitExceeded:
+                    # log despite of settings
+                    self.last_status = "rate_limited_remote"
+                    self.last_error = "Windy rate limit exceeded."
+                    _LOGGER.critical(
+                        "Windy responded with WindyRateLimitExceeded, this should happend only on restarting Home Assistant when we lost track of last send time. Pause resend for next 5 minutes."
+                    )
+                    self.next_update = datetime.now() + timedelta(minutes=5)
 
                 except WindySuccess:
                     # reset invalid_response_count
                     self.invalid_response_count = 0
+                    self.last_status = "ok"
+                    self.last_error = None
                     if self.log:
                         _LOGGER.info(WINDY_SUCCESS)
                 else:
+                    self.last_status = "unexpected_response"
+                    self.last_error = "Unexpected response from Windy."
                     if self.log:
                         self.invalid_response_count += 1
                         _LOGGER.debug(
@@ -262,6 +294,8 @@ class WindyPush:
                         )
 
         except ClientError as ex:
+            self.last_status = "client_error"
+            self.last_error = str(ex)
             _LOGGER.critical(
                 "Invalid response from Windy: %s. Will try again later, max retries before disabling resend function: %s",
                 str(ex),

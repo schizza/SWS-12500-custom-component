@@ -48,6 +48,10 @@ class PocasiPush:
         """Init."""
         self.hass = hass
         self.config = config
+        self.enabled: bool = self.config.options.get(POCASI_CZ_ENABLED, False)
+        self.last_status: str = "disabled" if not self.enabled else "idle"
+        self.last_error: str | None = None
+        self.last_attempt_at: str | None = None
         self._interval = int(self.config.options.get(POCASI_CZ_SEND_INTERVAL, 30))
 
         self.last_update = datetime.now()
@@ -76,11 +80,16 @@ class PocasiPush:
         """Pushes weather data to server."""
 
         _data = data.copy()
+        self.enabled = self.config.options.get(POCASI_CZ_ENABLED, False)
+        self.last_attempt_at = datetime.now().isoformat()
+        self.last_error = None
 
         if (_api_id := checked(self.config.options.get(POCASI_CZ_API_ID), str)) is None:
             _LOGGER.error(
                 "No API ID is provided for Pocasi Meteo. Check your configuration."
             )
+            self.last_status = "config_error"
+            self.last_error = "Missing API ID."
             return
 
         if (
@@ -89,6 +98,8 @@ class PocasiPush:
             _LOGGER.error(
                 "No API Key is provided for Pocasi Meteo. Check your configuration."
             )
+            self.last_status = "config_error"
+            self.last_error = "Missing API key."
             return
 
         if self.log:
@@ -99,6 +110,7 @@ class PocasiPush:
             )
 
         if self.next_update > datetime.now():
+            self.last_status = "rate_limited_local"
             _LOGGER.debug(
                 "Triggered update interval limit of %s seconds. Next possilbe update is set to: %s",
                 self._interval,
@@ -132,19 +144,29 @@ class PocasiPush:
 
                 except PocasiApiKeyError:
                     # log despite of settings
+                    self.last_status = "auth_error"
+                    self.last_error = POCASI_INVALID_KEY
+                    self.enabled = False
                     _LOGGER.critical(POCASI_INVALID_KEY)
                     await update_options(
                         self.hass, self.config, POCASI_CZ_ENABLED, False
                     )
                 except PocasiSuccess:
+                    self.last_status = "ok"
+                    self.last_error = None
                     if self.log:
                         _LOGGER.info(POCASI_CZ_SUCCESS)
+                else:
+                    self.last_status = "ok"
 
         except ClientError as ex:
+            self.last_status = "client_error"
+            self.last_error = str(ex)
             _LOGGER.critical("Invalid response from Pocasi Meteo: %s", str(ex))
             self.invalid_response_count += 1
             if self.invalid_response_count > 3:
                 _LOGGER.critical(POCASI_CZ_UNEXPECTED)
+                self.enabled = False
                 await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False)
 
         self.last_update = datetime.now()
