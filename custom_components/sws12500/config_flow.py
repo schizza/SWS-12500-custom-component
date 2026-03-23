@@ -6,12 +6,7 @@ from typing import Any
 import voluptuous as vol
 from yarl import URL
 
-from homeassistant.config_entries import (
-    ConfigEntry,
-    ConfigFlow,
-    ConfigFlowResult,
-    OptionsFlow,
-)
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.network import get_url
@@ -23,7 +18,6 @@ from .const import (
     DOMAIN,
     ECOWITT_ENABLED,
     ECOWITT_WEBHOOK_ID,
-    # HEALTH_BEARER_TOKEN,
     INVALID_CREDENTIALS,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
@@ -37,6 +31,7 @@ from .const import (
     WINDY_STATION_ID,
     WINDY_STATION_PW,
     WSLINK,
+    WSLINK_ADDON_PORT,
 )
 
 
@@ -65,6 +60,8 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.pocasi_cz_schema = {}
         self.ecowitt: dict[str, Any] = {}
         self.ecowitt_schema = {}
+        self.wslink_addon_port: dict[str, int] = {}
+        self.wslink_addod_schema = {}
 
     async def _get_entry_data(self):
         """Get entry data."""
@@ -94,22 +91,17 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.windy_data = {
             WINDY_STATION_ID: self.config_entry.options.get(WINDY_STATION_ID, ""),
             WINDY_STATION_PW: self.config_entry.options.get(WINDY_STATION_PW, ""),
-            WINDY_LOGGER_ENABLED: self.config_entry.options.get(
-                WINDY_LOGGER_ENABLED, False
-            ),
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED, False),
             WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
         }
 
         self.windy_data_schema = {
-            vol.Optional(
-                WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")
-            ): str,
+            vol.Optional(WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")): str,
             vol.Optional(
                 WINDY_STATION_PW,
                 default=self.windy_data.get(WINDY_STATION_PW, ""),
             ): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool
-            or False,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool or False,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
@@ -120,28 +112,18 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             POCASI_CZ_API_ID: self.config_entry.options.get(POCASI_CZ_API_ID, ""),
             POCASI_CZ_API_KEY: self.config_entry.options.get(POCASI_CZ_API_KEY, ""),
             POCASI_CZ_ENABLED: self.config_entry.options.get(POCASI_CZ_ENABLED, False),
-            POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(
-                POCASI_CZ_LOGGER_ENABLED, False
-            ),
-            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(
-                POCASI_CZ_SEND_INTERVAL, 30
-            ),
+            POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(POCASI_CZ_LOGGER_ENABLED, False),
+            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(POCASI_CZ_SEND_INTERVAL, 30),
         }
 
         self.pocasi_cz_schema = {
-            vol.Required(
-                POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)
-            ): str,
-            vol.Required(
-                POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)
-            ): str,
+            vol.Required(POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)): str,
+            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): str,
             vol.Required(
                 POCASI_CZ_SEND_INTERVAL,
                 default=self.pocasi_cz.get(POCASI_CZ_SEND_INTERVAL),
             ): int,
-            vol.Optional(
-                POCASI_CZ_ENABLED, default=self.pocasi_cz.get(POCASI_CZ_ENABLED)
-            ): bool,
+            vol.Optional(POCASI_CZ_ENABLED, default=self.pocasi_cz.get(POCASI_CZ_ENABLED)): bool,
             vol.Optional(
                 POCASI_CZ_LOGGER_ENABLED,
                 default=self.pocasi_cz.get(POCASI_CZ_LOGGER_ENABLED),
@@ -153,11 +135,13 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             ECOWITT_ENABLED: self.config_entry.options.get(ECOWITT_ENABLED, False),
         }
 
+        self.wslink_addon_port = {WSLINK_ADDON_PORT: self.config_entry.options.get(WSLINK_ADDON_PORT, 443)}
+
     async def async_step_init(self, user_input: dict[str, Any] = {}):
         """Manage the options - show menu first."""
         _ = user_input
         return self.async_show_menu(
-            step_id="init", menu_options=["basic", "ecowitt", "windy", "pocasi"]
+            step_id="init", menu_options=["basic", "wslink_port_setup", "ecowitt", "windy", "pocasi"]
         )
 
     async def async_step_basic(self, user_input: Any = None):
@@ -294,6 +278,28 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         user_input = self.retain_data(user_input)
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
+    async def async_step_wslink_port_setup(self, user_input: Any = None) -> ConfigFlowResult:
+        """WSLink Addon port setup."""
+
+        errors: dict[str, str] = {}
+        await self._get_entry_data()
+
+        if not (port := self.wslink_addon_port.get(WSLINK_ADDON_PORT)):
+            port = 433
+
+        wslink_port_schema = {
+            vol.Required(WSLINK_ADDON_PORT, default=port): int,
+        }
+        if user_input is None:
+            return self.async_show_form(
+                step_id="wslink_port_setup",
+                data_schema=vol.Schema(wslink_port_schema),
+                errors=errors,
+            )
+
+        user_input = self.retain_data(user_input)
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
     def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Retain user_data."""
 
@@ -303,6 +309,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             **self.pocasi_cz,
             **self.sensors,
             **self.ecowitt,
+            **self.wslink_addon_port,
             **dict(data),
         }
 
@@ -339,9 +346,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            return self.async_create_entry(
-                title=DOMAIN, data=user_input, options=user_input
-            )
+            return self.async_create_entry(title=DOMAIN, data=user_input, options=user_input)
 
         return self.async_show_form(
             step_id="user",

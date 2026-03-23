@@ -143,6 +143,7 @@ POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
 WSLINK: Final = "wslink"
 
 WINDY_MAX_RETRIES: Final = 3
+WSLINK_ADDON_PORT: Final = "WSLINK_ADDON_PORT"
 
 __all__ = [
     "DOMAIN",
@@ -235,28 +236,20 @@ POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
 POCASI_CZ_SEND_INTERVAL = "POCASI_SEND_INTERVAL"
 POCASI_CZ_ENABLED = "pocasi_enabled_chcekbox"
 POCASI_CZ_LOGGER_ENABLED = "pocasi_logger_checkbox"
-POCASI_INVALID_KEY: Final = (
-    "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
-)
+POCASI_INVALID_KEY: Final = "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
 POCASI_CZ_SUCCESS: Final = "Successfully sent data to Pocasi Meteo"
-POCASI_CZ_UNEXPECTED: Final = (
-    "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
-)
+POCASI_CZ_UNEXPECTED: Final = "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
 
 WINDY_STATION_ID = "WINDY_STATION_ID"
 WINDY_STATION_PW = "WINDY_STATION_PWD"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-WINDY_NOT_INSERTED: Final = (
-    "Windy responded with 400 error. Invalid ID/password combination?"
+WINDY_NOT_INSERTED: Final = "Windy responded with 400 error. Invalid ID/password combination?"
+WINDY_INVALID_KEY: Final = (
+    "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
 )
-WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
-WINDY_SUCCESS: Final = (
-    "Windy successfully sent data and data was successfully inserted by Windy API"
-)
-WINDY_UNEXPECTED: Final = (
-    "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
-)
+WINDY_SUCCESS: Final = "Windy successfully sent data and data was successfully inserted by Windy API"
+WINDY_UNEXPECTED: Final = "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
 
 
 PURGE_DATA_POCAS: Final = [
