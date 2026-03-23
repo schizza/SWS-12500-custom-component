@@ -44,6 +44,7 @@
           "windy": "Nastavení pro přeposílání dat na Windy",
           "pocasi": "Nastavení pro přeposlání dat na Počasí Meteo CZ",
           "ecowitt": "Nastavení pro stanice Ecowitt",
+          "wslink_port_setup": "Nastavení portu WSLink Addonu",
           "migration": "Migrace statistiky senzoru"
         }
       },
@@ -106,6 +107,16 @@
         "data_description": {
           "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
           "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
+        }
+      },
+      "wslink_port_setup": {
+        "description": "Nastavení portu, kde naslouchá WSLink Addon. Slouží pro příjem diagnostik.",
+        "title": "Port WSLink Addonu",
+        "data": {
+          "WSLINK_ADDON_PORT": "Naslouchající port WSLink Addonu"
+        },
+        "data_description": {
+          "WSLINK_ADDON_PORT": "Zadejte port, tak jak jej máte nastavený ve WSLink Addonu."
         }
       },
       "migration": {
