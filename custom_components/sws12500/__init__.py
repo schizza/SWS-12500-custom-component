@@ -36,11 +36,7 @@ from py_typecheck import checked, checked_or
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import (
-    ConfigEntryNotReady,
-    InvalidStateError,
-    PlatformNotReady,
-)
+from homeassistant.exceptions import ConfigEntryNotReady, InvalidStateError, PlatformNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -215,9 +211,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             raise HTTPUnauthorized
 
         # Convert raw payload keys to our internal sensor keys (stable identifiers).
-        remaped_items: dict[str, str] = (
-            remap_wslink_items(data) if _wslink else remap_items(data)
-        )
+        remaped_items: dict[str, str] = remap_wslink_items(data) if _wslink else remap_items(data)
 
         # Auto-discovery: if payload contains keys that are not enabled/loaded yet,
         # add them to the option list and create entities dynamically.
@@ -274,9 +268,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             # NOTE: Some linters prefer top-level imports. In this case the local import is
             # intentional and prevents "partially initialized module" errors.
 
-            from .sensor import (  # noqa: PLC0415 (local import is intentional)
-                add_new_sensors,
-            )
+            from .sensor import add_new_sensors  # noqa: PLC0415 (local import is intentional)
 
             add_new_sensors(self.hass, self.config, newly_discovered)
 
@@ -294,9 +286,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         # to avoid additional background polling tasks.
 
         _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
-        _pocasi_enabled = checked_or(
-            self.config.options.get(POCASI_CZ_ENABLED), bool, False
-        )
+        _pocasi_enabled = checked_or(self.config.options.get(POCASI_CZ_ENABLED), bool, False)
 
         if _windy_enabled:
             await self.windy.push_data_to_windy(data, _wslink)
@@ -342,38 +332,22 @@ def register_path(
 
         # Register webhooks in HomeAssistant with dispatcher
         try:
-            _default_route = hass.http.app.router.add_get(
-                DEFAULT_URL, routes.dispatch, name="_default_route"
-            )
-            _wslink_post_route = hass.http.app.router.add_post(
-                WSLINK_URL, routes.dispatch, name="_wslink_post_route"
-            )
-            _wslink_get_route = hass.http.app.router.add_get(
-                WSLINK_URL, routes.dispatch, name="_wslink_get_route"
-            )
-            _health_route = hass.http.app.router.add_get(
-                HEALTH_URL, routes.dispatch, name="_health_route"
-            )
+            _default_route = hass.http.app.router.add_get(DEFAULT_URL, routes.dispatch, name="_default_route")
+            _wslink_post_route = hass.http.app.router.add_post(WSLINK_URL, routes.dispatch, name="_wslink_post_route")
+            _wslink_get_route = hass.http.app.router.add_get(WSLINK_URL, routes.dispatch, name="_wslink_get_route")
+            _health_route = hass.http.app.router.add_get(HEALTH_URL, routes.dispatch, name="_health_route")
 
             # Save initialised routes
             hass_data["routes"] = routes
 
         except RuntimeError as Ex:
-            _LOGGER.critical(
-                "Routes cannot be added. Integration will not work as expected. %s", Ex
-            )
+            _LOGGER.critical("Routes cannot be added. Integration will not work as expected. %s", Ex)
             raise ConfigEntryNotReady from Ex
 
         # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
-        routes.add_route(
-            DEFAULT_URL, _default_route, coordinator.received_data, enabled=not _wslink
-        )
-        routes.add_route(
-            WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_wslink
-        )
-        routes.add_route(
-            WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_wslink
-        )
+        routes.add_route(DEFAULT_URL, _default_route, coordinator.received_data, enabled=not _wslink)
+        routes.add_route(WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_wslink)
+        routes.add_route(WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_wslink)
         # Make health route `sticky` so it will not change upon updating options.
         routes.add_route(
             HEALTH_URL,
@@ -449,9 +423,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if routes:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
-        routes.switch_route(
-            coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL
-        )
+        routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL)
         routes.set_ingress_observer(coordinator_health.record_dispatch)
         coordinator_health.update_routing(routes)
         _LOGGER.debug("%s", routes.show_enabled())
@@ -487,14 +459,8 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
     """
 
     if (hass_data := checked(hass.data.get(DOMAIN), dict[str, Any])) is not None:
-        if (
-            entry_data := checked(hass_data.get(entry.entry_id), dict[str, Any])
-        ) is not None:
-            if (
-                old_options := checked(
-                    entry_data.get(ENTRY_LAST_OPTIONS), dict[str, Any]
-                )
-            ) is not None:
+        if (entry_data := checked(hass_data.get(entry.entry_id), dict[str, Any])) is not None:
+            if (old_options := checked(entry_data.get(ENTRY_LAST_OPTIONS), dict[str, Any])) is not None:
                 new_options = dict(entry.options)
 
                 changed_keys = {
@@ -507,9 +473,7 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
                 entry_data[ENTRY_LAST_OPTIONS] = new_options
 
                 if changed_keys == {SENSORS_TO_LOAD}:
-                    _LOGGER.debug(
-                        "Options updated (%s); skipping reload.", SENSORS_TO_LOAD
-                    )
+                    _LOGGER.debug("Options updated (%s); skipping reload.", SENSORS_TO_LOAD)
                     return
             else:
                 # No/invalid snapshot: store current options for next comparison.

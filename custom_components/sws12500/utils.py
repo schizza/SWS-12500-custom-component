@@ -204,8 +204,10 @@ def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     Returns UnitOfDir or None
     """
 
-    if deg:
-        return AZIMUT[int(abs((float(deg) - 11.25) % 360) / 22.5)]
+    _deg = to_float(deg)
+    if _deg is not None:
+        _LOGGER.debug("wind_dir: %s", AZIMUT[int(abs((_deg - 11.25) % 360) / 22.5)])
+        return AZIMUT[int(abs((_deg - 11.25) % 360) / 22.5)]
 
     return None
 
@@ -263,11 +265,32 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return celsius * 9.0 / 5.0 + 32
 
 
-def _to_float(val: Any) -> float | None:
+def to_int(val: Any) -> int | None:
+    """Convert int or string to int."""
+
+    if val is None:
+        return None
+
+    if isinstance(val, str) and val.strip() == "":
+        return None
+
+    try:
+        v = int(val)
+    except (TypeError, ValueError):
+        return None
+    else:
+        return v
+
+
+def to_float(val: Any) -> float | None:
     """Convert int or string to float."""
 
-    if not val:
+    if val is None:
         return None
+
+    if isinstance(val, str) and val.strip() == "":
+        return None
+
     try:
         v = float(val)
     except (TypeError, ValueError):
@@ -284,14 +307,14 @@ def heat_index(
     data: dict with temperature and humidity
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-    if (temp := _to_float(data.get(OUTSIDE_TEMP))) is None:
+    if (temp := to_float(data.get(OUTSIDE_TEMP))) is None:
         _LOGGER.error(
             "We are missing/invalid OUTSIDE TEMP (%s), cannot calculate wind chill index.",
             temp,
         )
         return None
 
-    if (rh := _to_float(data.get(OUTSIDE_HUMIDITY))) is None:
+    if (rh := to_float(data.get(OUTSIDE_HUMIDITY))) is None:
         _LOGGER.error(
             "We are missing/invalid OUTSIDE HUMIDITY (%s), cannot calculate wind chill index.",
             rh,
@@ -335,8 +358,8 @@ def chill_index(
     data: dict with temperature and wind speed
     convert: bool, convert recieved data from Celsius to Fahrenheit
     """
-    temp = _to_float(data.get(OUTSIDE_TEMP))
-    wind = _to_float(data.get(WIND_SPEED))
+    temp = to_float(data.get(OUTSIDE_TEMP))
+    wind = to_float(data.get(WIND_SPEED))
 
     if temp is None:
         _LOGGER.error(
