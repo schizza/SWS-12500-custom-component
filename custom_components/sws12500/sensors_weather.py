@@ -1,7 +1,5 @@
 """Sensor entities for the SWS12500 integration for old endpoint."""
 
-from typing import cast
-
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     DEGREE,
@@ -41,7 +39,7 @@ from .const import (
     UnitOfDir,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import chill_index, heat_index, wind_dir_to_text
+from .utils import chill_index, heat_index, to_float, to_int, wind_dir_to_text
 
 SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -51,7 +49,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=INDOOR_TEMP,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_HUMIDITY,
@@ -60,7 +58,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
         translation_key=INDOOR_HUMIDITY,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_TEMP,
@@ -69,7 +67,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=OUTSIDE_TEMP,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_HUMIDITY,
@@ -78,7 +76,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.HUMIDITY,
         translation_key=OUTSIDE_HUMIDITY,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=DEW_POINT,
@@ -87,7 +85,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:thermometer-lines",
         device_class=SensorDeviceClass.TEMPERATURE,
         translation_key=DEW_POINT,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=BARO_PRESSURE,
@@ -97,7 +95,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ATMOSPHERIC_PRESSURE,
         suggested_unit_of_measurement=UnitOfPressure.HPA,
         translation_key=BARO_PRESSURE,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=WIND_SPEED,
@@ -107,7 +105,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         icon="mdi:weather-windy",
         translation_key=WIND_SPEED,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=WIND_GUST,
@@ -117,7 +115,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         icon="mdi:windsock",
         translation_key=WIND_GUST,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=WIND_DIR,
@@ -127,15 +125,12 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=None,
         icon="mdi:sign-direction",
         translation_key=WIND_DIR,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=WIND_AZIMUT,
         icon="mdi:sign-direction",
-        value_fn=lambda data: cast("str", wind_dir_to_text(data)),
-        value_from_data_fn=lambda data: cast(
-            "str", wind_dir_to_text(cast("float", data.get(WIND_DIR) or 0.0))
-        ),
+        value_from_data_fn=lambda dir: wind_dir_to_text(dir.get(WIND_DIR, 0.0)),
         device_class=SensorDeviceClass.ENUM,
         options=[e.value for e in UnitOfDir],
         translation_key=WIND_AZIMUT,
@@ -149,7 +144,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=RAIN,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=DAILY_RAIN,
@@ -160,7 +155,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-pouring",
         translation_key=DAILY_RAIN,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=SOLAR_RADIATION,
@@ -169,7 +164,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.IRRADIANCE,
         icon="mdi:weather-sunny",
         translation_key=SOLAR_RADIATION,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=UV,
@@ -178,7 +173,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         native_unit_of_measurement=UV_INDEX,
         icon="mdi:sunglasses",
         translation_key=UV,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=CH2_TEMP,
@@ -188,7 +183,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:weather-sunny",
         translation_key=CH2_TEMP,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=CH2_HUMIDITY,
@@ -197,7 +192,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         icon="mdi:weather-sunny",
         translation_key=CH2_HUMIDITY,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=CH3_TEMP,
@@ -207,7 +202,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:weather-sunny",
         translation_key=CH3_TEMP,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=CH3_HUMIDITY,
@@ -216,7 +211,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         icon="mdi:weather-sunny",
         translation_key=CH3_HUMIDITY,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=CH4_TEMP,
@@ -226,7 +221,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:weather-sunny",
         translation_key=CH4_TEMP,
-        value_fn=lambda data: cast("float", data),
+        value_fn=to_float,
     ),
     WeatherSensorEntityDescription(
         key=CH4_HUMIDITY,
@@ -235,7 +230,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         icon="mdi:weather-sunny",
         translation_key=CH4_HUMIDITY,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=HEAT_INDEX,
@@ -246,7 +241,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-sunny",
         translation_key=HEAT_INDEX,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
         value_from_data_fn=heat_index,
     ),
     WeatherSensorEntityDescription(
@@ -258,7 +253,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
         value_from_data_fn=chill_index,
     ),
 )
