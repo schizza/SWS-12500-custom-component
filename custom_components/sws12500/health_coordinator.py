@@ -40,6 +40,7 @@ from .const import (
     POCASI_CZ_ENABLED,
     WINDY_ENABLED,
     WSLINK,
+    WSLINK_ADDON_PORT,
     WSLINK_URL,
 )
 from .data import ENTRY_HEALTH_DATA
@@ -78,9 +79,7 @@ def _empty_forwarding_state(enabled: bool) -> dict[str, Any]:
 
 def _default_health_data(config: ConfigEntry) -> dict[str, Any]:
     """Build the default health/debug payload for this config entry."""
-    configured_protocol = _protocol_name(
-        checked_or(config.options.get(WSLINK), bool, False)
-    )
+    configured_protocol = _protocol_name(checked_or(config.options.get(WSLINK), bool, False))
     return {
         "integration_status": f"online_{configured_protocol}",
         "configured_protocol": configured_protocol,
@@ -117,12 +116,8 @@ def _default_health_data(config: ConfigEntry) -> dict[str, Any]:
             "reason": "no_data",
         },
         "forwarding": {
-            "windy": _empty_forwarding_state(
-                checked_or(config.options.get(WINDY_ENABLED), bool, False)
-            ),
-            "pocasi": _empty_forwarding_state(
-                checked_or(config.options.get(POCASI_CZ_ENABLED), bool, False)
-            ),
+            "windy": _empty_forwarding_state(checked_or(config.options.get(WINDY_ENABLED), bool, False)),
+            "pocasi": _empty_forwarding_state(checked_or(config.options.get(POCASI_CZ_ENABLED), bool, False)),
         },
     }
 
@@ -190,9 +185,7 @@ class HealthCoordinator(DataUpdateCoordinator):
 
         data["integration_status"] = integration_status
         data["active_protocol"] = (
-            last_protocol
-            if accepted and last_protocol in {"wu", "wslink"}
-            else configured_protocol
+            last_protocol if accepted and last_protocol in {"wu", "wslink"} else configured_protocol
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -201,8 +194,10 @@ class HealthCoordinator(DataUpdateCoordinator):
         url = get_url(self.hass)
         ip = await async_get_source_ip(self.hass)
 
-        health_url = f"https://{ip}/healthz"
-        info_url = f"https://{ip}/status/internal"
+        port = checked_or(self.config_entry.options.get(WSLINK_ADDON_PORT), int, 443)
+
+        health_url = f"https://{ip}:{port}/healthz"
+        info_url = f"https://{ip}:{port}/status/internal"
 
         data = deepcopy(self.data)
         addon = data["addon"]
@@ -245,9 +240,7 @@ class HealthCoordinator(DataUpdateCoordinator):
     def update_routing(self, routes: Routes | None) -> None:
         """Store the currently enabled routes for diagnostics."""
         data = deepcopy(self.data)
-        data["configured_protocol"] = _protocol_name(
-            checked_or(self.config.options.get(WSLINK), bool, False)
-        )
+        data["configured_protocol"] = _protocol_name(checked_or(self.config.options.get(WSLINK), bool, False))
         if routes is not None:
             data["routes"] = {
                 "wu_enabled": routes.path_enabled(DEFAULT_URL),
@@ -258,9 +251,7 @@ class HealthCoordinator(DataUpdateCoordinator):
         self._refresh_summary(data)
         self._commit(data)
 
-    def record_dispatch(
-        self, request: aiohttp.web.Request, route_enabled: bool, reason: str | None
-    ) -> None:
+    def record_dispatch(self, request: aiohttp.web.Request, route_enabled: bool, reason: str | None) -> None:
         """Record every ingress observed by the dispatcher.
 
         This runs before the actual webhook handler. It lets diagnostics answer:
