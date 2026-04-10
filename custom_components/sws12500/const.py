@@ -225,11 +225,45 @@ __all__ = [
     "AZIMUT",
     "UnitOfBat",
     "BATTERY_LEVEL",
+    "ECOWITT_URL",
+    "ECOWITT_META_KEYS",
+    "REMAP_ECOWITT_COMPAT",
 ]
 
 ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
 ECOWITT_ENABLED: Final = "ecowitt_enabled"
+ECOWITT_URL: Final = "/weather/ecowitt"
+ECOWITT_META_KEYS: Final = {"passkey", "stationtype", "model", "freq"}
+
+REMAP_ECOWITT_COMPAT: dict[str, str] = {
+    "tempf": OUTSIDE_TEMP,
+    "humidity": OUTSIDE_HUMIDITY,
+    "dewpointf": DEW_POINT,
+    "windspeedmph": WIND_SPEED,
+    "windgustmph": WIND_GUST,
+    "winddir": WIND_DIR,
+    "dailyrainin": DAILY_RAIN,
+    "solarradiation": SOLAR_RADIATION,
+    "tempinf": INDOOR_TEMP,
+    "humidityin": INDOOR_HUMIDITY,
+    "uv": UV,
+    "baromrelin": BARO_PRESSURE,
+    "temp1f": CH2_TEMP,
+    "humidity1": CH2_HUMIDITY,
+    "temp2f": CH3_TEMP,
+    "humidity2": CH3_HUMIDITY,
+    "temp3f": CH4_TEMP,
+    "humidity3": CH4_HUMIDITY,
+    "temp4f": CH5_TEMP,
+    "humidity4": CH5_HUMIDITY,
+    "temp5f": CH6_TEMP,
+    "humidity5": CH6_HUMIDITY,
+    "temp6f": CH7_TEMP,
+    "humidity6": CH7_HUMIDITY,
+    "temp7f": CH8_TEMP,
+    "humidity7": CH8_HUMIDITY,
+}
 
 POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
 POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
@@ -406,8 +440,9 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 # &t10cn= CO2 sensor connection (Connected=1, No connect=0) integer
 # &t11co= CO concentration integer ppm
 # &t11bat= CO sensor battery level (0~5) remark: 5 is full integer
-# &t11cn= CO sensor connection (Connected=1, No connect=0) integer
+# &t11cn= CO sensor connection (Connected=1, No connect=0) integero
 #
+
 
 DISABLED_BY_DEFAULT: Final = [
     CH2_TEMP,

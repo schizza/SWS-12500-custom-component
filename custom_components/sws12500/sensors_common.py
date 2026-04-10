@@ -12,6 +12,8 @@ class WeatherSensorEntityDescription(SensorEntityDescription):
     """Describe Weather Sensor entities."""
 
     value_fn: Callable[[Any], int | float | str | None] | None = None
-    value_from_data_fn: Callable[[dict[str, Any]], int | float | str | None] | None = (
-        None
-    )
+    value_from_data_fn: Callable[[dict[str, Any]], int | float | str | None] | None = None
+
+    deprecated: bool = False
+    replacement_entity_domain: str | None = None
+    replacement_entity_key: str | None = None

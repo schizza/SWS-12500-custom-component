@@ -13,7 +13,8 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/schizza/SWS-12500-custom-component/issues",
   "requirements": [
-    "typecheck-runtime==0.2.0"
+    "typecheck-runtime==0.2.0",
+    "aioecowitt==2025.9.2"
   ],
   "ssdp": [],
   "version": "2.0.0-pre0",
