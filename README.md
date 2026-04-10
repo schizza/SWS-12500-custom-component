@@ -9,7 +9,7 @@ This integration will listen for data from your station and passes them to respe
 
 ---
 
-### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data.
+### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data
 
 - The transition date hasn’t been set yet, but it’s currently expected to happen within the next ~2–3 months. At the moment, I’m working on a full refactor and general code cleanup. Looking further ahead, the goal is to have the integration fully incorporated into Home Assistant as a native component—meaning it won’t need to be installed via HACS, but will become part of the official Home Assistant distribution.
 
@@ -19,7 +19,40 @@ This integration will listen for data from your station and passes them to respe
 
 ## Warning - WSLink APP (applies also for SWS 12500 with firmware >3.0)
 
+Please, read IMPORTANT down below.
+
 For stations that are using WSLink app to setup station and WSLink API for resending data (also SWS 12500 manufactured in 2024 and later). You will need to install [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to your Home Assistant if you are not running your Home Assistant instance in SSL mode or you do not have SSL proxy for your Home Assistant.
+
+---
+!IMPORTANT!
+This recommendation above does not applies for all stations. As it is know by now, some stations, even configured by `WSLink App` does not use `WSLink protocol` to send data to custom servers.
+So, it could be very confusing how to configure your station. And for that case, I made simple debugging server.
+
+## Not Sure How Your Station Sends Data?
+
+If you are struggling with configuration and don't know which protocol your station uses (`WSLink` or `PWS/WU`), or whether it sends data over SSL or plain HTTP — use our public test server:
+
+**<https://test-station.schizza.cz>**
+
+1. Open the link above and create a new session.
+2. Point your weather station to the generated subdomain address.
+3. Within a few seconds the server will show you:
+   - the **protocol** your station is using (`WSLink` or `PWS/WU`)
+   - whether the request arrived over **SSL** or **non-SSL**
+   - the full query string, headers, and payload your station sent
+
+This information tells you exactly how to configure the integration in Home Assistant.
+
+### Quick Recommendations
+
+| Station sends via | Protocol | Recommended Setup |
+|---|---|--- |
+| **plain HTTP** | PWS/WU | Point the station directly at Home Assistant — no proxy needed. |
+| **plain HTTP** | WSLink | Point the station directly at Home Assistant — no proxy needed. Enable `WSLink` in settings. |
+| **HTTPS (SSL)** | PWS/WU | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant. And keep `WSLink API` unchecked. (Disabled) |
+| **HTTPS (SSL)** | WSLink | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant and enable `WSLink API` |
+
+— If the test server shows your station is sending over SSL, you need the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon). If it sends plain HTTP, you can connect directly.
 
 ## Requirements
 
@@ -36,11 +69,13 @@ For stations that are using WSLink app to setup station and WSLink API for resen
 - Bresser stations that support custom server upload. [for example, this is known to work](https://www.bresser.com/p/bresser-wi-fi-clearview-weather-station-with-7-in-1-sensor-7002586)
 - Garni stations with WSLink support or custom server support.
 
+- and bunch of other models are that is not listed here are supported
+
 ## Installation
 
 ### For stations that send data through WSLink API
 
-Make sure you have your Home Assistant cofigured in SSL mode or use [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to bypass SSL configuration of whole Home Assistant.
+Make sure you have your Home Assistant configured in SSL mode or use [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to bypass SSL configuration of whole Home Assistant.
 
 ### HACS installation
 
@@ -99,7 +134,7 @@ As soon as the integration is added into Home Assistant it will listen for incom
 ## Upgrading from PWS to WSLink
 
 If you upgrade your station, that was previously sending data in PWS protocol, to station with WSLink protocol, you have to remove the integration a reinstall it. WSLink protocol is using metric scale instead of imperial used in PWS protocol.
-So, deleteing integration and reinstalling will make sure, that sensors will be avare of change of the measurement scale. 
+So, deleteing integration and reinstalling will make sure, that sensors will be avare of change of the measurement scale.
 
 - as sensors unique IDs are the same, you will not loose any of historical data
 
@@ -120,6 +155,7 @@ So, deleteing integration and reinstalling will make sure, that sensors will be 
 - You are done.
 
 ## Resending data to Pocasi Meteo
+
 - If you are willing to use [Pocasi Meteo Application](https://pocasimeteo.cz) you can enable resending your data to their servers
 - You must have account at Pocasi Meteo, where you will recieve `ID` and `KEY`, which are needed to connect to server
 - In `Settings` -> `Devices & services` find SWS12500 and click `Configure`.
@@ -148,3 +184,4 @@ you will set URL in station to: 192.0.0.2:4443
 - Your station will be sending data to this SSL proxy and addon will handle the rest.
 
 _Most of the stations does not care about self-signed certificates on the server side._
+
