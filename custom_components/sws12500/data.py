@@ -16,6 +16,12 @@ from typing import Final
 ENTRY_COORDINATOR: Final[str] = "coordinator"
 ENTRY_ADD_ENTITIES: Final[str] = "async_add_entities"
 ENTRY_DESCRIPTIONS: Final[str] = "sensor_descriptions"
+
+# Binary sensor dynamic support
+ENTRY_ADD_BINARY_ENTITIES: Final[str] = "async_add_binary_entities"
+ENTRY_BINARY_DESCRIPTION: Final[str] = "binary_sensor_description"
+ENTRY_ADDED_BINARY_KEYS: Final[str] = "added_binary_keys"
+
 ENTRY_LAST_OPTIONS: Final[str] = "last_options"
 ENTRY_HEALTH_COORD: Final[str] = "coord_h"
 ENTRY_HEALTH_DATA: Final[str] = "health_data"

@@ -31,7 +31,7 @@ class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride
         """Initialize the battery binary sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{description.key}_battery"
+        self._attr_unique_id = f"{description.key}_binary"
 
     @property
     def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -51,3 +51,15 @@ class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride
             return None
 
         return value == 0
+
+    @cached_property
+    def device_info(self) -> DeviceInfo:
+        """Device info."""
+        return DeviceInfo(
+            connections=set(),
+            name="Weather Station SWS 12500",
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN,)},  # type: ignore[arg-type]
+            manufacturer="Schizza",
+            model="Weather Station SWS 12500",
+        )
