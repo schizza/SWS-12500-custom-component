@@ -1,0 +1,3 @@
+[submodule "tools/test-station-server"]
+	path = tools/test-station-server
+	url = https://github.com/schizza/test-station-server.git
