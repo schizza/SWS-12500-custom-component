@@ -1,13 +1,21 @@
-"""Battery binary sensor entities."""
+"""Battery binary sensor entities for SWS 12500.
+
+Expose low-batter warnings as binary sensors.
+"""
 
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Any
 
 from py_typecheck import checked_or
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
+from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
 
 
 class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]

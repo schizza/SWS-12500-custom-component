@@ -62,18 +62,56 @@ class Routes:
         self.routes: dict[str, RouteInfo] = {}
         self._ingress_observer: IngressObserver | None = None
 
+    def _resolve_route(self, request: Request) -> RouteInfo | None:
+        """Find the matching RouteInfo for a request.
+
+        Two step lookup:
+        1) Find exact match using method:path (for fix routes)
+        2) Fallback to aiohttp resource canonical URL
+           works for routes with path parameter - as {webhook_id}
+        """
+
+        key = f"{request.method}:{request.path}"
+        if key in self.routes:
+            return self.routes[key]
+
+        resource = request.match_info.route.resource
+        if resource is not None:
+            canonical_key = f"{request.method}:{resource.canonical}"
+            if canonical_key in self.routes:
+                return self.routes[canonical_key]
+
+        return None
+
+    def set_ecowitt_enabled(self, url_path: str, handler: Handler, enabled: bool) -> None:
+        """Enable or disable the Ecowitt sticky route.
+
+        switch_route() does not involves sticky routes, so we need another
+        method for Ecowitt state at reload.
+        """
+
+        for route in self.routes.values():
+            if route.url_path == url_path and route.sticky:
+                route.enabled = enabled
+                route.handler = handler if enabled else unregistered
+                _LOGGER.info(
+                    "Ecowitt route %s %s",
+                    route.url_path,
+                    "enabled" if enabled else "disabled",
+                )
+                return
+
     def set_ingress_observer(self, observer: IngressObserver | None) -> None:
         """Set a callback notified for every incoming dispatcher request."""
         self._ingress_observer = observer
 
     async def dispatch(self, request: Request) -> Response:
         """Dispatch incoming request to either the enabled handler or a fallback."""
-        key = f"{request.method}:{request.path}"
-        info = self.routes.get(key)
+
+        info = self._resolve_route(request)
+
         if not info:
-            _LOGGER.debug(
-                "Route (%s):%s is not registered!", request.method, request.path
-            )
+            _LOGGER.debug("Route (%s):%s is not registered!", request.method, request.path)
             if self._ingress_observer is not None:
                 self._ingress_observer(request, False, "route_not_registered")
             return await unregistered(request)
@@ -125,9 +163,7 @@ class Routes:
         `dispatch` uses after aiohttp has routed the request by path.
         """
         key = f"{route.method}:{url_path}"
-        self.routes[key] = RouteInfo(
-            url_path, route=route, handler=handler, enabled=enabled, sticky=sticky
-        )
+        self.routes[key] = RouteInfo(url_path, route=route, handler=handler, enabled=enabled, sticky=sticky)
         _LOGGER.debug("Registered dispatcher for route (%s):%s", route.method, url_path)
 
     def show_enabled(self) -> str:
@@ -144,9 +180,7 @@ class Routes:
 
     def path_enabled(self, url_path: str) -> bool:
         """Return whether any route registered for `url_path` is enabled."""
-        return any(
-            route.enabled for route in self.routes.values() if route.url_path == url_path
-        )
+        return any(route.enabled for route in self.routes.values() if route.url_path == url_path)
 
     def snapshot(self) -> dict[str, Any]:
         """Return a compact routing snapshot for diagnostics."""
