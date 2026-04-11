@@ -43,7 +43,10 @@ from .const import (
     API_ID,
     API_KEY,
     DEFAULT_URL,
+    DEV_DBG,
     DOMAIN,
+    ECOWITT_ENABLED,
+    ECOWITT_URL_PREFIX,
     HEALTH_URL,
     POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
@@ -52,6 +55,7 @@ from .const import (
     WSLINK_URL,
 )
 from .data import ENTRY_COORDINATOR, ENTRY_HEALTH_COORD, ENTRY_LAST_OPTIONS
+from .ecowitt import EcowittBridge  # noqa: PLC0415
 from .health_coordinator import HealthCoordinator
 from .pocasti_cz import PocasiPush
 from .routes import Routes
@@ -68,7 +72,7 @@ from .utils import (
 from .windy_func import WindyPush
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 class IncorrectDataError(InvalidStateError):
@@ -102,6 +106,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self.config: ConfigEntry = config
         self.windy: WindyPush = WindyPush(hass, config)
         self.pocasi: PocasiPush = PocasiPush(hass, config)
+
+        # Ecowitt bridge - aioecowitt parser without HTTP server
+
+        self.ecowitt_bridge: EcowittBridge = EcowittBridge(hass, config)
+
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
     def _health_coordinator(self) -> HealthCoordinator | None:
@@ -113,6 +122,93 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         coordinator = entry.get(ENTRY_HEALTH_COORD)
         return coordinator if isinstance(coordinator, HealthCoordinator) else None
+
+    async def recieved_ecowitt_data(self, webdata: aiohttp.web.Request) -> aiohttp.web.Response:
+        """Handle incoming Ecowitt webhook payload.
+
+        We are using aioecowitt for parsing payload. Sensors with internal
+        mapping will use SWS pipline. Sensors withou mapping will create
+        native Ecowitt entity trough bridge callback.
+        """
+
+        from .const import ECOWITT_ENABLED, ECOWITT_WEBHOOK_ID  # noqa: PLC0415
+
+        health = self._health_coordinator()
+
+        # Do we have Ecowitt enabled?
+        if not checked_or(self.config.options.get(ECOWITT_ENABLED), bool, False):
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=None,
+                    reason="ecowitt_disabled",
+                )
+            return aiohttp.web.Response(text="Ecowwit disabled", status=403)
+
+        # Check webhook ID from URL
+        expected_webhook = self.config.options.get(ECOWITT_WEBHOOK_ID, "")
+        actual_webhook = webdata.match_info.get("webhook_id", "")
+
+        if not expected_webhook or actual_webhook != expected_webhook:
+            _LOGGER.error("Ecowitt: invalid webhook ID")
+            if health:
+                health.update_ingress_result(
+                    webdata,
+                    accepted=False,
+                    authorized=False,
+                    reason="ecowitt_invalid_webhook_id",
+                )
+            raise HTTPUnauthorized
+
+        # Parse POST body
+        post_data = await webdata.post()
+        data: dict[str, Any] = dict(post_data)
+
+        # Bridge: aioecowitt parsing + internal remap
+        mapped_data = await self.ecowitt_bridge.process_payload(data)
+
+        # Mapped sensors to SWS pipline (auto-discovery + fan-out)
+        if mapped_data:
+            if sensors := check_disabled(mapped_data, self.config):
+                newly_discovered = list(sensors)
+                if _loaded_senosrs := loaded_sensors(self.config):
+                    sensors.extend(_loaded_senosrs)
+                await update_options(self.hass, self.config, SENSORS_TO_LOAD, sensors)
+
+                from .binary_sensor import add_new_binary_sensors  # noqa: PLC0415
+                from .sensor import add_new_sensors  # noqa: PLC0415
+
+                add_new_binary_sensors(self.hass, self.config, newly_discovered)
+                add_new_sensors(self.hass, self.config, newly_discovered)
+            self.async_set_updated_data(mapped_data)
+
+        if health:
+            health.update_ingress_result(
+                webdata,
+                accepted=True,
+                authorized=True,
+                reason="accepted",
+            )
+
+        # Forwarding (mapped data in WU units)
+        _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
+        _pocasi_enabled = checked_or(self.config.options.get(POCASI_CZ_ENABLED), bool, False)
+        if _windy_enabled:
+            await self.windy.push_data_to_windy(data, False)
+
+        # Will push just WU payload to POCASI
+        # TODO: create ecowitt protocol to send full payload to Pocasi CZ
+        if _pocasi_enabled:
+            await self.pocasi.push_data_to_server(data, "WU")
+
+        if health:
+            health.update_forwarding(self.windy, self.pocasi)
+
+        if (checked(self.config.options.get(DEV_DBG), True)) is not None:
+            _LOGGER.info("Dev log (ecowitt): %s", anonymize(data))
+
+        return aiohttp.web.Response(body="OK", status=200)
 
     async def received_data(self, webdata: aiohttp.web.Request) -> aiohttp.web.Response:
         """Handle incoming webhook payload from the station.
@@ -268,9 +364,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             # NOTE: Some linters prefer top-level imports. In this case the local import is
             # intentional and prevents "partially initialized module" errors.
 
+            from .binary_sensor import add_new_binary_sensors  # noqa: PLC0415 (local import is intentional)
             from .sensor import add_new_sensors  # noqa: PLC0415 (local import is intentional)
 
             add_new_sensors(self.hass, self.config, newly_discovered)
+            add_new_binary_sensors(self.hass, self.config, newly_discovered)
 
         # Fan-out update: notify all subscribed entities.
         self.async_set_updated_data(remaped_items)
@@ -322,6 +420,7 @@ def register_path(
         raise ConfigEntryNotReady
 
     _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
+    _ecowitt_enabled: bool = checked_or(config.options.get(ECOWITT_ENABLED), bool, False)
 
     # Load registred routes
     routes: Routes | None = hass_data.get("routes", None)
@@ -336,6 +435,12 @@ def register_path(
             _wslink_post_route = hass.http.app.router.add_post(WSLINK_URL, routes.dispatch, name="_wslink_post_route")
             _wslink_get_route = hass.http.app.router.add_get(WSLINK_URL, routes.dispatch, name="_wslink_get_route")
             _health_route = hass.http.app.router.add_get(HEALTH_URL, routes.dispatch, name="_health_route")
+
+            # Ecowitt URL contains {webhook_id} as a parameter.
+            # Station is configured to send data to: http://ha:8123/weatherhub/<webhook_id>
+
+            _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
+            _ecowitt_route = hass.http.app.router.add_post(_ecowitt_path, routes.dispatch, name="_ecowitt_route")
 
             # Save initialised routes
             hass_data["routes"] = routes
@@ -354,6 +459,13 @@ def register_path(
             _health_route,
             coordinator_h.health_status,
             enabled=True,
+            sticky=True,
+        )
+        routes.add_route(
+            _ecowitt_path,
+            _ecowitt_route,
+            coordinator.recieved_ecowitt_data,
+            enabled=_ecowitt_enabled,
             sticky=True,
         )
     else:
@@ -418,12 +530,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry_data[ENTRY_LAST_OPTIONS] = dict(entry.options)
 
     _wslink = checked_or(entry.options.get(WSLINK), bool, False)
+    _ecowitt_enabled = checked_or(entry.options.get(ECOWITT_ENABLED), bool, False)
+    _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
     _LOGGER.debug("WS Link is %s", "enbled" if _wslink else "disabled")
 
     if routes:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
         routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL)
+        routes.set_ecowitt_enabled(_ecowitt_path, coordinator.recieved_ecowitt_data, _ecowitt_enabled)
         routes.set_ingress_observer(coordinator_health.record_dispatch)
         coordinator_health.update_routing(routes)
         _LOGGER.debug("%s", routes.show_enabled())

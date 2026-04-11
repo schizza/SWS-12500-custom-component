@@ -234,6 +234,7 @@ ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
 ECOWITT_ENABLED: Final = "ecowitt_enabled"
 ECOWITT_URL: Final = "/weather/ecowitt"
+ECOWITT_URL_PREFIX: Final = "/weatherhub"
 ECOWITT_META_KEYS: Final = {"passkey", "stationtype", "model", "freq"}
 
 REMAP_ECOWITT_COMPAT: dict[str, str] = {

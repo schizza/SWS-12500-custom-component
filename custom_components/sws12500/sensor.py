@@ -98,9 +98,7 @@ async def async_setup_entry(
 
     # we have to check if entry_data are present
     # It is created by integration setup, so it should be presnet
-    if (
-        entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])
-    ) is None:
+    if (entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])) is None:
         # This should not happen in normal operation.
         return
 
@@ -125,25 +123,24 @@ async def async_setup_entry(
     # look up its description here and instantiate the matching entity.
     entry_data[ENTRY_DESCRIPTIONS] = {desc.key: desc for desc in sensor_types}
 
-    sensors_to_load = checked_or(
-        config_entry.options.get(SENSORS_TO_LOAD), list[str], []
-    )
+    sensors_to_load = checked_or(config_entry.options.get(SENSORS_TO_LOAD), list[str], [])
     if not sensors_to_load:
         return
 
     requested = _auto_enable_derived_sensors(set(sensors_to_load))
 
     entities: list[WeatherSensor] = [
-        WeatherSensor(description, coordinator)
-        for description in sensor_types
-        if description.key in requested
+        WeatherSensor(description, coordinator) for description in sensor_types if description.key in requested
     ]
     async_add_entities(entities)
 
+    # Connect Ecowitt bridge to sensor platform,
+    # so it can dynamically add native Ecowitt entities
+    if hasattr(coordinator, "ecowitt_bridge"):
+        coordinator.ecowitt_bridge.set_add_entities(async_add_entities)
 
-def add_new_sensors(
-    hass: HomeAssistant, config_entry: ConfigEntry, keys: list[str]
-) -> None:
+
+def add_new_sensors(hass: HomeAssistant, config_entry: ConfigEntry, keys: list[str]) -> None:
     """Dynamically add newly discovered sensors without reloading the entry.
 
     Called by the webhook handler when the station starts sending new fields.
@@ -157,9 +154,7 @@ def add_new_sensors(
     if (hass_data := checked(hass.data.get(DOMAIN), dict[str, Any])) is None:
         return
 
-    if (
-        entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])
-    ) is None:
+    if (entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])) is None:
         return
 
     add_entities = entry_data.get(ENTRY_ADD_ENTITIES)
@@ -208,9 +203,7 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
 
         config_entry = getattr(self.coordinator, "config", None)
         self._dev_log = checked_or(
-            config_entry.options.get("dev_debug_checkbox")
-            if config_entry is not None
-            else False,
+            config_entry.options.get("dev_debug_checkbox") if config_entry is not None else False,
             bool,
             False,
         )
@@ -236,9 +229,7 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
             try:
                 value = description.value_from_data_fn(data)
             except Exception:  # noqa: BLE001
-                _LOGGER.exception(
-                    "native_value compute failed via value_from_data_fn for key=%s", key
-                )
+                _LOGGER.exception("native_value compute failed via value_from_data_fn for key=%s", key)
                 return None
 
             return value
@@ -257,9 +248,7 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         try:
             value = description.value_fn(raw)
         except Exception:  # noqa: BLE001
-            _LOGGER.exception(
-                "native_value compute failed via value_fn for key=%s raw=%s", key, raw
-            )
+            _LOGGER.exception("native_value compute failed via value_fn for key=%s raw=%s", key, raw)
             return None
 
         return value

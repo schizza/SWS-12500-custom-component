@@ -36,6 +36,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     DEFAULT_URL,
     DOMAIN,
+    ECOWITT_URL_PREFIX,
     HEALTH_URL,
     POCASI_CZ_ENABLED,
     WINDY_ENABLED,
@@ -64,6 +65,8 @@ def _protocol_from_path(path: str) -> str:
         return "wu"
     if path == HEALTH_URL:
         return "health"
+    if path.startswith(ECOWITT_URL_PREFIX + "/"):
+        return "ecowitt"
     return "unknown"
 
 
