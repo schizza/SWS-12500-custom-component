@@ -7,6 +7,9 @@ This integration will listen for data from your station and passes them to respe
 
 ### In the next major release, I there will be support for Ecowitt stations as well
 
+As from 4/11/2026 Ecowitt stations are supported in pre-release version 2.0.0pre1 (https://github.com/schizza/SWS-12500-custom-component/releases/tag/v2.0.0pre1)
+You can download this pre-release in HACS under `target version` - where you can select exact version of integration. But, be aware, that this pre-release is really for testing purposes only.
+
 ---
 
 ### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data
