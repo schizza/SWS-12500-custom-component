@@ -144,7 +144,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
                     authorized=None,
                     reason="ecowitt_disabled",
                 )
-            return aiohttp.web.Response(text="Ecowwit disabled", status=403)
+            return aiohttp.web.Response(text="Ecowitt disabled", status=403)
 
         # Check webhook ID from URL
         expected_webhook = self.config.options.get(ECOWITT_WEBHOOK_ID, "")
@@ -205,7 +205,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         if health:
             health.update_forwarding(self.windy, self.pocasi)
 
-        if (checked(self.config.options.get(DEV_DBG), True)) is not None:
+        if (_ := checked(self.config.options.get(DEV_DBG), True)) is not None:
             _LOGGER.info("Dev log (ecowitt): %s", anonymize(data))
 
         return aiohttp.web.Response(body="OK", status=200)
@@ -533,7 +533,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _ecowitt_enabled = checked_or(entry.options.get(ECOWITT_ENABLED), bool, False)
     _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
-    _LOGGER.debug("WS Link is %s", "enbled" if _wslink else "disabled")
+    _LOGGER.debug("WS Link is %s", "enabled" if _wslink else "disabled")
 
     if routes:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")

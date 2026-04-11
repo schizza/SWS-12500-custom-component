@@ -161,7 +161,7 @@ class EcowittBridge:
         self._know_native_keys: set[str] = set()
 
         # Callback for new entities
-        self._add_entities_cb = callback
+        self._add_entities_cb: AddEntitiesCallback | None = None
 
     def set_add_entities(self, callback: AddEntitiesCallback) -> None:
         """Store the platform callback for dynamic entity creation."""
@@ -239,7 +239,7 @@ class EcoWittNativeSensor(SensorEntity):
     """
 
     _attr_has_entity_name = True
-    _atttr_should_poll = False
+    _attr_should_poll = False
 
     def __init__(self, sensor: EcoWittSensor) -> None:
         """Initialize native EcoWittSensor."""
@@ -254,7 +254,7 @@ class EcoWittNativeSensor(SensorEntity):
             device_class, unit, state_class = ha_meta
             self._attr_device_class = device_class
             self._attr_native_unit_of_measurement = unit
-            self._attr_state_calss = state_class
+            self._attr_state_class = state_class
 
     @property
     def name(self) -> str:
