@@ -57,6 +57,8 @@ This information tells you exactly how to configure the integration in Home Assi
 
 — If the test server shows your station is sending over SSL, you need the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon). If it sends plain HTTP, you can connect directly.
 
+Web server repo is reachable here: https://github.com/schizza/test-station-server
+
 ## Requirements
 
 - Weather station that supports sending data to custom server in their API [(list of supported stations.)](#list-of-supported-stations)
