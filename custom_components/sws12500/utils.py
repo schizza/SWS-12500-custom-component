@@ -15,6 +15,7 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    CONNECTION_GATED_SENSORS,
     DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
@@ -22,9 +23,11 @@ from .const import (
     REMAP_ITEMS,
     REMAP_WSLINK_ITEMS,
     SENSORS_TO_LOAD,
+    VOC_LEVEL_MAP,
     WIND_SPEED,
     UnitOfBat,
     UnitOfDir,
+    VOCLevel,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,9 +47,7 @@ async def translations(
 
     language = hass.config.language
 
-    _translations = await async_get_translations(
-        hass, language, category, [translation_domain]
-    )
+    _translations = await async_get_translations(hass, language, category, [translation_domain])
     if localize_key in _translations:
         return _translations[localize_key]
     return ""
@@ -66,15 +67,11 @@ async def translated_notification(
 
     localize_key = f"component.{translation_domain}.{category}.{translation_key}.{key}"
 
-    localize_title = (
-        f"component.{translation_domain}.{category}.{translation_key}.title"
-    )
+    localize_title = f"component.{translation_domain}.{category}.{translation_key}.title"
 
     language = hass.config.language
 
-    _translations = await async_get_translations(
-        hass, language, category, [translation_domain]
-    )
+    _translations = await async_get_translations(hass, language, category, [translation_domain])
     if localize_key in _translations:
         if not translation_placeholders:
             persistent_notification.async_create(
@@ -85,14 +82,10 @@ async def translated_notification(
             )
         else:
             message = _translations[localize_key].format(**translation_placeholders)
-            persistent_notification.async_create(
-                hass, message, _translations[localize_title], notification_id
-            )
+            persistent_notification.async_create(hass, message, _translations[localize_title], notification_id)
 
 
-async def update_options(
-    hass: HomeAssistant, entry: ConfigEntry, update_key, update_value
-) -> bool:
+async def update_options(hass: HomeAssistant, entry: ConfigEntry, update_key, update_value) -> bool:
     """Update config.options entry."""
     conf = {**entry.options}
     conf[update_key] = update_value
@@ -128,6 +121,11 @@ def remap_wslink_items(entities):
         if item in REMAP_WSLINK_ITEMS:
             items[REMAP_WSLINK_ITEMS[item]] = entities[item]
 
+    for conn_key, gated in CONNECTION_GATED_SENSORS.items():
+        if str(entities.get(conn_key, "0")) != "1":
+            for key in gated:
+                items.pop(key, None)
+
     return items
 
 
@@ -137,9 +135,7 @@ def loaded_sensors(config_entry: ConfigEntry) -> list | None:
     return config_entry.options.get(SENSORS_TO_LOAD) or []
 
 
-def check_disabled(
-    hass: HomeAssistant, items, config_entry: ConfigEntry
-) -> list | None:
+def check_disabled(hass: HomeAssistant, items, config_entry: ConfigEntry) -> list | None:
     """Check if we have data for unloaded sensors.
 
     If so, then add sensor to load queue.
@@ -284,16 +280,28 @@ def chill_index(data: Any, convert: bool = False) -> float | None:
 
     return (
         round(
-            (
-                (35.7 + (0.6215 * temp))
-                - (35.75 * (wind**0.16))
-                + (0.4275 * (temp * (wind**0.16)))
-            ),
+            ((35.7 + (0.6215 * temp)) - (35.75 * (wind**0.16)) + (0.4275 * (temp * (wind**0.16)))),
             2,
         )
         if temp < 50 and wind > 3
         else temp
     )
+
+
+def voc_level_to_text(value: str) -> VOCLevel | None:
+    """Map 1-5 VOC level to text state."""
+    if value in (None, ""):
+        return None
+    return VOC_LEVEL_MAP.get(int(value))
+
+
+def battery_5step_to_pct(value: str) -> int | None:
+    """Convert 0-5 battery steps to percentage."""
+
+    if value in (None, ""):
+        return None
+
+    return round(int(value) / 5 * 100)
 
 
 def long_term_units_in_statistics_meta():
@@ -314,9 +322,7 @@ def long_term_units_in_statistics_meta():
          """
         )
         rows = db.fetchall()
-        sensor_units = {
-            statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows
-        }
+        sensor_units = {statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows}
 
     except sqlite3.Error as e:
         _LOGGER.error("Error during data migration: %s", e)

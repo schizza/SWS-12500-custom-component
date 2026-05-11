@@ -4,12 +4,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import (
-    ConfigEntry,
-    ConfigFlow,
-    ConfigFlowResult,
-    OptionsFlow,
-)
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 
@@ -79,9 +74,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.sensors = {
             SENSORS_TO_LOAD: (
-                entry_data.get(SENSORS_TO_LOAD)
-                if isinstance(entry_data.get(SENSORS_TO_LOAD), list)
-                else []
+                entry_data.get(SENSORS_TO_LOAD) if isinstance(entry_data.get(SENSORS_TO_LOAD), list) else []
             )
         }
 
@@ -93,14 +86,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.windy_data_schema = {
-            vol.Optional(
-                WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")
-            ): str,
-            vol.Optional(
-                WINDY_STATION_PW, default=self.windy_data.get(WINDY_STATION_PW, "")
-            ): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool
-            or False,
+            vol.Optional(WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")): str,
+            vol.Optional(WINDY_STATION_PW, default=self.windy_data.get(WINDY_STATION_PW, "")): str,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool or False,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
@@ -116,19 +104,13 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         }
 
         self.pocasi_cz_schema = {
-            vol.Required(
-                POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)
-            ): str,
-            vol.Required(
-                POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)
-            ): str,
+            vol.Required(POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)): str,
+            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): str,
             vol.Required(
                 POCASI_CZ_SEND_INTERVAL,
                 default=self.pocasi_cz.get(POCASI_CZ_SEND_INTERVAL),
             ): int,
-            vol.Optional(
-                POCASI_CZ_ENABLED, default=self.pocasi_cz.get(POCASI_CZ_ENABLED)
-            ): bool,
+            vol.Optional(POCASI_CZ_ENABLED, default=self.pocasi_cz.get(POCASI_CZ_ENABLED)): bool,
             vol.Optional(
                 POCASI_CZ_LOGGER_ENABLED,
                 default=self.pocasi_cz.get(POCASI_CZ_LOGGER_ENABLED),
@@ -137,9 +119,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Manage the options - show menu first."""
-        return self.async_show_menu(
-            step_id="init", menu_options=["basic", "windy", "pocasi"]
-        )
+        return self.async_show_menu(step_id="init", menu_options=["basic", "windy", "pocasi"])
 
     async def async_step_basic(self, user_input=None):
         """Manage basic options - credentials."""
@@ -293,9 +273,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            return self.async_create_entry(
-                title=DOMAIN, data=user_input, options=user_input
-            )
+            return self.async_create_entry(title=DOMAIN, data=user_input, options=user_input)
 
         return self.async_show_form(
             step_id="user",

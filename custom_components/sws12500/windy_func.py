@@ -98,8 +98,6 @@ class WindyPush:
         from station. But we need to do some clean up.
         """
 
-        text_for_test = None
-
         if self.log:
             _LOGGER.info(
                 "Windy last update = %s, next update at: %s",
@@ -169,9 +167,7 @@ class WindyPush:
             _LOGGER.info("Dataset for windy: %s", purged_data)
         session = async_get_clientsession(self.hass, verify_ssl=False)
         try:
-            async with session.get(
-                request_url, params=purged_data, headers=headers
-            ) as resp:
+            async with session.get(request_url, params=purged_data, headers=headers) as resp:
                 status = await resp.text()
                 try:
                     self.verify_windy_response(status)
@@ -179,26 +175,21 @@ class WindyPush:
                     # log despite of settings
                     _LOGGER.error(WINDY_NOT_INSERTED)
 
-                    text_for_test = WINDY_NOT_INSERTED
-
                 except WindyApiKeyError:
                     # log despite of settings
                     _LOGGER.critical(WINDY_INVALID_KEY)
-                    text_for_test = WINDY_INVALID_KEY
 
                     await update_options(self.hass, self.config, WINDY_ENABLED, False)
 
                 except WindySuccess:
                     if self.log:
                         _LOGGER.info(WINDY_SUCCESS)
-                    text_for_test = WINDY_SUCCESS
 
         except ClientError as ex:
             _LOGGER.critical("Invalid response from Windy: %s", str(ex))
             self.invalid_response_count += 1
             if self.invalid_response_count > 3:
                 _LOGGER.critical(WINDY_UNEXPECTED)
-                text_for_test = WINDY_UNEXPECTED
                 await update_options(self.hass, self.config, WINDY_ENABLED, False)
 
         self.last_update = datetime.now()
@@ -207,6 +198,4 @@ class WindyPush:
         if self.log:
             _LOGGER.info("Next update: %s", str(self.next_update))
 
-        if RESPONSE_FOR_TEST and text_for_test:
-            return text_for_test
         return None

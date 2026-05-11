@@ -4,6 +4,7 @@ from typing import cast
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
+    CONCENTRATION_PARTS_PER_BILLION,
     DEGREE,
     PERCENTAGE,
     UV_INDEX,
@@ -25,6 +26,7 @@ from .const import (
     CHILL_INDEX,
     DAILY_RAIN,
     DEW_POINT,
+    HCHO,
     HEAT_INDEX,
     HOURLY_RAIN,
     INDOOR_BATTERY,
@@ -36,7 +38,9 @@ from .const import (
     OUTSIDE_TEMP,
     RAIN,
     SOLAR_RADIATION,
+    T9_BATTERY,
     UV,
+    VOC,
     WBGT_TEMP,
     WEEKLY_RAIN,
     WIND_AZIMUT,
@@ -45,9 +49,10 @@ from .const import (
     WIND_SPEED,
     YEARLY_RAIN,
     UnitOfDir,
+    VOCLevel,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import wind_dir_to_text
+from .utils import battery_5step_to_pct, voc_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -311,21 +316,21 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         translation_key=OUTSIDE_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: (data),
+        value_fn=lambda data: data,
     ),
     WeatherSensorEntityDescription(
         key=CH2_BATTERY,
         translation_key=CH2_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: (data),
+        value_fn=lambda data: data,
     ),
     WeatherSensorEntityDescription(
         key=INDOOR_BATTERY,
         translation_key=INDOOR_BATTERY,
         icon="mdi:battery-unknown",
         device_class=SensorDeviceClass.ENUM,
-        value_fn=lambda data: (data),
+        value_fn=lambda data: data,
     ),
     WeatherSensorEntityDescription(
         key=WBGT_TEMP,
@@ -336,5 +341,31 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=2,
         value_fn=lambda data: cast("int", data),
+    ),
+    WeatherSensorEntityDescription(
+        key=HCHO,
+        translation_key=HCHO,
+        device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:molecule",
+        value_fn=lambda data: cast("int", data),
+    ),
+    WeatherSensorEntityDescription(
+        key=VOC,
+        translation_key=VOC,
+        device_class=SensorDeviceClass.ENUM,
+        options=list(VOCLevel),
+        icon="mdi:air-filter",
+        value_fn=lambda data: cast("str", voc_level_to_text(data)),
+    ),
+    WeatherSensorEntityDescription(
+        key=T9_BATTERY,
+        translation_key=T9_BATTERY,
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=battery_5step_to_pct,
     ),
 )

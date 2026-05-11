@@ -184,6 +184,22 @@
       "wbgt_index": {
         "name": "WBGT index"
       },
+      "hcho": {
+        "name": "Formaldehyde (HCHO)"
+      },
+      "voc": {
+        "name": "VOC level",
+        "state": {
+          "unhealthy": "Unhealthy",
+          "poor": "Poor",
+          "moderate": "Moderate",
+          "good": "Good",
+          "excellent": "Excellent"
+        }
+      },
+      "t9_battery": {
+        "name": "HCHO/VOC sensor battery"
+      },
       "wind_azimut": {
         "name": "Bearing",
         "state": {

@@ -189,6 +189,22 @@
       "wbgt_temp": {
         "name": "WBGT index"
       },
+      "hcho": {
+        "name": "Formaldehyd (HCHO)"
+      },
+      "voc": {
+        "name": "Úroveň VOC",
+        "state": {
+          "unhealthy": "Nezdravá",
+          "poor": "Špatná",
+          "moderate": "Průměrná",
+          "good": "Dobrá",
+          "excellent": "Velmi dobrá"
+        }
+      },
+      "t9_battery": {
+        "name": "Baterie senzoru HCHO/VOC"
+      },
       "wind_azimut": {
         "name": "Azimut",
         "state": {

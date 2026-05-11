@@ -28,26 +28,22 @@ POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
 POCASI_CZ_SEND_INTERVAL = "POCASI_SEND_INTERVAL"
 POCASI_CZ_ENABLED = "pocasi_enabled_chcekbox"
 POCASI_CZ_LOGGER_ENABLED = "pocasi_logger_checkbox"
-POCASI_INVALID_KEY: Final = (
-    "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
-)
+POCASI_INVALID_KEY: Final = "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
 POCASI_CZ_SUCCESS: Final = "Successfully sent data to Pocasi Meteo"
-POCASI_CZ_UNEXPECTED: Final = (
-    "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
-)
+POCASI_CZ_UNEXPECTED: Final = "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
 
 WINDY_STATION_ID = "WINDY_STATION_ID"
 WINDY_STATION_PW = "WINDY_STATION_PWD"
 WINDY_ENABLED: Final = "windy_enabled_checkbox"
 WINDY_LOGGER_ENABLED: Final = "windy_logger_checkbox"
-WINDY_NOT_INSERTED: Final = "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
-WINDY_INVALID_KEY: Final = "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
-WINDY_SUCCESS: Final = (
-    "Windy successfully sent data and data was successfully inserted by Windy API"
+WINDY_NOT_INSERTED: Final = (
+    "Data was succefuly sent to Windy, but not inserted by Windy API. Does anyone else sent data to Windy?"
 )
-WINDY_UNEXPECTED: Final = (
-    "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
+WINDY_INVALID_KEY: Final = (
+    "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
 )
+WINDY_SUCCESS: Final = "Windy successfully sent data and data was successfully inserted by Windy API"
+WINDY_UNEXPECTED: Final = "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
 
 INVALID_CREDENTIALS: Final = [
     "API",
@@ -118,6 +114,10 @@ CH4_CONNECTION: Final = "ch4_connection"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 WBGT_TEMP: Final = "wbgt_temp"
+HCHO: Final = "hcho"
+VOC: Final = "voc"
+T9_BATTERY: Final = "t9_battery"  # T9 sensors are HCHO and VOC
+T9_CONN: Final = "t9_conn"
 
 
 REMAP_ITEMS: dict[str, str] = {
@@ -173,14 +173,10 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "inbat": INDOOR_BATTERY,
     "t234c1bat": CH2_BATTERY,
     "t1wbgt": WBGT_TEMP,
+    "t9hcho": HCHO,
+    "t9voclv": VOC,
+    "t9bat": T9_BATTERY,  # T9 battery is 0-5, where 5 is full
 }
-
-# TODO: Add more sensors
-#
-# 'inbat'  indoor battery level (1 normal, 0 low)
-# 't1bat': outdoor battery level (1 normal, 0 low)
-# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLink
-
 
 DISABLED_BY_DEFAULT: Final = [
     CH2_TEMP,
@@ -199,6 +195,31 @@ BATTERY_LIST = [
     INDOOR_BATTERY,
     CH2_BATTERY,
 ]
+
+BATTERY_NON_BINARY: list[str] = [T9_BATTERY]
+
+CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {
+    "t9cn": [HCHO, VOC, T9_BATTERY],
+}
+
+
+class VOCLevel(StrEnum):
+    """WSLink VOC Level 1-5 (1-worst)."""
+
+    UNHEALTHY = "unhealthy"
+    POOR = "poor"
+    MODERATE = "moderate"
+    GOOD = "good"
+    EXCELLENT = "excellent"
+
+
+VOC_LEVEL_MAP: dict[int, VOCLevel] = {
+    1: VOCLevel.UNHEALTHY,
+    2: VOCLevel.POOR,
+    3: VOCLevel.MODERATE,
+    4: VOCLevel.GOOD,
+    5: VOCLevel.EXCELLENT,
+}
 
 
 class UnitOfDir(StrEnum):
