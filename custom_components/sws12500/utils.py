@@ -24,6 +24,8 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    CONNECTION_GATED_SENSORS,
+    DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
@@ -92,12 +94,7 @@ async def translated_notification(
             persistent_notification.async_create(hass, message, _translations[localize_title], notification_id)
 
 
-async def update_options(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    update_key: str,
-    update_value: str | list[str] | bool,
-) -> bool:
+async def update_options(hass: HomeAssistant, entry: ConfigEntry, update_key, update_value) -> bool:
     """Update config.options entry."""
     conf = {**entry.options}
     conf[update_key] = update_value

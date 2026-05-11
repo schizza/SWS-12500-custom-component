@@ -83,6 +83,10 @@ CH8_BATTERY: Final = "ch8_battery"
 HEAT_INDEX: Final = "heat_index"
 CHILL_INDEX: Final = "chill_index"
 WBGT_TEMP: Final = "wbgt_temp"
+HCHO: Final = "hcho"
+VOC: Final = "voc"
+T9_BATTERY: Final = "t9_battery"  # T9 sensors are HCHO and VOC
+T9_CONN: Final = "t9_conn"
 
 
 # Health specific constants
