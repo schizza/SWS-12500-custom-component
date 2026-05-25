@@ -5,28 +5,53 @@
 
 This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to `Windy API` or `Pocasi Meteo`.
 
-### In the next major release, I there will be support for Ecowitt stations as well
+### Ecowitt support is coming in the next major release
+
+As of April 11, 2026, Ecowitt stations are supported in the pre-release version
+[v2.0.0pre1](https://github.com/schizza/SWS-12500-custom-component/releases/tag/v2.0.0pre1).
+You can download this pre-release in HACS under `target version`, where you can pick the exact
+version of the integration. Please be aware that this pre-release is really for testing
+purposes only.
 
 ---
 
-### In the next major release, I plan to rename the integration, as its current name no longer reflects its original purpose. The integration was initially developed primarily for the SWS12500 station, but it already supports other weather stations as well (e.g., Bresser, Garni, and others). Support for Ecowitt stations will also be added in the future, so the current name has become misleading. This information will be provided via an update, and I’m also planning to offer a full data migration from the existing integration to the new one, so will not lose any of historical data
+### Integration rename is planned for the next major release
 
-- The transition date hasn’t been set yet, but it’s currently expected to happen within the next ~2–3 months. At the moment, I’m working on a full refactor and general code cleanup. Looking further ahead, the goal is to have the integration fully incorporated into Home Assistant as a native component—meaning it won’t need to be installed via HACS, but will become part of the official Home Assistant distribution.
+The current name no longer reflects what the integration does. It was initially developed
+primarily for the SWS 12500 station, but it already supports other weather stations as well
+(Bresser, Garni and others), and Ecowitt support is on the way — so the current name has
+become misleading. The transition will be announced via an update, and I'm also planning to
+offer a full data migration from the existing integration to the new one, so you won't lose
+any of your historical data.
 
-- I’m also looking for someone who owns an Ecowitt weather station and would be willing to help with testing the integration for these devices.
+- The transition date hasn't been set yet, but it's currently expected to happen within the
+  next ~2–3 months. At the moment, I'm working on a full refactor and general code cleanup.
+  Looking further ahead, the goal is to have the integration fully incorporated into Home
+  Assistant as a native component — meaning it won't need to be installed via HACS but will
+  become part of the official Home Assistant distribution.
+
+- I'm also looking for someone who owns an Ecowitt weather station and would be willing to
+  help with testing the integration for these devices.
 
 ---
 
-## Warning - WSLink APP (applies also for SWS 12500 with firmware >3.0)
+## Warning — WSLink app (applies also to SWS 12500 with firmware > 3.0)
 
-Please, read IMPORTANT down below.
+Please read the **IMPORTANT** note below.
 
-For stations that are using WSLink app to setup station and WSLink API for resending data (also SWS 12500 manufactured in 2024 and later). You will need to install [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon) to your Home Assistant if you are not running your Home Assistant instance in SSL mode or you do not have SSL proxy for your Home Assistant.
+For stations that use the WSLink app to set up the station and the WSLink API for resending
+data (also SWS 12500 stations manufactured in 2024 or later), you will need to install the
+[WSLink SSL proxy add-on](https://github.com/schizza/wslink-addon) into your Home Assistant
+— unless you are already running Home Assistant in SSL mode or you have your own SSL proxy
+in front of Home Assistant.
 
 ---
-!IMPORTANT!
-This recommendation above does not applies for all stations. As it is know by now, some stations, even configured by `WSLink App` does not use `WSLink protocol` to send data to custom servers.
-So, it could be very confusing how to configure your station. And for that case, I made simple debugging server.
+
+> [!IMPORTANT]
+> The recommendation above does not apply to all stations. As is known by now, some stations
+> — even when configured via the `WSLink App` — do not use the `WSLink protocol` to send
+> data to custom servers. It can therefore be confusing how to configure your station, and
+> for that case I made a simple debugging server (see below).
 
 ## Not Sure How Your Station Sends Data?
 
@@ -47,12 +72,14 @@ This information tells you exactly how to configure the integration in Home Assi
 
 | Station sends via | Protocol | Recommended Setup |
 |---|---|--- |
-| **plain HTTP** | PWS/WU | Point the station directly at Home Assistant — no proxy needed. |
-| **plain HTTP** | WSLink | Point the station directly at Home Assistant — no proxy needed. Enable `WSLink` in settings. |
-| **HTTPS (SSL)** | PWS/WU | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant. And keep `WSLink API` unchecked. (Disabled) |
-| **HTTPS (SSL)** | WSLink | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant and enable `WSLink API` |
+| **plain HTTP** | PWS/WU | Point the station directly at Home Assistant — no proxy needed. Keep `WSLink API` unchecked (disabled). |
+| **plain HTTP** | WSLink | Point the station directly at Home Assistant — no proxy needed. Enable `WSLink API` in settings. |
+| **HTTPS (SSL)** | PWS/WU | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant. Keep `WSLink API` unchecked (disabled). |
+| **HTTPS (SSL)** | WSLink | Install the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon) — it terminates TLS and forwards plain HTTP to Home Assistant, and enable `WSLink API`. |
 
 — If the test server shows your station is sending over SSL, you need the [WSLink Proxy Add-on](https://github.com/schizza/wslink-addon). If it sends plain HTTP, you can connect directly.
+
+Web server repo is reachable here: <https://github.com/schizza/test-station-server>
 
 ## Requirements
 
@@ -61,15 +88,34 @@ This information tells you exactly how to configure the integration in Home Assi
 - If you want to push data to Windy, you have to create an account at [Windy](https://stations.windy.com).
 - If you want to resend data to `Pocasi Meteo`, you have to create accout at [Pocasi Meteo](https://pocasimeteo.cz)
 
-## Example of supported stations
+## Examples of supported stations
 
 - [Sencor SWS 12500 Weather Station](https://www.sencor.cz/profesionalni-meteorologicka-stanice/sws-12500)
 - [Sencor SWS 16600 WiFi SH](https://www.sencor.cz/meteorologicka-stanice/sws-16600)
-- SWS 10500 (newer releases are also supported with [WSLink SSL proxy addon](https://github.com/schizza/wslink-addon))
-- Bresser stations that support custom server upload. [for example, this is known to work](https://www.bresser.com/p/bresser-wi-fi-clearview-weather-station-with-7-in-1-sensor-7002586)
-- Garni stations with WSLink support or custom server support.
+- SWS 10500 (newer firmware revisions are also supported via the [WSLink SSL proxy add-on](https://github.com/schizza/wslink-addon))
+- Bresser stations that support custom server upload — [this model is known to work](https://www.bresser.com/p/bresser-wi-fi-clearview-weather-station-with-7-in-1-sensor-7002586), for example
+- Garni stations with WSLink support or custom server support
+- and a bunch of other models that aren't listed here are also supported
 
-- and bunch of other models are that is not listed here are supported
+## Supported sensors
+
+The integration auto-creates sensors as soon as the station first sends data for them — new
+sensors trigger a notification in Home Assistant and are added to the entity list
+automatically.
+
+Beyond the standard set (outdoor / indoor temperature and humidity, barometric pressure,
+wind speed / direction / gust, rain rate and daily / weekly / monthly / yearly totals, dew
+point, UV index, solar irradiance) the WSLink protocol also exposes:
+
+- additional channels **CH2** and **CH3** for temperature and humidity
+- **WBGT** index, **heat index**, **wind chill**
+- sensor battery levels (outdoor, indoor, CH2)
+- **Formaldehyde (HCHO)** in ppb and **VOC level** as a 1–5 air-quality index
+  (1 = worst, 5 = best) from the WH46 / 7-in-1 air-quality combo sensor
+- **HCHO/VOC sensor battery** reported as a percentage
+
+HCHO / VOC entities are only created when the station reports the air-quality module as
+connected (`t9cn = 1`), so they don't clutter the device when no such sensor is attached.
 
 ## Installation
 
@@ -133,10 +179,13 @@ As soon as the integration is added into Home Assistant it will listen for incom
 
 ## Upgrading from PWS to WSLink
 
-If you upgrade your station, that was previously sending data in PWS protocol, to station with WSLink protocol, you have to remove the integration a reinstall it. WSLink protocol is using metric scale instead of imperial used in PWS protocol.
-So, deleteing integration and reinstalling will make sure, that sensors will be avare of change of the measurement scale.
+If you upgrade your station — which was previously sending data in the PWS protocol — to a
+station that uses the WSLink protocol, you have to remove the integration and reinstall it.
+The WSLink protocol uses the metric scale instead of the imperial scale used in PWS, and
+deleting and reinstalling the integration makes sure the sensors are aware of the change of
+measurement scale.
 
-- as sensors unique IDs are the same, you will not loose any of historical data
+- because sensor unique IDs stay the same, you will not lose any of your historical data
 
 ## Resending data to Windy API
 
@@ -189,5 +238,4 @@ WSLink proxy add-on is listening on port 4443
 
 - Your station will send data to the SSL proxy and the add-on will handle the rest.
 
-_Most of the stations does not care about self-signed certificates on the server side._
-
+_Most stations do not care about self-signed certificates on the server side._
