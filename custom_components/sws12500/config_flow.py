@@ -71,15 +71,17 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.user_data = {
             API_ID: self.config_entry.options.get(API_ID, ""),
             API_KEY: self.config_entry.options.get(API_KEY, ""),
+            LEGACY_ENABLED: self.config_entry.options.get(LEGACY_ENABLED, True),
             WSLINK: self.config_entry.options.get(WSLINK, False),
             DEV_DBG: self.config_entry.options.get(DEV_DBG, False),
         }
 
         self.user_data_schema = {
-            vol.Required(API_ID, default=self.user_data.get(API_ID, "")): str,
-            vol.Required(API_KEY, default=self.user_data.get(API_KEY, "")): str,
+            vol.Optional(API_ID, default=self.user_data.get(API_ID, "")): str,
+            vol.Optional(API_KEY, default=self.user_data.get(API_KEY, "")): str,
             vol.Optional(WSLINK, default=self.user_data.get(WSLINK, False)): bool,
             vol.Optional(DEV_DBG, default=self.user_data.get(DEV_DBG, False)): bool,
+            vol.Optional(LEGACY_ENABLED, default=self.user_data.get(LEGACY_ENABLED, True)): bool,
         }
 
         self.sensors = {
@@ -145,7 +147,12 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_basic(self, user_input: Any = None):
-        """Manage basic options - credentials."""
+        """Manage basic options - PWS/WSLink credentials and legacy endpoint toggle.
+
+        API ID/KEY are required only when legacy (PWS/WSLINK) endpoint is enabled.
+        For an Ecowitt-only setup, the user can turn the legacy endpoint off and leave credantials empty.
+
+        """
         errors: dict[str, str] = {}
 
         await self._get_entry_data()
@@ -157,15 +164,16 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        if user_input[API_ID] in INVALID_CREDENTIALS:
-            errors[API_ID] = "valid_credentials_api"
-        elif user_input[API_KEY] in INVALID_CREDENTIALS:
-            errors[API_KEY] = "valid_credentials_key"
-        elif user_input[API_KEY] == user_input[API_ID]:
-            errors["base"] = "valid_credentials_match"
-        else:
-            user_input = self.retain_data(user_input)
+        if user_input.get(LEGACY_ENABLED):
+            if user_input[API_ID] in INVALID_CREDENTIALS or user_input.get(API_ID, "") == "":
+                errors[API_ID] = "valid_credentials_api"
+            elif user_input[API_KEY] in INVALID_CREDENTIALS or user_input.get(API_KEY, "") == "":
+                errors[API_KEY] = "valid_credentials_key"
+            elif user_input[API_KEY] == user_input[API_ID]:
+                errors["base"] = "valid_credentials_match"
 
+        if not errors:
+            user_input = self.retain_data(user_input)
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
         self.user_data = user_input

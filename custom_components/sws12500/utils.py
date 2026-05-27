@@ -372,7 +372,7 @@ def chill_index(data: dict[str, str | float | int], convert: bool = False) -> fl
     )
 
 
-def voc_level_to_text(value: str) -> VOCLevel | None:
+def voc_level_to_text(value: str | None) -> VOCLevel | None:
     """Map 1-5 VOC level to text state."""
     if value in (None, ""):
         return None

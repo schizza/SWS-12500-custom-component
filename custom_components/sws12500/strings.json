@@ -1,249 +1,269 @@
 {
-  "config": {
-    "error": {
-      "valid_credentials_api": "Provide valid API ID.",
-      "valid_credentials_key": "Provide valid API KEY.",
-      "valid_credentials_match": "API ID and API KEY should not be the same."
+    "config": {
+        "error": {
+            "valid_credentials_api": "Provide valid API ID.",
+            "valid_credentials_key": "Provide valid API KEY.",
+            "valid_credentials_match": "API ID and API KEY should not be the same."
+        },
+        "step": {
+            "user": {
+                "title": "Choose your station type",
+                "description": "Choose the type of your station. If you don't have Eccowit station, choose PWS/WSLink",
+                "menu_options": {
+                    "pws": "PWS/WSLink (Sencor, Garni, Bresser, other - Weather Underground compatible)",
+                    "ecowitt": "Ecowitt"
+                }
+            },
+            "pws": {
+                "title": "PWS/WSLink credentials.",
+                "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant.",
+                "data": {
+                    "API_ID": "API ID / Station ID",
+                    "API_KEY": "API KEY / Password",
+                    "wslink": "WSLink Protocol",
+                    "dev_debug_checkbox": "Developer log"
+                },
+                "data_description": {
+                    "API_ID": "API ID is the Station ID you set in the Weather Station.",
+                    "API_KEY": "API KEY is the password you set in the Weather Station.",
+                    "wslink": "Enable WSLink Protocol if the station is set to send data via WSLink. If you are unsure, use https://test-station.schizza.cz/",
+                    "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer."
+                }
+            },
+            "ecowitt": {
+                "title": "Ecowitt configuration.",
+                "description": "No API ID/KEY needed. Set your Ecowitt station to send data to the enndpoint below.",
+                "data": {
+                    "ecowitt_webhook_id": "Unique webhook ID",
+                    "ecowitt_enabled": "Enable Ecowitt station data"
+                },
+                "data_description": {
+                    "ecowitt_webhook_id": "Set your Ecowitt station to send data to the endpoint: {url}:{port}/weatherhub/{webhook_id}",
+                    "ecowitt_enabled": "Enable receiving data from Ecowitt stations"
+                }
+            }
+        }
     },
-    "step": {
-      "user": {
-        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
-        "title": "Configure access for Weather Station",
-        "data": {
-          "API_ID": "API ID / Station ID",
-          "API_KEY": "API KEY / Password",
-          "WSLINK": "WSLink API",
-          "dev_debug_checkbox": "Developer log"
+    "options": {
+        "error": {
+            "valid_credentials_api": "Provide valid API ID.",
+            "valid_credentials_key": "Provide valid API KEY.",
+            "valid_credentials_match": "API ID and API KEY should not be the same.",
+            "windy_key_required": "Windy API key is required if you want to enable this function."
         },
-        "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
-          "API_ID": "API ID is the Station ID you set in the Weather Station.",
-          "API_KEY": "API KEY is the password you set in the Weather Station.",
-          "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
+        "step": {
+            "init": {
+                "title": "Configure SWS12500 Integration",
+                "description": "Choose what do you want to configure. If basic access or resending data for Windy site",
+                "menu_options": {
+                    "basic": "Basic - configure credentials for Weather Station",
+                    "windy": "Windy configuration"
+                }
+            },
+            "basic": {
+                "description": "Configure the PWS/WSLink endpoint. Turn off 'Enable PWS/WSLink' for an Ecowitt-only setup - API ID/KEY are not required."""title": "Configure PWS/WSLink","data": {
+                    "API_ID": "API ID / Station ID",
+                    "API_KEY": "API KEY / Password",
+                    "wslink": "WSLink protocol",
+                    "legacy_enbaled": "Enable PWS/WSLink endpoint (disable for Ecowitt-only setup)",
+                    "dev_debug_checkbox": "Developer log"
+                },
+                "data_description": {
+                    "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
+                    "API_ID": "API ID is the Station ID you set in the Weather Station.",
+                    "API_KEY": "API KEY is the password you set in the Weather Station.",
+                    "wslink": "Enable WSLink API if the station is set to send data via WSLink. (If you are unsure, use https://test-station.schizza.cz/)",
+                    "legacy_enbaled": "Turn off if your station uses Ecowitt only."
+                }
+            },
+            "windy": {
+                "description": "Resend weather data to your Windy stations.",
+                "title": "Configure Windy",
+                "data": {
+                    "WINDY_API_KEY": "API KEY provided by Windy",
+                    "windy_enabled_checkbox": "Enable resending data to Windy",
+                    "windy_logger_checkbox": "Log Windy data and responses"
+                },
+                "data_description": {
+                    "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
+                    "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
+                }
+            },
+            "pocasi": {
+                "description": "Resend data to Pocasi Meteo CZ",
+                "title": "Configure Pocasi Meteo CZ",
+                "data": {
+                    "POCASI_CZ_API_ID": "ID from your Pocasi Meteo APP",
+                    "POCASI_CZ_API_KEY": "Key from your Pocasi Meteo APP",
+                    "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds",
+                    "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
+                    "pocasi_logger_checkbox": "Log data and responses"
+                },
+                "data_description": {
+                    "POCASI_CZ_API_ID": "You can obtain your ID in Pocasi Meteo App",
+                    "POCASI_CZ_API_KEY": "You can obtain your KEY in Pocasi Meteo App",
+                    "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
+                    "pocasi_enabled_checkbox": "Enables resending data to Pocasi Meteo",
+                    "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
+                }
+            },
+            "ecowitt": {
+                "description": "Nastavení pro Ecowitt",
+                "title": "Konfigurace pro stanice Ecowitt",
+                "data": {
+                    "ecowitt_webhook_id": "Unikátní webhook ID",
+                    "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
+                },
+                "data_description": {
+                    "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+                    "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
+                }
+            },
+            "migration": {
+                "title": "Statistic migration.",
+                "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
+                "data": {
+                    "sensor_to_migrate": "Sensor to migrate",
+                    "trigger_action": "Trigger migration"
+                },
+                "data_description": {
+                    "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
+                    "trigger_action": "Trigger the sensor statistics migration after checking."
+                }
+            }
         }
-      }
-    }
-  },
-  "options": {
-    "error": {
-      "valid_credentials_api": "Provide valid API ID.",
-      "valid_credentials_key": "Provide valid API KEY.",
-      "valid_credentials_match": "API ID and API KEY should not be the same.",
-      "windy_key_required": "Windy API key is required if you want to enable this function."
     },
-    "step": {
-      "init": {
-        "title": "Configure SWS12500 Integration",
-        "description": "Choose what do you want to configure. If basic access or resending data for Windy site",
-        "menu_options": {
-          "basic": "Basic - configure credentials for Weather Station",
-          "windy": "Windy configuration"
+    "entity": {
+        "sensor": {
+            "indoor_temp": {
+                "name": "Indoor temperature"
+            },
+            "indoor_humidity": {
+                "name": "Indoor humidity"
+            },
+            "outside_temp": {
+                "name": "Outside Temperature"
+            },
+            "outside_humidity": {
+                "name": "Outside humidity"
+            },
+            "uv": {
+                "name": "UV index"
+            },
+            "baro_pressure": {
+                "name": "Barometric pressure"
+            },
+            "dew_point": {
+                "name": "Dew point"
+            },
+            "wind_speed": {
+                "name": "Wind speed"
+            },
+            "wind_dir": {
+                "name": "Wind direction"
+            },
+            "wind_gust": {
+                "name": "Wind gust"
+            },
+            "rain": {
+                "name": "Rain"
+            },
+            "daily_rain": {
+                "name": "Daily precipitation"
+            },
+            "solar_radiation": {
+                "name": "Solar irradiance"
+            },
+            "ch2_temp": {
+                "name": "Channel 2 temperature"
+            },
+            "ch2_humidity": {
+                "name": "Channel 2 humidity"
+            },
+            "ch3_temp": {
+                "name": "Channel 3 temperature"
+            },
+            "ch3_humidity": {
+                "name": "Channel 3 humidity"
+            },
+            "ch4_temp": {
+                "name": "Channel 4 temperature"
+            },
+            "ch4_humidity": {
+                "name": "Channel 4 humidity"
+            },
+            "heat_index": {
+                "name": "Apparent temperature"
+            },
+            "chill_index": {
+                "name": "Wind chill"
+            },
+            "hourly_rain": {
+                "name": "Hourly precipitation"
+            },
+            "weekly_rain": {
+                "name": "Weekly precipitation"
+            },
+            "monthly_rain": {
+                "name": "Monthly precipitation"
+            },
+            "yearly_rain": {
+                "name": "Yearly precipitation"
+            },
+            "wbgt_index": {
+                "name": "WBGT index"
+            },
+            "wind_azimut": {
+                "name": "Bearing",
+                "state": {
+                    "n": "N",
+                    "nne": "NNE",
+                    "ne": "NE",
+                    "ene": "ENE",
+                    "e": "E",
+                    "ese": "ESE",
+                    "se": "SE",
+                    "sse": "SSE",
+                    "s": "S",
+                    "ssw": "SSW",
+                    "sw": "SW",
+                    "wsw": "WSW",
+                    "w": "W",
+                    "wnw": "WNW",
+                    "nw": "NW",
+                    "nnw": "NNW"
+                }
+            },
+            "outside_battery": {
+                "name": "Outside battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch2_battery": {
+                "name": "Channel 2 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "indoor_battery": {
+                "name": "Console battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            }
         }
-      },
-      "basic": {
-        "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
-        "title": "Configure credentials",
-        "data": {
-          "API_ID": "API ID / Station ID",
-          "API_KEY": "API KEY / Password",
-          "WSLINK": "WSLink API",
-          "dev_debug_checkbox": "Developer log"
-        },
-        "data_description": {
-          "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
-          "API_ID": "API ID is the Station ID you set in the Weather Station.",
-          "API_KEY": "API KEY is the password you set in the Weather Station.",
-          "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
+    },
+    "notify": {
+        "added": {
+            "title": "New sensors for SWS 12500 found.",
+            "message": "{added_sensors}\n"
         }
-      },
-      "windy": {
-        "description": "Resend weather data to your Windy stations.",
-        "title": "Configure Windy",
-        "data": {
-          "WINDY_API_KEY": "API KEY provided by Windy",
-          "windy_enabled_checkbox": "Enable resending data to Windy",
-          "windy_logger_checkbox": "Log Windy data and responses"
-        },
-        "data_description": {
-          "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
-          "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
-        }
-      },
-      "pocasi": {
-        "description": "Resend data to Pocasi Meteo CZ",
-        "title": "Configure Pocasi Meteo CZ",
-        "data": {
-          "POCASI_CZ_API_ID": "ID from your Pocasi Meteo APP",
-          "POCASI_CZ_API_KEY": "Key from your Pocasi Meteo APP",
-          "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds",
-          "pocasi_enabled_checkbox": "Enable resending data to Pocasi Meteo",
-          "pocasi_logger_checkbox": "Log data and responses"
-        },
-        "data_description": {
-          "POCASI_CZ_API_ID": "You can obtain your ID in Pocasi Meteo App",
-          "POCASI_CZ_API_KEY": "You can obtain your KEY in Pocasi Meteo App",
-          "POCASI_CZ_SEND_INTERVAL": "Resend interval in seconds (minimum 12s, default 30s)",
-          "pocasi_enabled_checkbox": "Enables resending data to Pocasi Meteo",
-          "pocasi_logger_checkbox": "Enable only if you want to send debbug data to the developer"
-        }
-      },
-      "ecowitt": {
-        "description": "Nastavení pro Ecowitt",
-        "title": "Konfigurace pro stanice Ecowitt",
-        "data": {
-          "ecowitt_webhook_id": "Unikátní webhook ID",
-          "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
-        },
-        "data_description": {
-          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
-          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
-        }
-      },
-      "migration": {
-        "title": "Statistic migration.",
-        "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
-        "data": {
-          "sensor_to_migrate": "Sensor to migrate",
-          "trigger_action": "Trigger migration"
-        },
-        "data_description": {
-          "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
-          "trigger_action": "Trigger the sensor statistics migration after checking."
-        }
-      }
     }
-  },
-  "entity": {
-    "sensor": {
-      "indoor_temp": {
-        "name": "Indoor temperature"
-      },
-      "indoor_humidity": {
-        "name": "Indoor humidity"
-      },
-      "outside_temp": {
-        "name": "Outside Temperature"
-      },
-      "outside_humidity": {
-        "name": "Outside humidity"
-      },
-      "uv": {
-        "name": "UV index"
-      },
-      "baro_pressure": {
-        "name": "Barometric pressure"
-      },
-      "dew_point": {
-        "name": "Dew point"
-      },
-      "wind_speed": {
-        "name": "Wind speed"
-      },
-      "wind_dir": {
-        "name": "Wind direction"
-      },
-      "wind_gust": {
-        "name": "Wind gust"
-      },
-      "rain": {
-        "name": "Rain"
-      },
-      "daily_rain": {
-        "name": "Daily precipitation"
-      },
-      "solar_radiation": {
-        "name": "Solar irradiance"
-      },
-      "ch2_temp": {
-        "name": "Channel 2 temperature"
-      },
-      "ch2_humidity": {
-        "name": "Channel 2 humidity"
-      },
-      "ch3_temp": {
-        "name": "Channel 3 temperature"
-      },
-      "ch3_humidity": {
-        "name": "Channel 3 humidity"
-      },
-      "ch4_temp": {
-        "name": "Channel 4 temperature"
-      },
-      "ch4_humidity": {
-        "name": "Channel 4 humidity"
-      },
-      "heat_index": {
-        "name": "Apparent temperature"
-      },
-      "chill_index": {
-        "name": "Wind chill"
-      },
-      "hourly_rain": {
-        "name": "Hourly precipitation"
-      },
-      "weekly_rain": {
-        "name": "Weekly precipitation"
-      },
-      "monthly_rain": {
-        "name": "Monthly precipitation"
-      },
-      "yearly_rain": {
-        "name": "Yearly precipitation"
-      },
-      "wbgt_index": {
-        "name": "WBGT index"
-      },
-      "wind_azimut": {
-        "name": "Bearing",
-        "state": {
-          "n": "N",
-          "nne": "NNE",
-          "ne": "NE",
-          "ene": "ENE",
-          "e": "E",
-          "ese": "ESE",
-          "se": "SE",
-          "sse": "SSE",
-          "s": "S",
-          "ssw": "SSW",
-          "sw": "SW",
-          "wsw": "WSW",
-          "w": "W",
-          "wnw": "WNW",
-          "nw": "NW",
-          "nnw": "NNW"
-        }
-      },
-      "outside_battery": {
-        "name": "Outside battery level",
-        "state": {
-          "normal": "OK",
-          "low": "Low",
-          "unknown": "Unknown / drained out"
-        }
-      },
-      "ch2_battery": {
-        "name": "Channel 2 battery level",
-        "state": {
-          "normal": "OK",
-          "low": "Low",
-          "unknown": "Unknown / drained out"
-        }
-      },
-      "indoor_battery": {
-        "name": "Console battery level",
-        "state": {
-          "normal": "OK",
-          "low": "Low",
-          "unknown": "Unknown / drained out"
-        }
-      }
-    }
-  },
-  "notify": {
-    "added": {
-      "title": "New sensors for SWS 12500 found.",
-      "message": "{added_sensors}\n"
-    }
-  }
 }

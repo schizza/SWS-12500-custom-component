@@ -48,6 +48,7 @@ from .const import (
     ECOWITT_ENABLED,
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
+    LEGACY_ENABLED,
     POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
@@ -421,6 +422,7 @@ def register_path(
 
     _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
     _ecowitt_enabled: bool = checked_or(config.options.get(ECOWITT_ENABLED), bool, False)
+    _legacy: bool = checked_or(config.options.get(LEGACY_ENABLED), bool, True)
 
     # Load registred routes
     routes: Routes | None = hass_data.get("routes", None)
@@ -450,9 +452,10 @@ def register_path(
             raise ConfigEntryNotReady from Ex
 
         # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
-        routes.add_route(DEFAULT_URL, _default_route, coordinator.received_data, enabled=not _wslink)
-        routes.add_route(WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_wslink)
-        routes.add_route(WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_wslink)
+        routes.add_route(DEFAULT_URL, _default_route, coordinator.received_data, enabled=_legacy and not _wslink)
+        routes.add_route(WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_legacy and _wslink)
+        routes.add_route(WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_legacy and _wslink)
+
         # Make health route `sticky` so it will not change upon updating options.
         routes.add_route(
             HEALTH_URL,
@@ -530,6 +533,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry_data[ENTRY_LAST_OPTIONS] = dict(entry.options)
 
     _wslink = checked_or(entry.options.get(WSLINK), bool, False)
+    _legacy = checked_or(entry.options.get(LEGACY_ENABLED), bool, True)
     _ecowitt_enabled = checked_or(entry.options.get(ECOWITT_ENABLED), bool, False)
     _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
@@ -537,7 +541,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if routes:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
-        routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL)
+        routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL, enabled=_legacy)
         routes.set_ecowitt_enabled(_ecowitt_path, coordinator.recieved_ecowitt_data, _ecowitt_enabled)
         routes.set_ingress_observer(coordinator_health.record_dispatch)
         coordinator_health.update_routing(routes)

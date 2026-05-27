@@ -126,17 +126,19 @@ class Routes:
         handler = info.handler if info.enabled else info.fallback
         return await handler(request)
 
-    def switch_route(self, handler: Handler, url_path: str) -> None:
+    def switch_route(self, handler: Handler, url_path: str | None, *, enabled: bool = True) -> None:
         """Enable routes based on URL, disable all others. Leave sticky routes enabled.
 
-        This is called when options change (e.g. WSLink toggle). The aiohttp router stays
-        untouched; we only flip which internal handler is active.
+        When `enabled` is False (or url_path is None), all non-sticky (legacy) routes are disabled.
+           - used when only Ecowitt is active.
+        Sticky routes (health, ecowitt) are left untouched.
+        The aiohttp router stays untouched; we only flip which internal handler is active.
         """
         for route in self.routes.values():
             if route.sticky:
                 continue
 
-            if route.url_path == url_path:
+            if enabled and route.url_path == url_path:
                 _LOGGER.info(
                     "New coordinator to route: (%s):%s",
                     route.route.method,
