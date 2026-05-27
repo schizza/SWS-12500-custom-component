@@ -538,7 +538,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=list(VOCLevel),
         icon="mdi:air-filter",
-        value_fn=voc_level_to_text(data),
+        value_fn=voc_level_to_text,
     ),
     WeatherSensorEntityDescription(
         key=T9_BATTERY,
