@@ -207,7 +207,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         if health:
             health.update_forwarding(self.windy, self.pocasi)
 
-        if (_ := checked(self.config.options.get(DEV_DBG), True)) is not None:
+        if checked_or(self.config.options.get(DEV_DBG), bool, False):
             _LOGGER.info("Dev log (ecowitt): %s", anonymize(data))
 
         return aiohttp.web.Response(body="OK", status=200)
@@ -404,7 +404,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             health.update_forwarding(self.windy, self.pocasi)
 
         # Optional dev logging (keep it lightweight to avoid log spam under high-frequency updates).
-        if self.config.options.get("dev_debug_checkbox"):
+        if checked_or(self.config.options.get(DEV_DBG), bool, False):
             _LOGGER.info("Dev log: %s", anonymize(data))
 
         return aiohttp.web.Response(body="OK", status=200)
