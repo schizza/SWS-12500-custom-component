@@ -103,11 +103,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 WINDY_STATION_PW,
                 default=self.windy_data.get(WINDY_STATION_PW, ""),
             ): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool or False,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
-            ): bool or False,
+            ): bool,
         }
 
         self.pocasi_cz = {
