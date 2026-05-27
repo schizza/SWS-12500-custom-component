@@ -26,6 +26,7 @@ With a high-frequency push source (webhook), a reload at the wrong moment can le
 period where no entities are subscribed, causing stale states until another full reload/restart.
 """
 
+import hmac
 import logging
 from typing import Any
 
@@ -296,7 +297,13 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
                 )
             raise IncorrectDataError
 
-        if id_data != _id or key_data != _key:
+        # Constant-time comaprision to avoid lekaing credential length/content via timig.
+        # Both operands are compared even if the first fails, so the branch order doesn't
+        # short-circut. Encode to bytes so non-ASCII credentials are handeled safely.
+
+        id_ok = hmac.compare_digest(id_data.encode("utf-8"), _id.encode("utf-8"))
+        key_ok = hmac.compare_digest(key_data.encode("utf-8"), _key.encode("utf-8"))
+        if not (id_ok & key_ok):
             _LOGGER.error("Unauthorised access!")
             if health:
                 health.update_ingress_result(
