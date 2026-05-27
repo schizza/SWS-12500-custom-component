@@ -25,7 +25,7 @@ from homeassistant.helpers.translation import async_get_translations
 from .const import (
     AZIMUT,
     CONNECTION_GATED_SENSORS,
-    DATABASE_PATH,
+    # DATABASE_PATH,
     DEV_DBG,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
@@ -122,23 +122,22 @@ def remap_items(entities: dict[str, str]) -> dict[str, str]:
     stable keys from `const.py` (e.g. "outside_temp", "outside_humidity"). This function produces
     a normalized dict that the rest of the integration can work with.
     """
-    return {
-        REMAP_ITEMS[key]: value for key, value in entities.items() if key in REMAP_ITEMS
-    }
+    return {REMAP_ITEMS[key]: value for key, value in entities.items() if key in REMAP_ITEMS}
 
 
 def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
-    """Remap WSLink payload field names into internal sensor keys.
+    """Remap items in query for WSLink API."""
+    items: dict[str, str] = {}
+    for item, value in entities.items():
+        if item in REMAP_WSLINK_ITEMS:
+            items[REMAP_WSLINK_ITEMS[item]] = value
 
-    WSLink uses a different naming scheme than the legacy endpoint (e.g. "t1tem", "t1ws").
-    Just like `remap_items`, this function normalizes the payload to the integration's stable
-    internal keys.
-    """
-    return {
-        REMAP_WSLINK_ITEMS[key]: value
-        for key, value in entities.items()
-        if key in REMAP_WSLINK_ITEMS
-    }
+    for conn_key, gated in CONNECTION_GATED_SENSORS.items():
+        if str(entities.get(conn_key, "0")) != "1":
+            for key in gated:
+                items.pop(key, None)
+
+    return items
 
 
 def loaded_sensors(config_entry: ConfigEntry) -> list[str]:
@@ -150,9 +149,7 @@ def loaded_sensors(config_entry: ConfigEntry) -> list[str]:
     return config_entry.options.get(SENSORS_TO_LOAD) or []
 
 
-def check_disabled(
-    items: dict[str, str], config_entry: ConfigEntry
-) -> list[str] | None:
+def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str] | None:
     """Detect payload fields that are not enabled yet (auto-discovery).
 
     The integration supports "auto-discovery" of sensors: when the station starts sending a new
@@ -290,9 +287,7 @@ def to_float(val: Any) -> float | None:
         return v
 
 
-def heat_index(
-    data: dict[str, int | float | str], convert: bool = False
-) -> float | None:
+def heat_index(data: dict[str, int | float | str], convert: bool = False) -> float | None:
     """Calculate heat index from temperature.
 
     data: dict with temperature and humidity
@@ -341,9 +336,7 @@ def heat_index(
     return simple
 
 
-def chill_index(
-    data: dict[str, str | float | int], convert: bool = False
-) -> float | None:
+def chill_index(data: dict[str, str | float | int], convert: bool = False) -> float | None:
     """Calculate wind chill index from temperature and wind speed.
 
     data: dict with temperature and wind speed
@@ -377,3 +370,126 @@ def chill_index(
         if temp < 50 and wind > 3
         else temp
     )
+
+
+def voc_level_to_text(value: str) -> VOCLevel | None:
+    """Map 1-5 VOC level to text state."""
+    if value in (None, ""):
+        return None
+    return VOC_LEVEL_MAP.get(int(value))
+
+
+def battery_5step_to_pct(value: str) -> int | None:
+    """Convert 0-5 battery steps to percentage."""
+
+    if value in (None, ""):
+        return None
+
+    return round(int(value) / 5 * 100)
+
+
+#
+# def long_term_units_in_statistics_meta():
+#     """Get units in long term statitstics."""
+#     sensor_units = []
+#     if not Path(DATABASE_PATH).exists():
+#         _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+#         return False
+#
+#     conn = sqlite3.connect(DATABASE_PATH)
+#     db = conn.cursor()
+#
+#     try:
+#         db.execute(
+#             """
+#             SELECT statistic_id, unit_of_measurement from statistics_meta
+#             WHERE statistic_id LIKE 'sensor.weather_station_sws%'
+#          """
+#         )
+#         rows = db.fetchall()
+#         sensor_units = {
+#             statistic_id: f"{statistic_id} ({unit})" for statistic_id, unit in rows
+#         }
+#
+#     except sqlite3.Error as e:
+#         _LOGGER.error("Error during data migration: %s", e)
+#     finally:
+#         conn.close()
+#
+#     return sensor_units
+#
+#
+# async def migrate_data(hass: HomeAssistant, sensor_id: str | None = None) -> int | bool:
+#     """Migrate data from mm/d to mm."""
+#
+#     _LOGGER.debug("Sensor %s is required for data migration", sensor_id)
+#     updated_rows = 0
+#
+#     if not Path(DATABASE_PATH).exists():
+#         _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+#         return False
+#
+#     conn = sqlite3.connect(DATABASE_PATH)
+#     db = conn.cursor()
+#
+#     try:
+#         _LOGGER.info(sensor_id)
+#         db.execute(
+#             """
+#             UPDATE statistics_meta
+#             SET unit_of_measurement = 'mm'
+#             WHERE statistic_id = ?
+#             AND unit_of_measurement = 'mm/d';
+#          """,
+#             (sensor_id,),
+#         )
+#         updated_rows = db.rowcount
+#         conn.commit()
+#         _LOGGER.info(
+#             "Data migration completed successfully. Updated rows: %s for %s",
+#             updated_rows,
+#             sensor_id,
+#         )
+#
+#     except sqlite3.Error as e:
+#         _LOGGER.error("Error during data migration: %s", e)
+#     finally:
+#         conn.close()
+#     return updated_rows
+#
+#
+# def migrate_data_old(sensor_id: str | None = None):
+#     """Migrate data from mm/d to mm."""
+#     updated_rows = 0
+#
+#     if not Path(DATABASE_PATH).exists():
+#         _LOGGER.error("Database file not found: %s", DATABASE_PATH)
+#         return False
+#
+#     conn = sqlite3.connect(DATABASE_PATH)
+#     db = conn.cursor()
+#
+#     try:
+#         _LOGGER.info(sensor_id)
+#         db.execute(
+#             """
+#             UPDATE statistics_meta
+#             SET unit_of_measurement = 'mm'
+#             WHERE statistic_id = ?
+#             AND unit_of_measurement = 'mm/d';
+#          """,
+#             (sensor_id,),
+#         )
+#         updated_rows = db.rowcount
+#         conn.commit()
+#         _LOGGER.info(
+#             "Data migration completed successfully. Updated rows: %s for %s",
+#             updated_rows,
+#             sensor_id,
+#         )
+#
+#     except sqlite3.Error as e:
+#         _LOGGER.error("Error during data migration: %s", e)
+#     finally:
+#         conn.close()
+#     return updated_rows

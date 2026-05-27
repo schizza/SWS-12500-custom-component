@@ -145,6 +145,7 @@ POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
 
 
 WSLINK: Final = "wslink"
+LEGACY_ENABLED: Final = "legacy_enabled"
 
 WINDY_MAX_RETRIES: Final = 3
 WSLINK_ADDON_PORT: Final = "WSLINK_ADDON_PORT"
@@ -165,6 +166,7 @@ __all__ = [
     "SENSOR_TO_MIGRATE",
     "DEV_DBG",
     "WSLINK",
+    "LEGACY_ENABLED",
     "ECOWITT",
     "ECOWITT_WEBHOOK_ID",
     "ECOWITT_ENABLED",

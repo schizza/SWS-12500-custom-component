@@ -67,7 +67,7 @@ from .const import (
     VOCLevel,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_level, to_float, to_int, wind_dir_to_text
+from .utils import battery_5step_to_pct, battery_level, to_float, to_int, voc_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -530,7 +530,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:molecule",
-        value_fn=lambda data: cast("int", data),
+        value_fn=to_int,
     ),
     WeatherSensorEntityDescription(
         key=VOC,
@@ -538,7 +538,42 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=list(VOCLevel),
         icon="mdi:air-filter",
-        value_fn=lambda data: cast("str", voc_level_to_text(data)),
+        value_fn=voc_level_to_text(data),
+    ),
+    WeatherSensorEntityDescription(
+        key=T9_BATTERY,
+        translation_key=T9_BATTERY,
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=battery_5step_to_pct,
+    ),
+    WeatherSensorEntityDescription(
+        key=HCHO,
+        translation_key=HCHO,
+        device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:molecule",
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=HCHO,
+        translation_key=HCHO,
+        device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:molecule",
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=VOC,
+        translation_key=VOC,
+        device_class=SensorDeviceClass.ENUM,
+        options=list(VOCLevel),
+        icon="mdi:air-filter",
+        value_from_data_fn=voc_level_to_text(data),
     ),
     WeatherSensorEntityDescription(
         key=T9_BATTERY,
