@@ -342,7 +342,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_menu(
             step_id="user",
-            menu_options=["pws, ecowitt"],
+            menu_options=["pws", "ecowitt"],
         )
 
     async def async_step_pws(self, user_input: Any = None) -> ConfigFlowResult:
