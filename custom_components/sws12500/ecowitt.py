@@ -247,6 +247,7 @@ class EcoWittNativeSensor(SensorEntity):
         self._ecowitt_sensor = sensor
         self._attr_unique_id = f"ecowitt_{sensor.key}"
         self._attr_translation_key = None  # we do not have translation_keys for native sensors
+        self._attr_name = sensor.name  # default name, can be overridden by translation_key if we had one
 
         # set HomeAssistant metadata from aioecowitt sensor type
         ha_meta = STYPE_TO_HA.get(sensor.stype)
@@ -256,10 +257,15 @@ class EcoWittNativeSensor(SensorEntity):
             self._attr_native_unit_of_measurement = unit
             self._attr_state_class = state_class
 
-    @property
-    def name(self) -> str:
-        """Sensor name from aioecowitt."""
-        return self._ecowitt_sensor.name
+            station = sensor.station
+            self._attr_device_info = DeviceInfo(
+                connections=set(),
+                name=f"Ecowitt {station.model}" if station else "Ecowitt station",
+                entry_type=DeviceEntryType.SERVICE,
+                identifiers={(DOMAIN, f"ecowitt_{station.key}" if station else "ecowitt")},
+                manufacturer="Ecowitt impl. from Schizza for SWS12500",
+                model=station.model if station else None,
+            )
 
     @property
     def native_value(self) -> str | int | float | None:
@@ -268,19 +274,6 @@ class EcoWittNativeSensor(SensorEntity):
         if value is None or value == "":
             return None
         return value
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Link to the Ecowitt station device."""
-        station = self._ecowitt_sensor.station
-        return DeviceInfo(
-            connections=set(),
-            name=f"Ecowitt {station.model}" if station else "Ecowitt station",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, f"ecowitt_{station.key}" if station else "ecowitt")},
-            manufacturer="Ecowitt impl. from Schizza for SWS12500",
-            model=station.model if station else None,
-        )
 
     async def async_added_to_hass(self) -> None:
         """Register update callback when entity is added to HA."""

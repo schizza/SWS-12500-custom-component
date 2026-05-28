@@ -7,7 +7,7 @@ instead of loosely-typed hass.data[][] dicts.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core_config import Config

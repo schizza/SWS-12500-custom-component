@@ -94,7 +94,7 @@ async def translated_notification(
             persistent_notification.async_create(hass, message, _translations[localize_title], notification_id)
 
 
-async def update_options(hass: HomeAssistant, entry: ConfigEntry, update_key, update_value) -> bool:
+async def update_options(hass: HomeAssistant, entry: ConfigEntry, update_key: str, update_value: Any) -> bool:
     """Update config.options entry."""
     conf = {**entry.options}
     conf[update_key] = update_value
