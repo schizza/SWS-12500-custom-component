@@ -137,6 +137,35 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "outside_battery": {
+                "name": "Outside battery"
+            },
+            "indoor_battery": {
+                "name": "Console battery"
+            },
+            "ch2_battery": {
+                "name": "Channel 2 battery"
+            },
+            "ch3_battery": {
+                "name": "Channel 3 battery"
+            },
+            "ch4_battery": {
+                "name": "Channel 4 battery"
+            },
+            "ch5_battery": {
+                "name": "Channel 5 battery"
+            },
+            "ch6_battery": {
+                "name": "Channel 6 battery"
+            },
+            "ch7_battery": {
+                "name": "Channel 7 battery"
+            },
+            "ch8_battery": {
+                "name": "Channel 8 battery"
+            }
+        },
         "sensor": {
             "integration_health": {
                 "name": "Integration status",
@@ -444,6 +473,12 @@
                     "unknown": "Unknown / drained out"
                 }
             }
+        }
+    },
+    "issues": {
+        "legacy_battery_sensor_deprecated": {
+            "title": "Legacy battery sensor detected",
+            "description": "Old battery sensor entities ({entities}) were found in the entity registry. They have been replaced by binary battery sensors and will be removed in version {remove_version}. Please delete the legacy entities manually via Settings Old battery sensor entities ({entities}) were found in the entity registry. They have been replaced by binary battery sensors and will be removed in version {remove_version}. Please delete the legacy entities manually via Settings -> Devices & Services -> SWS 12500."
         }
     },
     "notify": {

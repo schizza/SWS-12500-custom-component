@@ -15,6 +15,8 @@ Important note:
   an old coordinator while entities listen to a new one (result: UI appears "frozen").
 """
 
+from __future__ import annotations
+
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 import logging

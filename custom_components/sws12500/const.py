@@ -1,12 +1,12 @@
 """Constants."""
 
+from __future__ import annotations
+
 from enum import StrEnum
 from typing import Final
 
 # Integration specific constants.
 DOMAIN = "sws12500"
-DATABASE_PATH = "/config/home-assistant_v2.db"
-ICON = "mdi:weather"
 DEV_DBG: Final = "dev_debug_checkbox"
 
 
@@ -15,7 +15,6 @@ API_KEY = "API_KEY"
 API_ID = "API_ID"
 
 SENSORS_TO_LOAD: Final = "sensors_to_load"
-SENSOR_TO_MIGRATE: Final = "sensor_to_migrate"
 
 INVALID_CREDENTIALS: Final = [
     "API",
@@ -109,6 +108,38 @@ PURGE_DATA: Final = [
     "dailyrainin",
 ]
 
+"""NOTE: These are sensors that should be available with PWS protocol acording to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:
+
+I have no option to test, if it will work correctly. So their implementatnion will be in future releases.
+
+leafwetness  - [%]
++ for sensor 2 use leafwetness2
+visibility - [nm visibility]
+pweather - [text] -- metar style (+RA)
+clouds - [text] -- SKC, FEW, SCT, BKN, OVC
+Pollution Fields:
+
+AqNO - [ NO (nitric oxide) ppb ]
+AqNO2T - (nitrogen dioxide), true measure ppb
+AqNO2 - NO2 computed, NOx-NO ppb
+AqNO2Y - NO2 computed, NOy-NO ppb
+AqNOX - NOx (nitrogen oxides) - ppb
+AqNOY - NOy (total reactive nitrogen) - ppb
+AqNO3 - NO3 ion (nitrate, not adjusted for ammonium ion) UG/M3
+AqSO4 - SO4 ion (sulfate, not adjusted for ammonium ion) UG/M3
+AqSO2 - (sulfur dioxide), conventional ppb
+AqSO2T - trace levels ppb
+AqCO - CO (carbon monoxide), conventional ppm
+AqCOT -CO trace levels ppb
+AqEC - EC (elemental carbon) – PM2.5 UG/M3
+AqOC - OC (organic carbon, not adjusted for oxygen and hydrogen) – PM2.5 UG/M3
+AqBC - BC (black carbon at 880 nm) UG/M3
+AqUV-AETH  - UV-AETH (second channel of Aethalometer at 370 nm) UG/M3
+AqPM2.5 - PM2.5 mass - UG/M3
+AqPM10 - PM10 mass - PM10 mass
+AqOZONE - Ozone - ppb
+
+"""
 REMAP_ITEMS: dict[str, str] = {
     "baromin": BARO_PRESSURE,
     "tempf": OUTSIDE_TEMP,
@@ -149,92 +180,6 @@ LEGACY_ENABLED: Final = "legacy_enabled"
 
 WINDY_MAX_RETRIES: Final = 3
 WSLINK_ADDON_PORT: Final = "WSLINK_ADDON_PORT"
-
-__all__ = [
-    "DOMAIN",
-    "DEFAULT_URL",
-    "WSLINK_URL",
-    "HEALTH_URL",
-    "WINDY_URL",
-    "DATABASE_PATH",
-    "POCASI_CZ_URL",
-    "POCASI_CZ_SEND_MINIMUM",
-    "ICON",
-    "API_KEY",
-    "API_ID",
-    "SENSORS_TO_LOAD",
-    "SENSOR_TO_MIGRATE",
-    "DEV_DBG",
-    "WSLINK",
-    "LEGACY_ENABLED",
-    "ECOWITT",
-    "ECOWITT_WEBHOOK_ID",
-    "ECOWITT_ENABLED",
-    "POCASI_CZ_API_KEY",
-    "POCASI_CZ_API_ID",
-    "POCASI_CZ_SEND_INTERVAL",
-    "POCASI_CZ_ENABLED",
-    "POCASI_CZ_LOGGER_ENABLED",
-    "POCASI_INVALID_KEY",
-    "POCASI_CZ_SUCCESS",
-    "POCASI_CZ_UNEXPECTED",
-    "WINDY_STATION_ID",
-    "WINDY_STATION_PW",
-    "WINDY_ENABLED",
-    "WINDY_LOGGER_ENABLED",
-    "WINDY_NOT_INSERTED",
-    "WINDY_INVALID_KEY",
-    "WINDY_SUCCESS",
-    "WINDY_UNEXPECTED",
-    "INVALID_CREDENTIALS",
-    "PURGE_DATA",
-    "PURGE_DATA_POCAS",
-    "BARO_PRESSURE",
-    "OUTSIDE_TEMP",
-    "DEW_POINT",
-    "OUTSIDE_HUMIDITY",
-    "OUTSIDE_CONNECTION",
-    "OUTSIDE_BATTERY",
-    "WIND_SPEED",
-    "WIND_GUST",
-    "WIND_DIR",
-    "WIND_AZIMUT",
-    "RAIN",
-    "HOURLY_RAIN",
-    "WEEKLY_RAIN",
-    "MONTHLY_RAIN",
-    "YEARLY_RAIN",
-    "DAILY_RAIN",
-    "SOLAR_RADIATION",
-    "INDOOR_TEMP",
-    "INDOOR_HUMIDITY",
-    "INDOOR_BATTERY",
-    "UV",
-    "CH2_TEMP",
-    "CH2_HUMIDITY",
-    "CH2_CONNECTION",
-    "CH2_BATTERY",
-    "CH3_TEMP",
-    "CH3_HUMIDITY",
-    "CH3_CONNECTION",
-    "CH4_TEMP",
-    "CH4_HUMIDITY",
-    "CH4_CONNECTION",
-    "HEAT_INDEX",
-    "CHILL_INDEX",
-    "WBGT_TEMP",
-    "REMAP_ITEMS",
-    "REMAP_WSLINK_ITEMS",
-    "DISABLED_BY_DEFAULT",
-    "BATTERY_LIST",
-    "UnitOfDir",
-    "AZIMUT",
-    "UnitOfBat",
-    "BATTERY_LEVEL",
-    "ECOWITT_URL",
-    "ECOWITT_META_KEYS",
-    "REMAP_ECOWITT_COMPAT",
-]
 
 ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
@@ -300,39 +245,6 @@ PURGE_DATA_POCAS: Final = [
     "rtfreq",
 ]
 
-
-"""NOTE: These are sensors that should be available with PWS protocol acording to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:
-
-I have no option to test, if it will work correctly. So their implementatnion will be in future releases.
-
-leafwetness  - [%]
-+ for sensor 2 use leafwetness2
-visibility - [nm visibility]
-pweather - [text] -- metar style (+RA)
-clouds - [text] -- SKC, FEW, SCT, BKN, OVC
-Pollution Fields:
-
-AqNO - [ NO (nitric oxide) ppb ]
-AqNO2T - (nitrogen dioxide), true measure ppb
-AqNO2 - NO2 computed, NOx-NO ppb
-AqNO2Y - NO2 computed, NOy-NO ppb
-AqNOX - NOx (nitrogen oxides) - ppb
-AqNOY - NOy (total reactive nitrogen) - ppb
-AqNO3 - NO3 ion (nitrate, not adjusted for ammonium ion) UG/M3
-AqSO4 - SO4 ion (sulfate, not adjusted for ammonium ion) UG/M3
-AqSO2 - (sulfur dioxide), conventional ppb
-AqSO2T - trace levels ppb
-AqCO - CO (carbon monoxide), conventional ppm
-AqCOT -CO trace levels ppb
-AqEC - EC (elemental carbon) – PM2.5 UG/M3
-AqOC - OC (organic carbon, not adjusted for oxygen and hydrogen) – PM2.5 UG/M3
-AqBC - BC (black carbon at 880 nm) UG/M3
-AqUV-AETH  - UV-AETH (second channel of Aethalometer at 370 nm) UG/M3
-AqPM2.5 - PM2.5 mass - UG/M3
-AqPM10 - PM10 mass - PM10 mass
-AqOZONE - Ozone - ppb
-
-"""
 
 REMAP_WSLINK_ITEMS: dict[str, str] = {
     "intem": INDOOR_TEMP,
@@ -477,10 +389,11 @@ DISABLED_BY_DEFAULT: Final = [
     WBGT_TEMP,
 ]
 
-BATTERY_LIST = [
+# Station reports batteries as 0/1 (low/normal) for most of sensors.
+# Batteries reported  as 0-5 level are stored in `BATTERY_NON_BINARY` tuple
+BATTERY_LIST: Final[tuple[str, ...]] = (
     OUTSIDE_BATTERY,
     INDOOR_BATTERY,
-    CH2_BATTERY,
     CH2_BATTERY,
     CH3_BATTERY,
     CH4_BATTERY,
@@ -488,11 +401,20 @@ BATTERY_LIST = [
     CH6_BATTERY,
     CH7_BATTERY,
     CH8_BATTERY,
-]
+)
 
-BATTERY_NON_BINARY: list[str] = [T9_BATTERY]
+BATTERY_NON_BINARY: Final[tuple[str, ...]] = (T9_BATTERY,)
 
 CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {
+    # Multi-channel temp/humidity probes (CH2 - CH8)
+    "t234c1cn": [CH2_TEMP, CH2_HUMIDITY, CH2_BATTERY],
+    "t234c2cn": [CH3_TEMP, CH3_HUMIDITY, CH3_BATTERY],
+    "t234c3cn": [CH4_TEMP, CH4_HUMIDITY, CH4_BATTERY],
+    "t234c4cn": [CH5_TEMP, CH5_HUMIDITY, CH5_BATTERY],
+    "t234c5cn": [CH6_TEMP, CH6_HUMIDITY, CH6_BATTERY],
+    "t234c6cn": [CH7_TEMP, CH7_HUMIDITY, CH7_BATTERY],
+    "t234c7cn": [CH8_TEMP, CH8_HUMIDITY, CH8_BATTERY],
+    # T9 HCHO/VOC probe
     "t9cn": [HCHO, VOC, T9_BATTERY],
 }
 

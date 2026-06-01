@@ -1,5 +1,7 @@
 """Pocasi CZ resend functions."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import logging
 from typing import Any, Literal
@@ -74,9 +76,7 @@ class PocasiPush:
 
         return None
 
-    async def push_data_to_server(
-        self, data: dict[str, Any], mode: Literal["WU", "WSLINK"]
-    ):
+    async def push_data_to_server(self, data: dict[str, Any], mode: Literal["WU", "WSLINK"]):
         """Pushes weather data to server."""
 
         _data = data.copy()
@@ -85,19 +85,13 @@ class PocasiPush:
         self.last_error = None
 
         if (_api_id := checked(self.config.options.get(POCASI_CZ_API_ID), str)) is None:
-            _LOGGER.error(
-                "No API ID is provided for Pocasi Meteo. Check your configuration."
-            )
+            _LOGGER.error("No API ID is provided for Pocasi Meteo. Check your configuration.")
             self.last_status = "config_error"
             self.last_error = "Missing API ID."
             return
 
-        if (
-            _api_key := checked(self.config.options.get(POCASI_CZ_API_KEY), str)
-        ) is None:
-            _LOGGER.error(
-                "No API Key is provided for Pocasi Meteo. Check your configuration."
-            )
+        if (_api_key := checked(self.config.options.get(POCASI_CZ_API_KEY), str)) is None:
+            _LOGGER.error("No API Key is provided for Pocasi Meteo. Check your configuration.")
             self.last_status = "config_error"
             self.last_error = "Missing API key."
             return
@@ -148,9 +142,7 @@ class PocasiPush:
                     self.last_error = POCASI_INVALID_KEY
                     self.enabled = False
                     _LOGGER.critical(POCASI_INVALID_KEY)
-                    await update_options(
-                        self.hass, self.config, POCASI_CZ_ENABLED, False
-                    )
+                    await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False)
                 except PocasiSuccess:
                     self.last_status = "ok"
                     self.last_error = None

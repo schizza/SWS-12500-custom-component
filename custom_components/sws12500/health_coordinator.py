@@ -26,7 +26,6 @@ import aiohttp.web
 from py_typecheck import checked, checked_or
 
 from homeassistant.components.network import async_get_source_ip
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import get_url
@@ -44,7 +43,7 @@ from .const import (
     WSLINK_ADDON_PORT,
     WSLINK_URL,
 )
-from .data import ENTRY_HEALTH_DATA
+from .data import SWSConfigEntry
 from .pocasti_cz import PocasiPush
 from .routes import Routes
 from .windy_func import WindyPush
@@ -80,7 +79,7 @@ def _empty_forwarding_state(enabled: bool) -> dict[str, Any]:
     }
 
 
-def _default_health_data(config: ConfigEntry) -> dict[str, Any]:
+def _default_health_data(config: SWSConfigEntry) -> dict[str, Any]:
     """Build the default health/debug payload for this config entry."""
     configured_protocol = _protocol_name(checked_or(config.options.get(WSLINK), bool, False))
     return {
@@ -137,10 +136,10 @@ class HealthCoordinator(DataUpdateCoordinator):
     All of that is stored as one structured JSON-like dict in `self.data`.
     """
 
-    def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, config: SWSConfigEntry) -> None:
         """Initialize the health coordinator."""
         self.hass: HomeAssistant = hass
-        self.config: ConfigEntry = config
+        self.config: SWSConfigEntry = config
 
         super().__init__(
             hass,
@@ -154,13 +153,11 @@ class HealthCoordinator(DataUpdateCoordinator):
     def _store_runtime_health(self, data: dict[str, Any]) -> None:
         """Persist the latest health payload into entry runtime storage."""
 
-        if (domain := checked(self.hass.data.get(DOMAIN), dict[str, Any])) is None:
+        try:
+            self.config.runtime_data.health_data = deepcopy(data)
+        except AttributeError:
+            # runtime_data may not be set up yet during early initialization; that's fine, we'll populate it on the next tick.
             return
-
-        if (entry := checked(domain.get(self.config.entry_id), dict[str, Any])) is None:
-            return
-
-        entry[ENTRY_HEALTH_DATA] = deepcopy(data)
 
     def _commit(self, data: dict[str, Any]) -> dict[str, Any]:
         """Publish a new health snapshot."""
@@ -197,7 +194,7 @@ class HealthCoordinator(DataUpdateCoordinator):
         url = get_url(self.hass)
         ip = await async_get_source_ip(self.hass)
 
-        port = checked_or(self.config_entry.options.get(WSLINK_ADDON_PORT), int, 443)
+        port = checked_or(self.config.options.get(WSLINK_ADDON_PORT), int, 443)
 
         health_url = f"https://{ip}:{port}/healthz"
         info_url = f"https://{ip}:{port}/status/internal"

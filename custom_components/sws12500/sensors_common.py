@@ -1,11 +1,14 @@
 """Common classes for sensors."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from dev.custom_components.sws12500.const import VOCLevel
 from homeassistant.components.sensor import SensorEntityDescription
+
+from .const import VOCLevel
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -5,12 +5,13 @@ but does NOT start a separate HTTP server. Instead, the HA webhook handler
 feeds raw POST data into EcoWittListener.process_data().
 
 Sensors that have an internal mapping (REMAP_ECOWITT_COMPACT) are unified
-with the existing SWS sensor pipline. Unmapped sensors are exposed as
-native Ecowitt entites for forward compatibility.
+with the existing SWS sensor pipeline. Unmapped sensors are exposed as
+native Ecowitt entities for forward compatibility.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -22,17 +23,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
 from .const import DOMAIN, REMAP_ECOWITT_COMPAT
 
 _LOGGER = logging.getLogger(__name__)
 
 # Reverse mapping: internal key to ecowitt field name
-# we need to know which key is internaly covered.
+# we need to know which key is internally covered.
 _MAPPED_ECOWITT_KEYS: set[str] = set(REMAP_ECOWITT_COMPAT.keys())
 
 # aioecowitt sensor type to HA device class + unit
-# We cover most common types, addidional will be covered later.
+# We cover most common types, additional will be covered later.
 STYPE_TO_HA: dict[EcoWittSensorTypes, tuple[SensorDeviceClass | None, str | None, SensorStateClass | None]] = {
     EcoWittSensorTypes.TEMPERATURE_C: (
         SensorDeviceClass.TEMPERATURE,
@@ -157,7 +159,7 @@ class EcowittBridge:
         # Callback for new sensors
         self._listener.new_sensor_cb.append(self._on_new_sensor)
 
-        # We need to know which native ecowitt senosrs have an entity
+        # We need to know which native ecowitt sensors have an entity
         self._know_native_keys: set[str] = set()
 
         # Callback for new entities
@@ -181,7 +183,7 @@ class EcowittBridge:
         # then call new_sensors_cb for new sensors
         self._listener.process_data(data)
 
-        # Get values for internaly mapped sensors
+        # Get values for internally mapped sensors
         mapped_result: dict[str, str] = {}
         for ecowitt_key, internal_key in REMAP_ECOWITT_COMPAT.items():
             if ecowitt_key in data:
@@ -233,7 +235,7 @@ class EcowittBridge:
 class EcoWittNativeSensor(SensorEntity):
     """Sensor entity for Ecowitt sensors without internal mapping.
 
-    These entities are "pass-trough" - theri values are directly from EcoWittSensor
+    These entities are "pass-through" - their values are directly from EcoWittSensor
     and maps `stype` to HA device class. They do not have coordinator, because
     EcoWittSensor have his own update_cb callback mechanism.
     """
@@ -268,7 +270,7 @@ class EcoWittNativeSensor(SensorEntity):
             )
 
     @property
-    def native_value(self) -> str | int | float | None:
+    def native_value(self) -> StateType | datetime:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Current value from Ecowitt sensor."""
         value = self._ecowitt_sensor.value
         if value is None or value == "":
@@ -280,11 +282,11 @@ class EcoWittNativeSensor(SensorEntity):
         self._ecowitt_sensor.update_cb.append(self._handle_update)
 
     async def async_will_remove_from_hass(self) -> None:
-        """REmove update callback when entity is removed."""
+        """Remove update callback when entity is removed."""
         if self._handle_update in self._ecowitt_sensor.update_cb:
             self._ecowitt_sensor.update_cb.remove(self._handle_update)
 
     @callback
     def _handle_update(self) -> None:
-        """Handle sensro values update from aioecowitt."""
+        """Handle sensor values update from aioecowitt."""
         self.async_write_ha_state()

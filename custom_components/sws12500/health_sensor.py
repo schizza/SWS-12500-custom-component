@@ -5,12 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
 from py_typecheck import checked, checked_or
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -20,7 +19,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
-from .data import ENTRY_HEALTH_COORD
+from .data import SWSConfigEntry
+from .health_coordinator import HealthCoordinator
+
+if TYPE_CHECKING:
+    from .health_coordinator import HealthCoordinator
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -195,20 +198,14 @@ HEALTH_SENSOR_DESCRIPTIONS: tuple[HealthSensorEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SWSConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up health diagnostic sensors."""
 
-    if (data := checked(hass.data.get(DOMAIN), dict[str, Any])) is None:
-        return
+    del hass  # kept for backwards-compatible call signature; not used after runtime_data migration
 
-    if (entry_data := checked(data.get(entry.entry_id), dict[str, Any])) is None:
-        return
-
-    coordinator = entry_data.get(ENTRY_HEALTH_COORD)
-    if coordinator is None:
-        return
+    coordinator = entry.runtime_data.health_coordinator
 
     entities = [
         HealthDiagnosticSensor(coordinator=coordinator, description=description)
@@ -222,19 +219,21 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
 ):
     """Health diagnostic sensor for SWS-12500."""
 
+    entity_description: HealthSensorEntityDescription  # pyright: ignore[reportIncompatibleVariableOverride]  type: ignore[assignment]
+
     _attr_has_entity_name = True
     _attr_should_poll = False
 
     def __init__(
         self,
-        coordinator: Any,
+        coordinator: HealthCoordinator,
         description: HealthSensorEntityDescription,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        self.entity_description = description
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_unique_id = f"{description.key}_health"
+        self.entity_description = description  # pyright: ignore[reportIncompatibleVariableOverride]  type: ignore[assignment]
 
     @property
     def native_value(self) -> Any:  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -242,10 +241,9 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
 
         data = checked_or(self.coordinator.data, dict[str, Any], {})
 
-        description = cast("HealthSensorEntityDescription", self.entity_description)
-        value = _resolve_path(data, description.data_path)
-        if description.value_fn is not None:
-            return description.value_fn(value)
+        value = _resolve_path(data, self.entity_description.data_path)
+        if self.entity_description.value_fn is not None:
+            return self.entity_description.value_fn(value)
         return value
 
     @property

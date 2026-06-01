@@ -1,5 +1,7 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
 
+from __future__ import annotations
+
 import secrets
 from typing import Any
 

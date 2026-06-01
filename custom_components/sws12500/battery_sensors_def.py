@@ -1,51 +1,20 @@
-"""Battery sensors."""
+"""Battery sensors templates.
+
+We create a sensor tempate here.
+Actualy loaded senors are gated in coordinator.
+"""
+
+from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntityDescription
 
-BATTERY_BINARY_SENSORS: tuple[BinarySensorEntityDescription, ...] = (
+from .const import BATTERY_LIST
+
+BATTERY_BINARY_SENSORS: tuple[BinarySensorEntityDescription, ...] = tuple(
     BinarySensorEntityDescription(
-        key="outside_battery",
-        translation_key="outside_battery",
+        key=key,
+        translation_key=key,
         device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="indoor_battery",
-        translation_key="indoor_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch2_battery",
-        translation_key="ch2_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch3_battery",
-        translation_key="ch3_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch4_battery",
-        translation_key="ch4_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch5_battery",
-        translation_key="ch5_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch6_battery",
-        translation_key="ch6_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch7_battery",
-        translation_key="ch7_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
-    BinarySensorEntityDescription(
-        key="ch8_battery",
-        translation_key="ch8_battery",
-        device_class=BinarySensorDeviceClass.BATTERY,
-    ),
+    )
+    for key in BATTERY_LIST
 )

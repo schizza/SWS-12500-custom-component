@@ -4,26 +4,25 @@ This module creates sensor entities based on the config entry options.
 
 The integration is push-based (webhook), so we avoid reloading the entry for
 auto-discovered sensors. Instead, we dynamically add new entities at runtime
-using the `async_add_entities` callback stored in `hass.data`.
+using the `async_add_entities` callback stored in `entry.runtime_data`.
 
 Why not reload on auto-discovery?
 Reloading a config entry unloads platforms temporarily, which removes coordinator
 listeners. With frequent webhook pushes, this can create a window where nothing is
 subscribed and the frontend appears "frozen" until another full reload/restart.
 
-Runtime state is stored under:
-    hass.data[DOMAIN][entry_id]  -> dict with known keys (see `data.py`)
+Per-entry runtime state lives on `entry.runtime_data` (see data.SWSRuntimeData)
 """
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from functools import cached_property
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
-from py_typecheck import checked, checked_or
+from py_typecheck import checked_or
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, generate_entity_id
@@ -33,6 +32,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import health_sensor
 from .const import (
     CHILL_INDEX,
+    DEV_DBG,
     DOMAIN,
     HEAT_INDEX,
     OUTSIDE_HUMIDITY,
@@ -43,17 +43,15 @@ from .const import (
     WIND_SPEED,
     WSLINK,
 )
-from .data import ENTRY_ADD_ENTITIES, ENTRY_COORDINATOR, ENTRY_DESCRIPTIONS
+from .data import SWSConfigEntry
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
 
-_LOGGER = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from .coordinator import WeatherDataUpdateCoordinator
 
-# The `async_add_entities` callback accepts a list of Entity-like objects.
-# We keep the type loose here to avoid propagating HA generics (`DataUpdateCoordinator[T]`)
-# that often end up as "partially unknown" under type-checkers.
-_AddEntitiesFn = Callable[[list[SensorEntity]], None]
+_LOGGER = logging.getLogger(__name__)
 
 
 def _auto_enable_derived_sensors(requested: set[str]) -> set[str]:
@@ -83,45 +81,27 @@ def _auto_enable_derived_sensors(requested: set[str]) -> set[str]:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: SWSConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Weather Station sensors.
 
-    We also store `async_add_entities` and a map of sensor descriptions in `hass.data`
-    so the webhook handler can add newly discovered entities dynamically without
-    reloading the config entry.
+    Stores `async_add_entities` and the sensor-description map on `entry.runtime_data`
+    so the webhook handler can add newly discovered entities dynamically without reloading the config entry.
     """
 
-    if (hass_data := checked(hass.data.setdefault(DOMAIN, {}), dict[str, Any])) is None:
-        return
+    runtime = config_entry.runtime_data
+    coordinator = runtime.coordinator
 
-    # we have to check if entry_data are present
-    # It is created by integration setup, so it should be presnet
-    if (entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])) is None:
-        # This should not happen in normal operation.
-        return
-
-    coordinator = entry_data.get(ENTRY_COORDINATOR)
-    if coordinator is None:
-        # Coordinator is created by the integration (`__init__.py`). Without it, we cannot set up entities.
-        # This should not happen in normal operation; treat it as a no-op setup.
-        return
-
-    # Store the platform callback so we can add entities later (auto-discovery) without reload.
-    entry_data[ENTRY_ADD_ENTITIES] = async_add_entities
-
-    # Wire up the integration health diagnostic sensor.
-    # This is kept in a dedicated module (`health_sensor.py`) for readability.
+    # Wire up integration health diagnostic sensor.
     await health_sensor.async_setup_entry(hass, config_entry, async_add_entities)
 
     wslink_enabled = checked_or(config_entry.options.get(WSLINK), bool, False)
     sensor_types = SENSOR_TYPES_WSLINK if wslink_enabled else SENSOR_TYPES_WEATHER_API
 
-    # Keep a descriptions map for dynamic entity creation by key.
-    # When the station starts sending a new payload field, the webhook handler can
-    # look up its description here and instantiate the matching entity.
-    entry_data[ENTRY_DESCRIPTIONS] = {desc.key: desc for desc in sensor_types}
+    # Persist platform callback + description map for dynamic entity creation.
+    runtime.add_sensor_entities = async_add_entities
+    runtime.sensor_descriptions = {desc.key: desc for desc in sensor_types}
 
     sensors_to_load = checked_or(config_entry.options.get(SENSORS_TO_LOAD), list[str], [])
     if not sensors_to_load:
@@ -134,13 +114,12 @@ async def async_setup_entry(
     ]
     async_add_entities(entities)
 
-    # Connect Ecowitt bridge to sensor platform,
-    # so it can dynamically add native Ecowitt entities
-    if hasattr(coordinator, "ecowitt_bridge"):
-        coordinator.ecowitt_bridge.set_add_entities(async_add_entities)
+    # Connect Ecowitt bridge to sensor platform so it can dynamically add
+    # native Ecowitt entities (sensors without internal SWS mapping).
+    coordinator.ecowitt_bridge.set_add_entities(async_add_entities)
 
 
-def add_new_sensors(hass: HomeAssistant, config_entry: ConfigEntry, keys: list[str]) -> None:
+def add_new_sensors(hass: HomeAssistant, config_entry: SWSConfigEntry, keys: list[str]) -> None:
     """Dynamically add newly discovered sensors without reloading the entry.
 
     Called by the webhook handler when the station starts sending new fields.
@@ -151,31 +130,22 @@ def add_new_sensors(hass: HomeAssistant, config_entry: ConfigEntry, keys: list[s
     - Unknown payload keys are ignored (only keys with an entity description are added).
     """
 
-    if (hass_data := checked(hass.data.get(DOMAIN), dict[str, Any])) is None:
+    del hass  # kept for backwards-compatible call signature; not used after runtime_data migration
+
+    runtime = config_entry.runtime_data
+    add_entities = runtime.add_sensor_entities
+    if add_entities is None:
         return
 
-    if (entry_data := checked(hass_data.get(config_entry.entry_id), dict[str, Any])) is None:
-        return
+    descriptions = runtime.sensor_descriptions
+    coordinator = runtime.coordinator
 
-    add_entities = entry_data.get(ENTRY_ADD_ENTITIES)
-    descriptions = entry_data.get(ENTRY_DESCRIPTIONS)
-    coordinator = entry_data.get(ENTRY_COORDINATOR)
-
-    if add_entities is None or descriptions is None or coordinator is None:
-        return
-
-    add_entities_fn = cast("_AddEntitiesFn", add_entities)
-    descriptions_map = cast("dict[str, WeatherSensorEntityDescription]", descriptions)
-
-    new_entities: list[SensorEntity] = []
-    for key in keys:
-        desc = descriptions_map.get(key)
-        if desc is None:
-            continue
-        new_entities.append(WeatherSensor(desc, coordinator))
+    new_entities: list[SensorEntity] = [
+        WeatherSensor(desc, coordinator) for key in keys if (desc := descriptions.get(key)) is not None
+    ]
 
     if new_entities:
-        add_entities_fn(new_entities)
+        add_entities(new_entities)
 
 
 class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -187,26 +157,21 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
     propagating HA's generic `DataUpdateCoordinator[T]` typing into this module.
     """
 
+    entity_description: WeatherSensorEntityDescription  # pyright: ignore[reportIncompatibleVariableOverride]
     _attr_has_entity_name = True
     _attr_should_poll = False
 
     def __init__(
         self,
         description: WeatherSensorEntityDescription,
-        coordinator: Any,
+        coordinator: WeatherDataUpdateCoordinator,
     ) -> None:
         """Initialize sensor."""
         super().__init__(coordinator)
 
-        self.entity_description = description
         self._attr_unique_id = description.key
-
-        config_entry = getattr(self.coordinator, "config", None)
-        self._dev_log = checked_or(
-            config_entry.options.get("dev_debug_checkbox") if config_entry is not None else False,
-            bool,
-            False,
-        )
+        self.entity_description = description  # pyright: ignore[reportIncompatibleVariableOverride]  type: ignore[assignment]
+        self._dev_log = checked_or(coordinator.config.options.get(DEV_DBG), bool, False)
 
     @property
     def native_value(self):  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -223,11 +188,9 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         data: dict[str, Any] = checked_or(self.coordinator.data, dict[str, Any], {})
         key = self.entity_description.key
 
-        description = cast("WeatherSensorEntityDescription", self.entity_description)
-
-        if description.value_from_data_fn is not None:
+        if self.entity_description.value_from_data_fn is not None:
             try:
-                value = description.value_from_data_fn(data)
+                value = self.entity_description.value_from_data_fn(data)
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("native_value compute failed via value_from_data_fn for key=%s", key)
                 return None
@@ -240,13 +203,13 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
                 _LOGGER.debug("native_value missing raw: key=%s raw=%s", key, raw)
             return None
 
-        if description.value_fn is None:
+        if self.entity_description.value_fn is None:
             if self._dev_log:
                 _LOGGER.debug("native_value has no value_fn: key=%s raw=%s", key, raw)
             return None
 
         try:
-            value = description.value_fn(raw)
+            value = self.entity_description.value_fn(raw)
         except Exception:  # noqa: BLE001
             _LOGGER.exception("native_value compute failed via value_fn for key=%s raw=%s", key, raw)
             return None

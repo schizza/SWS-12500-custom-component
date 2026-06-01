@@ -1,5 +1,7 @@
 """Windy functions."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import logging
 
@@ -155,9 +157,7 @@ class WindyPush:
 
         persistent_notification.create(self.hass, reason, "Windy resending disabled.")
 
-    async def push_data_to_windy(
-        self, data: dict[str, str], wslink: bool = False
-    ) -> bool:
+    async def push_data_to_windy(self, data: dict[str, str], wslink: bool = False) -> bool:
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.
@@ -171,9 +171,7 @@ class WindyPush:
         self.last_attempt_at = datetime.now().isoformat()
         self.last_error = None
 
-        if (
-            windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)
-        ) is None:
+        if (windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)) is None:
             _LOGGER.error("Windy API key is not provided! Check your configuration.")
             self.last_status = "config_error"
             await self._disable_windy(
@@ -181,12 +179,8 @@ class WindyPush:
             )
             return False
 
-        if (
-            windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)
-        ) is None:
-            _LOGGER.error(
-                "Windy station password is missing! Check your configuration."
-            )
+        if (windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)) is None:
+            _LOGGER.error("Windy station password is missing! Check your configuration.")
             self.last_status = "config_error"
             await self._disable_windy(
                 "Windy password is not provided. Resending is disabled for now. Reconfigure your integration."
@@ -226,9 +220,7 @@ class WindyPush:
             _LOGGER.info("Dataset for windy: %s", purged_data)
         session = async_get_clientsession(self.hass)
         try:
-            async with session.get(
-                request_url, params=purged_data, headers=headers
-            ) as resp:
+            async with session.get(request_url, params=purged_data, headers=headers) as resp:
                 try:
                     self.verify_windy_response(response=resp)
                 except WindyNotInserted:
@@ -286,9 +278,7 @@ class WindyPush:
                         )
                 finally:
                     if self.invalid_response_count >= 3:
-                        _LOGGER.critical(
-                            "Invalid response from Windy 3 times. Disabling resend option."
-                        )
+                        _LOGGER.critical("Invalid response from Windy 3 times. Disabling resend option.")
                         await self._disable_windy(
                             reason="Unable to send data to Windy (3 times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
                         )
@@ -304,9 +294,7 @@ class WindyPush:
             self.invalid_response_count += 1
             if self.invalid_response_count >= WINDY_MAX_RETRIES:
                 _LOGGER.critical(WINDY_UNEXPECTED)
-                await self._disable_windy(
-                    reason="Invalid response from Windy 3 times. Disabling resending option."
-                )
+                await self._disable_windy(reason="Invalid response from Windy 3 times. Disabling resending option.")
         self.last_update = datetime.now()
         self.next_update = self.last_update + timed(minutes=5)
 

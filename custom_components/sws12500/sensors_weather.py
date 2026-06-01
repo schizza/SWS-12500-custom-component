@@ -1,5 +1,7 @@
 """Sensor entities for the SWS12500 integration for old endpoint."""
 
+from __future__ import annotations
+
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     DEGREE,

@@ -156,6 +156,35 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "outside_battery": {
+                "name": "Venkovní baterie"
+            },
+            "indoor_battery": {
+                "name": "Baterie kozole"
+            },
+            "ch2_battery": {
+                "name": "Baterie senzoru 2"
+            },
+            "ch3_battery": {
+                "name": "Baterie senzoru 3"
+            },
+            "ch4_battery": {
+                "name": "Baterie senzoru 4"
+            },
+            "ch5_battery": {
+                "name": "Baterie senzoru 5"
+            },
+            "ch6_battery": {
+                "name": "Baterie senzoru 6"
+            },
+            "ch7_battery": {
+                "name": "Baterie senzoru 7"
+            },
+            "ch8_battery": {
+                "name": "Baterie senzoru 8"
+            }
+        },
         "sensor": {
             "integration_health": {
                 "name": "Stav integrace",
@@ -391,6 +420,12 @@
                     "unknown": "Neznámá / zcela vybitá"
                 }
             }
+        }
+    },
+    "issues": {
+        "legacy_battery_sensor_deprecated": {
+            "title": "Detekovány zastaralé senzory baterií.",
+            "description": "V registru entit byly nalezeny staré senzory baterií ({entities}). Byly nahrazeny binárními senzory baterií a budou odstraněny ve verzi {remove_version}. Smažte prosím staré entity ručně přes Nastavení -> Zařízení a služby -> SWS-12500."
         }
     },
     "notify": {

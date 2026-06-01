@@ -11,9 +11,11 @@ Notable responsibilities:
 Keeping these concerns in one place avoids duplicating logic in the webhook handler and entity code.
 """
 
+from __future__ import annotations
+
 import logging
 import math
-from typing import Any, cast
+from typing import Any
 
 from py_typecheck.core import checked_or
 
@@ -78,7 +80,7 @@ async def translated_notification(
 
     localize_title = f"component.{translation_domain}.{category}.{translation_key}.title"
 
-    language: str = cast("str", hass.config.language)
+    language: str = hass.config.language
 
     _translations = await async_get_translations(hass, language, category, [translation_domain])
     if localize_key in _translations:
@@ -291,7 +293,7 @@ def heat_index(data: dict[str, int | float | str], convert: bool = False) -> flo
     """Calculate heat index from temperature.
 
     data: dict with temperature and humidity
-    convert: bool, convert recieved data from Celsius to Fahrenheit
+    convert: bool, convert received data from Celsius to Fahrenheit
     """
     if (temp := to_float(data.get(OUTSIDE_TEMP))) is None:
         _LOGGER.error(
@@ -340,7 +342,7 @@ def chill_index(data: dict[str, str | float | int], convert: bool = False) -> fl
     """Calculate wind chill index from temperature and wind speed.
 
     data: dict with temperature and wind speed
-    convert: bool, convert recieved data from Celsius to Fahrenheit
+    convert: bool, convert received data from Celsius to Fahrenheit
     """
     temp = to_float(data.get(OUTSIDE_TEMP))
     wind = to_float(data.get(WIND_SPEED))

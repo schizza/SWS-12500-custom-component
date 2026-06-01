@@ -49,7 +49,8 @@
             "valid_credentials_api": "Provide valid API ID.",
             "valid_credentials_key": "Provide valid API KEY.",
             "valid_credentials_match": "API ID and API KEY should not be the same.",
-            "windy_key_required": "Windy API key is required if you want to enable this function."
+            "windy_id_required": "Windy API ID is required if you want to enable this function.",
+            "windy_pw_required": "Windy API password is required if you want to enable this function."
         },
         "step": {
             "init": {
@@ -61,31 +62,33 @@
                 }
             },
             "basic": {
-                "description": "Configure the PWS/WSLink endpoint. Turn off 'Enable PWS/WSLink' for an Ecowitt-only setup - API ID/KEY are not required."""title": "Configure PWS/WSLink","data": {
+                "description": "Provide API ID and API KEY so the Weather Station can access HomeAssistant",
+                "title": "Configure credentials",
+                "data": {
                     "API_ID": "API ID / Station ID",
                     "API_KEY": "API KEY / Password",
-                    "wslink": "WSLink protocol",
-                    "legacy_enbaled": "Enable PWS/WSLink endpoint (disable for Ecowitt-only setup)",
+                    "WSLINK": "WSLink API",
                     "dev_debug_checkbox": "Developer log"
                 },
                 "data_description": {
                     "dev_debug_checkbox": " Enable only if you want to send debuging data to the developer.",
                     "API_ID": "API ID is the Station ID you set in the Weather Station.",
                     "API_KEY": "API KEY is the password you set in the Weather Station.",
-                    "wslink": "Enable WSLink API if the station is set to send data via WSLink. (If you are unsure, use https://test-station.schizza.cz/)",
-                    "legacy_enbaled": "Turn off if your station uses Ecowitt only."
+                    "WSLINK": "Enable WSLink API if the station is set to send data via WSLink."
                 }
             },
             "windy": {
                 "description": "Resend weather data to your Windy stations.",
                 "title": "Configure Windy",
                 "data": {
-                    "WINDY_API_KEY": "API KEY provided by Windy",
+                    "WINDY_STATION_ID": "Station ID obtained form Windy",
+                    "WINDY_STATION_PWD": "Station password obtained from Windy",
                     "windy_enabled_checkbox": "Enable resending data to Windy",
                     "windy_logger_checkbox": "Log Windy data and responses"
                 },
                 "data_description": {
-                    "WINDY_API_KEY": "Windy API KEY obtained from https://https://api.windy.com/keys",
+                    "WINDY_STATION_ID": "Windy station ID obtained from https://stations.windy.com/stations",
+                    "WINDY_STATION_PWD": "Windy station password obtained from https://stations.windy.com/stations",
                     "windy_logger_checkbox": "Enable only if you want to send debuging data to the developer."
                 }
             },
@@ -134,7 +137,131 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "outside_battery": {
+                "name": "Outside battery"
+            },
+            "indoor_battery": {
+                "name": "Console battery"
+            },
+            "ch2_battery": {
+                "name": "Channel 2 battery"
+            },
+            "ch3_battery": {
+                "name": "Channel 3 battery"
+            },
+            "ch4_battery": {
+                "name": "Channel 4 battery"
+            },
+            "ch5_battery": {
+                "name": "Channel 5 battery"
+            },
+            "ch6_battery": {
+                "name": "Channel 6 battery"
+            },
+            "ch7_battery": {
+                "name": "Channel 7 battery"
+            },
+            "ch8_battery": {
+                "name": "Channel 8 battery"
+            }
+        },
         "sensor": {
+            "integration_health": {
+                "name": "Integration status",
+                "state": {
+                    "online_wu": "Online PWS/WU",
+                    "online_wslink": "Online WSLink",
+                    "online_idle": "Waiting for data",
+                    "degraded": "Degraded",
+                    "error": "Error"
+                }
+            },
+            "active_protocol": {
+                "name": "Active protocol",
+                "state": {
+                    "wu": "PWS/WU",
+                    "wslink": "WSLink API"
+                }
+            },
+            "wslink_addon_status": {
+                "name": "WSLink Addon Status",
+                "state": {
+                    "online": "Running",
+                    "offline": "Offline"
+                }
+            },
+            "wslink_addon_name": {
+                "name": "WSLink Addon Name"
+            },
+            "wslink_addon_version": {
+                "name": "WSLink Addon Version"
+            },
+            "wslink_addon_listen_port": {
+                "name": "WSLink Addon Listen Port"
+            },
+            "wslink_upstream_ha_port": {
+                "name": "WSLink Addon Upstream HA Port"
+            },
+            "route_wu_enabled": {
+                "name": "PWS/WU Protocol"
+            },
+            "route_wslink_enabled": {
+                "name": "WSLink Protocol"
+            },
+            "last_ingress_time": {
+                "name": "Last access time"
+            },
+            "last_ingress_protocol": {
+                "name": "Last access protocol",
+                "state": {
+                    "wu": "PWS/WU",
+                    "wslink": "WSLink API"
+                }
+            },
+            "last_ingress_route_enabled": {
+                "name": "Last ingress route enabled"
+            },
+            "last_ingress_accepted": {
+                "name": "Last access",
+                "state": {
+                    "accepted": "Accepted",
+                    "rejected": "Rejected"
+                }
+            },
+            "last_ingress_authorized": {
+                "name": "Last access authorization",
+                "state": {
+                    "authorized": "Authorized",
+                    "unauthorized": "Unauthorized",
+                    "unknown": "Unknown"
+                }
+            },
+            "last_ingress_reason": {
+                "name": "Last access reason"
+            },
+            "forward_windy_enabled": {
+                "name": "Forwarding to Windy"
+            },
+            "forward_windy_status": {
+                "name": "Forwarding status to Windy",
+                "state": {
+                    "disabled": "Disabled",
+                    "idle": "Waiting to send",
+                    "ok": "Ok"
+                }
+            },
+            "forward_pocasi_enabled": {
+                "name": "Forwarding to Počasí Meteo"
+            },
+            "forward_pocasi_status": {
+                "name": "Forwarding status to Počasí Meteo",
+                "state": {
+                    "disabled": "Disabled",
+                    "idle": "Waiting to send",
+                    "ok": "Ok"
+                }
+            },
             "indoor_temp": {
                 "name": "Indoor temperature"
             },
@@ -192,6 +319,30 @@
             "ch4_humidity": {
                 "name": "Channel 4 humidity"
             },
+            "ch5_temp": {
+                "name": "Channel 5 temperature"
+            },
+            "ch5_humidity": {
+                "name": "Channel 5 humidity"
+            },
+            "ch6_temp": {
+                "name": "Channel 6 temperature"
+            },
+            "ch6_humidity": {
+                "name": "Channel 6 humidity"
+            },
+            "ch7_temp": {
+                "name": "Channel 7 temperature"
+            },
+            "ch7_humidity": {
+                "name": "Channel 7 humidity"
+            },
+            "ch8_temp": {
+                "name": "Channel 8 temperature"
+            },
+            "ch8_humidity": {
+                "name": "Channel 8 humidity"
+            },
             "heat_index": {
                 "name": "Apparent temperature"
             },
@@ -212,6 +363,22 @@
             },
             "wbgt_index": {
                 "name": "WBGT index"
+            },
+            "hcho": {
+                "name": "Formaldehyde (HCHO)"
+            },
+            "voc": {
+                "name": "VOC level",
+                "state": {
+                    "unhealthy": "Unhealthy",
+                    "poor": "Poor",
+                    "moderate": "Moderate",
+                    "good": "Good",
+                    "excellent": "Excellent"
+                }
+            },
+            "t9_battery": {
+                "name": "HCHO/VOC sensor battery"
             },
             "wind_azimut": {
                 "name": "Bearing",
@@ -250,6 +417,54 @@
                     "unknown": "Unknown / drained out"
                 }
             },
+            "ch3_battery": {
+                "name": "Channel 3 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch4_battery": {
+                "name": "Channel 4 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch5_battery": {
+                "name": "Channel 5 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch6_battery": {
+                "name": "Channel 6 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch7_battery": {
+                "name": "Channel 7 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
+            "ch8_battery": {
+                "name": "Channel 8 battery level",
+                "state": {
+                    "normal": "OK",
+                    "low": "Low",
+                    "unknown": "Unknown / drained out"
+                }
+            },
             "indoor_battery": {
                 "name": "Console battery level",
                 "state": {
@@ -258,6 +473,12 @@
                     "unknown": "Unknown / drained out"
                 }
             }
+        }
+    },
+    "issues": {
+        "legacy_battery_sensor_deprecated": {
+            "title": "Legacy battery sensor detected",
+            "description": "Old battery sensor entities ({entities}) were found in the entity registry. They have been replaced by binary battery sensors and will be removed in version {remove_version}. Please delete the legacy entities manually via Settings Old battery sensor entities ({entities}) were found in the entity registry. They have been replaced by binary battery sensors and will be removed in version {remove_version}. Please delete the legacy entities manually via Settings -> Devices & Services -> SWS 12500."
         }
     },
     "notify": {

@@ -1,22 +1,22 @@
 """Shared keys for storing integration runtime data.
 
-HA 2025+ pattern: structured runtime state stored in entry.runtime_data
-instead of loosely-typed hass.data[][] dicts.
+HA 2025+ pattern: typed `ConfigEntry[SWSRuntimeData]` replaces ad-hoc `hass.data[DOMAIN][entry_id]` dicts.
+All per-entry state lives here. Cross-reload shared state (aiohttp route registrations) stays under
+hass.data[DOMAIN]["routes"] because it must outlive a single entry reload.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core_config import Config
-from homeassistant.exceptions import NoEntitySpecifiedError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 if TYPE_CHECKING:
-    from . import WeatherDataUpdateCoordinator
-    from .ecowitt import EcowittBridge
+    from homeassistant.components.binary_sensor import BinarySensorEntityDescription
+
+    from .coordinator import WeatherDataUpdateCoordinator
     from .health_coordinator import HealthCoordinator
     from .sensors_common import WeatherSensorEntityDescription
 
@@ -25,41 +25,26 @@ if TYPE_CHECKING:
 class SWSRuntimeData:
     """Per-entry runtime state for SWS12500 integration.
 
-    Stored in entry.runtime_data. Type-safe, no string key lookups,
-    no checked() boilerplate
+    Stored in entry.runtime_data. Type-safe.
     """
 
-    # Core coordinators
+    # Core coordinators - required - create during `async_setup_entry`.
     coordinator: WeatherDataUpdateCoordinator
     health_coordinator: HealthCoordinator
+    last_options: dict[str, Any]
 
     # Sensor platform callbacks (set by sensor.async_setup_entry)
     add_sensor_entities: AddEntitiesCallback | None = None
-    sensor_descriptions: dict[str, WeatherSensorEntityDescription] | None = None
+    sensor_descriptions: dict[str, WeatherSensorEntityDescription] = field(default_factory=dict)
 
     # Binary sensor platform callbacks
     add_binary_entities: AddEntitiesCallback | None = None
-    binary_description: dict[str, Any] | None = None
-    added_binary_keys: set[str] = field(default_factory=dict)
+    binary_descriptions: dict[str, BinarySensorEntityDescription] = field(default_factory=dict)
+    added_binary_keys: set[str] = field(default_factory=set)
 
-    # Health data cache for diagnostics
+    # Health data cache for diagnostics - refreshed by `HealthCoordinator` on each tick.
     health_data: dict[str, Any] | None = None
 
 
 # Type alias for typed ConfigEntry
 type SWSConfigEntry = ConfigEntry[SWSRuntimeData]
-
-
-# Per-entry dict keys stored under hass.data[DOMAIN][entry_id]
-ENTRY_COORDINATOR: Final[str] = "coordinator"
-ENTRY_ADD_ENTITIES: Final[str] = "async_add_entities"
-ENTRY_DESCRIPTIONS: Final[str] = "sensor_descriptions"
-
-# Binary sensor dynamic support
-ENTRY_ADD_BINARY_ENTITIES: Final[str] = "async_add_binary_entities"
-ENTRY_BINARY_DESCRIPTION: Final[str] = "binary_sensor_description"
-ENTRY_ADDED_BINARY_KEYS: Final[str] = "added_binary_keys"
-
-ENTRY_LAST_OPTIONS: Final[str] = "last_options"
-ENTRY_HEALTH_COORD: Final[str] = "coord_h"
-ENTRY_HEALTH_DATA: Final[str] = "health_data"
