@@ -28,14 +28,16 @@ period where no entities are subscribed, causing stale states until another full
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import logging
 from typing import Any
 
 from py_typecheck import checked, checked_or
 
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady, PlatformNotReady
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     DEFAULT_URL,
@@ -53,6 +55,7 @@ from .data import SWSConfigEntry, SWSRuntimeData
 from .health_coordinator import HealthCoordinator
 from .legacy import update_legacy_battery_issue
 from .routes import Routes
+from .staleness import update_stale_sensors_issue
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
@@ -180,6 +183,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
     coordinator_health.update_forwarding(coordinator.windy, coordinator.pocasi)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def _check_stale(_now: datetime) -> None:
+        update_stale_sensors_issue(hass, entry)
+
+    entry.async_on_unload(async_track_time_interval(hass, _check_stale, timedelta(hours=1)))
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
     update_legacy_battery_issue(hass, entry)

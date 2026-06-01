@@ -26,6 +26,7 @@ from py_typecheck import checked, checked_or
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import InvalidStateError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .binary_sensor import add_new_binary_sensors
 from .const import (
@@ -45,6 +46,7 @@ from .ecowitt import EcowittBridge
 from .health_coordinator import HealthCoordinator
 from .pocasti_cz import PocasiPush
 from .sensor import add_new_sensors
+from .staleness import update_stale_sensors_issue
 from .utils import (
     anonymize,
     check_disabled,
@@ -139,6 +141,10 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
                 add_new_binary_sensors(self.hass, self.config, newly_discovered)
                 add_new_sensors(self.hass, self.config, newly_discovered)
             self.async_set_updated_data(mapped_data)
+            now = dt_util.utcnow()
+            for key in mapped_data:
+                self.config.runtime_data.last_seen[key] = now
+            update_stale_sensors_issue(self.hass, self.config)
 
         if health:
             health.update_ingress_result(
@@ -299,6 +305,12 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             add_new_binary_sensors(self.hass, self.config, newly_discovered)
 
         self.async_set_updated_data(remaped_items)
+
+        now = dt_util.utcnow()
+        for key in remaped_items:
+            self.config.runtime_data.last_seen[key] = now
+        update_stale_sensors_issue(self.hass, self.config)
+
         if health:
             health.update_ingress_result(
                 webdata,

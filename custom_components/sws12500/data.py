@@ -8,10 +8,12 @@ hass.data[DOMAIN]["routes"] because it must outlive a single entry reload.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 if TYPE_CHECKING:
     from homeassistant.components.binary_sensor import BinarySensorEntityDescription
@@ -44,6 +46,10 @@ class SWSRuntimeData:
 
     # Health data cache for diagnostics - refreshed by `HealthCoordinator` on each tick.
     health_data: dict[str, Any] | None = None
+
+    # Staleness tracking - in-memory, resets on reload.
+    started_at: datetime = field(default_factory=dt_util.utcnow)
+    last_seen: dict[str, datetime] = field(default_factory=dict)
 
 
 # Type alias for typed ConfigEntry
