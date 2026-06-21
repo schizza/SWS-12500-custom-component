@@ -413,3 +413,27 @@ async def test_received_data_auth_unauthorized_and_incorrect_data_paths(hass):
         await coordinator2.received_data(
             _RequestStub(query={"ID": "id", "PASSWORD": "key"})
         )  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_register_path_idempotent_when_routes_exist(hass_with_http):
+    """A second register_path call reuses the existing dispatcher (no new aiohttp routes)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={API_ID: "id", API_KEY: "key", WSLINK: False},
+    )
+    entry.add_to_hass(hass_with_http)
+
+    coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
+
+    assert register_path(hass_with_http, coordinator, coordinator_health, entry) is True
+    router: _RouterStub = hass_with_http.http.app.router
+    get_calls_after_first = list(router.add_get_calls)
+    post_calls_after_first = list(router.add_post_calls)
+
+    # Routes already a Routes instance -> else branch; nothing re-registered on aiohttp.
+    assert register_path(hass_with_http, coordinator, coordinator_health, entry) is True
+    assert router.add_get_calls == get_calls_after_first
+    assert router.add_post_calls == post_calls_after_first

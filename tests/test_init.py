@@ -15,7 +15,7 @@ to keep these tests focused on setup logic.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -23,6 +23,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.sws12500 import WeatherDataUpdateCoordinator, async_setup_entry
 from custom_components.sws12500.const import DOMAIN
 from custom_components.sws12500.data import SWSRuntimeData
+from homeassistant.util import dt as dt_util
 
 
 @pytest.fixture
@@ -113,3 +114,38 @@ async def test_weather_data_update_coordinator_can_be_constructed(
     coordinator = WeatherDataUpdateCoordinator(hass, config_entry)
     assert coordinator.hass is hass
     assert coordinator.config is config_entry
+
+
+async def test_check_stale_callback_runs_update(
+    hass, config_entry: MockConfigEntry, monkeypatch
+):
+    """The hourly _check_stale callback registered during setup runs the stale check."""
+    config_entry.add_to_hass(hass)
+
+    monkeypatch.setattr(
+        "custom_components.sws12500.register_path",
+        lambda _hass, _coordinator, _coordinator_h, _entry: True,
+    )
+    monkeypatch.setattr(
+        "custom_components.sws12500.HealthCoordinator.async_config_entry_first_refresh",
+        AsyncMock(return_value=None),
+    )
+    hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
+
+    # Capture the time-interval callback async_setup_entry registers.
+    captured: dict = {}
+
+    def _capture(_hass, action, _interval):
+        captured["cb"] = action
+        return lambda: None
+
+    monkeypatch.setattr("custom_components.sws12500.async_track_time_interval", _capture)
+
+    stale = MagicMock()
+    monkeypatch.setattr("custom_components.sws12500.update_stale_sensors_issue", stale)
+
+    assert await async_setup_entry(hass, config_entry) is True
+    assert "cb" in captured
+
+    captured["cb"](dt_util.utcnow())
+    stale.assert_called_once_with(hass, config_entry)

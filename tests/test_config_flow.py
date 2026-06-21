@@ -25,6 +25,7 @@ from custom_components.sws12500.const import (
     WINDY_STATION_ID,
     WINDY_STATION_PW,
     WSLINK,
+    WSLINK_ADDON_PORT,
 )
 from homeassistant import config_entries
 
@@ -410,3 +411,59 @@ async def test_options_flow_ecowitt_uses_get_url_placeholders_and_webhook_defaul
         )
         assert done["type"] == "create_entry"
         assert done["data"][ECOWITT_ENABLED] is True
+
+
+@pytest.mark.asyncio
+async def test_options_flow_wslink_port_setup(hass, enable_custom_integrations) -> None:
+    """The WSLink add-on port step shows a form and stores the port."""
+    # A falsy stored port exercises the 443 default fallback.
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={WSLINK_ADDON_PORT: 0})
+    entry.add_to_hass(hass)
+
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    assert init["type"] == "menu"
+
+    form = await hass.config_entries.options.async_configure(
+        init["flow_id"], user_input={"next_step_id": "wslink_port_setup"}
+    )
+    assert form["type"] == "form"
+    assert form["step_id"] == "wslink_port_setup"
+
+    done = await hass.config_entries.options.async_configure(
+        init["flow_id"], user_input={WSLINK_ADDON_PORT: 8443}
+    )
+    assert done["type"] == "create_entry"
+    assert done["data"][WSLINK_ADDON_PORT] == 8443
+
+
+@pytest.mark.asyncio
+async def test_config_flow_ecowitt_initial_setup(hass, enable_custom_integrations) -> None:
+    """Initial config flow: user menu -> ecowitt step creates an Ecowitt-only entry."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert result["type"] == "menu"
+
+    with patch(
+        "custom_components.sws12500.config_flow.get_url",
+        return_value="http://example.local:8123",
+    ):
+        form = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={"next_step_id": "ecowitt"}
+        )
+        assert form["type"] == "form"
+        assert form["step_id"] == "ecowitt"
+        placeholders = form.get("description_placeholders") or {}
+        assert placeholders["url"] == "example.local"
+        assert placeholders["webhook_id"]
+
+        done = await hass.config_entries.flow.async_configure(
+            form["flow_id"],
+            user_input={
+                ECOWITT_WEBHOOK_ID: placeholders["webhook_id"],
+                ECOWITT_ENABLED: True,
+            },
+        )
+        assert done["type"] == "create_entry"
+        assert done["data"][ECOWITT_ENABLED] is True
+        assert done["data"][LEGACY_ENABLED] is False
