@@ -16,6 +16,7 @@ import logging
 from typing import Any, Final
 
 from aioecowitt import EcoWittListener, EcoWittSensor, EcoWittSensorTypes
+from aioecowitt.sensor import SENSOR_MAP
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
@@ -36,6 +37,60 @@ _MAPPED_ECOWITT_KEYS: set[str] = set(REMAP_ECOWITT_COMPAT.keys())
 # Upper bound on auto-created native Ecowitt entities. Bounds entity-registry growth
 # from an (authenticated) sender that fabricates many distinct sensor keys.
 MAX_NATIVE_ECOWITT_SENSORS: Final = 64
+
+
+def _build_unit_twins() -> dict[str, frozenset[str]]:
+    """Group aioecowitt keys that are unit variants of the same quantity.
+
+    aioecowitt exposes both metric and imperial sensors for many readings (e.g.
+    `tempc`/`tempf`, `rainratemm`/`rainratein`), recognisable by a shared display name.
+    """
+    by_name: dict[str, set[str]] = {}
+    for key, meta in SENSOR_MAP.items():
+        by_name.setdefault(meta.name, set()).add(key)
+    twins: dict[str, frozenset[str]] = {}
+    for keys in by_name.values():
+        if len(keys) > 1:
+            group = frozenset(keys)
+            for key in keys:
+                twins[key] = group
+    return twins
+
+
+# key -> set of its unit-variant twin keys (incl. itself).
+_UNIT_TWINS: dict[str, frozenset[str]] = _build_unit_twins()
+
+# Curated translation keys for the common native (unmapped) Ecowitt sensors. Both unit
+# variants map to the same slug so the name is stable regardless of the station's units.
+# Long-tail / multi-channel sensors fall back to aioecowitt's English name.
+_ECOWITT_TRANSLATIONS: dict[str, str] = {
+    "baromabsin": "ecowitt_absolute_pressure",
+    "baromabshpa": "ecowitt_absolute_pressure",
+    "rainratein": "ecowitt_rain_rate",
+    "rainratemm": "ecowitt_rain_rate",
+    "eventrainin": "ecowitt_event_rain",
+    "eventrainmm": "ecowitt_event_rain",
+    "hourlyrainin": "ecowitt_hourly_rain",
+    "hourlyrainmm": "ecowitt_hourly_rain",
+    "weeklyrainin": "ecowitt_weekly_rain",
+    "weeklyrainmm": "ecowitt_weekly_rain",
+    "monthlyrainin": "ecowitt_monthly_rain",
+    "monthlyrainmm": "ecowitt_monthly_rain",
+    "yearlyrainin": "ecowitt_yearly_rain",
+    "yearlyrainmm": "ecowitt_yearly_rain",
+    "totalrainin": "ecowitt_total_rain",
+    "totalrainmm": "ecowitt_total_rain",
+    "last24hrainin": "ecowitt_24h_rain",
+    "last24hrainmm": "ecowitt_24h_rain",
+    "tempfeelsc": "ecowitt_feels_like",
+    "tempfeelsf": "ecowitt_feels_like",
+    "dewpointinc": "ecowitt_indoor_dewpoint",
+    "dewpointinf": "ecowitt_indoor_dewpoint",
+    "co2in": "ecowitt_console_co2",
+    "co2in_24h": "ecowitt_console_co2_24h",
+    "co2": "ecowitt_co2",
+    "co2_24h": "ecowitt_co2_24h",
+}
 
 # aioecowitt sensor type to HA device class + unit
 # We cover most common types, additional will be covered later.
@@ -113,6 +168,16 @@ STYPE_TO_HA: dict[EcoWittSensorTypes, tuple[SensorDeviceClass | None, str | None
     EcoWittSensorTypes.RAIN_COUNT_MM: (
         SensorDeviceClass.PRECIPITATION,
         "mm",
+        SensorStateClass.TOTAL_INCREASING,
+    ),
+    EcoWittSensorTypes.RAIN_RATE_INCHES: (
+        SensorDeviceClass.PRECIPITATION_INTENSITY,
+        "in/h",
+        SensorStateClass.MEASUREMENT,
+    ),
+    EcoWittSensorTypes.RAIN_COUNT_INCHES: (
+        SensorDeviceClass.PRECIPITATION,
+        "in",
         SensorStateClass.TOTAL_INCREASING,
     ),
     EcoWittSensorTypes.LIGHTNING_COUNT: (
@@ -222,6 +287,14 @@ class EcowittBridge:
         if sensor.key in self._know_native_keys:
             return
 
+        # Skip unit-variant duplicates: if a twin (e.g. the °C form of an already
+        # mapped °F sensor, or the other unit of an already-created native one) is
+        # handled, don't create a second entity. HA converts units via device_class.
+        twins = _UNIT_TWINS.get(sensor.key, frozenset())
+        if any(twin in _MAPPED_ECOWITT_KEYS or twin in self._know_native_keys for twin in twins):
+            _LOGGER.debug("Ecowitt sensor %s skipped: unit-variant twin already handled", sensor.key)
+            return
+
         if self._add_entities_cb is None:
             _LOGGER.debug("Ecowitt sensor %s discovered but platform not ready yet", sensor.key)
             return
@@ -268,8 +341,13 @@ class EcoWittNativeSensor(SensorEntity):
 
         self._ecowitt_sensor = sensor
         self._attr_unique_id = f"ecowitt_{sensor.key}"
-        self._attr_translation_key = None  # we do not have translation_keys for native sensors
-        self._attr_name = sensor.name  # default name, can be overridden by translation_key if we had one
+
+        # Use a curated translation_key for common native sensors; otherwise fall back
+        # to aioecowitt's English name. _attr_translation_key is always set (None when
+        # there is no curated translation) so the attribute is well defined.
+        self._attr_translation_key = _ECOWITT_TRANSLATIONS.get(sensor.key)
+        if self._attr_translation_key is None:
+            self._attr_name = sensor.name
 
         # set HomeAssistant metadata from aioecowitt sensor type.
         # Unknown types still get a usable entity (raw value, no device class/unit).

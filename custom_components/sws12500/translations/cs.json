@@ -187,6 +187,51 @@
       }
     },
     "sensor": {
+      "ecowitt_absolute_pressure": {
+        "name": "Absolutní tlak"
+      },
+      "ecowitt_rain_rate": {
+        "name": "Intenzita srážek"
+      },
+      "ecowitt_event_rain": {
+        "name": "Srážky (událost)"
+      },
+      "ecowitt_hourly_rain": {
+        "name": "Hodinové srážky"
+      },
+      "ecowitt_weekly_rain": {
+        "name": "Týdenní srážky"
+      },
+      "ecowitt_monthly_rain": {
+        "name": "Měsíční srážky"
+      },
+      "ecowitt_yearly_rain": {
+        "name": "Roční srážky"
+      },
+      "ecowitt_total_rain": {
+        "name": "Celkové srážky"
+      },
+      "ecowitt_24h_rain": {
+        "name": "Srážky za 24 h"
+      },
+      "ecowitt_feels_like": {
+        "name": "Pocitová teplota"
+      },
+      "ecowitt_indoor_dewpoint": {
+        "name": "Vnitřní rosný bod"
+      },
+      "ecowitt_console_co2": {
+        "name": "CO₂ konzole"
+      },
+      "ecowitt_console_co2_24h": {
+        "name": "CO₂ konzole (průměr 24 h)"
+      },
+      "ecowitt_co2": {
+        "name": "CO₂"
+      },
+      "ecowitt_co2_24h": {
+        "name": "CO₂ (průměr 24 h)"
+      },
       "integration_health": {
         "name": "Stav integrace",
         "state": {

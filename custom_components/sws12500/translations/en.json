@@ -186,6 +186,51 @@
             }
         },
         "sensor": {
+            "ecowitt_absolute_pressure": {
+                "name": "Absolute pressure"
+            },
+            "ecowitt_rain_rate": {
+                "name": "Rain rate"
+            },
+            "ecowitt_event_rain": {
+                "name": "Event rain"
+            },
+            "ecowitt_hourly_rain": {
+                "name": "Hourly rain"
+            },
+            "ecowitt_weekly_rain": {
+                "name": "Weekly rain"
+            },
+            "ecowitt_monthly_rain": {
+                "name": "Monthly rain"
+            },
+            "ecowitt_yearly_rain": {
+                "name": "Yearly rain"
+            },
+            "ecowitt_total_rain": {
+                "name": "Total rain"
+            },
+            "ecowitt_24h_rain": {
+                "name": "24h rain"
+            },
+            "ecowitt_feels_like": {
+                "name": "Feels like"
+            },
+            "ecowitt_indoor_dewpoint": {
+                "name": "Indoor dew point"
+            },
+            "ecowitt_console_co2": {
+                "name": "Console CO₂"
+            },
+            "ecowitt_console_co2_24h": {
+                "name": "Console CO₂ (24h avg)"
+            },
+            "ecowitt_co2": {
+                "name": "CO₂"
+            },
+            "ecowitt_co2_24h": {
+                "name": "CO₂ (24h avg)"
+            },
             "integration_health": {
                 "name": "Integration status",
                 "state": {

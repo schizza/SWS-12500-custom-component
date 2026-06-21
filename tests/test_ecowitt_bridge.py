@@ -385,3 +385,46 @@ def test_on_new_sensor_respects_cap() -> None:
     bridge._on_new_sensor(_make_sensor(key="pm25_ch1"))
 
     cb.assert_not_called()
+
+
+def test_on_new_sensor_skips_unit_twin_of_mapped() -> None:
+    """The metric twin of a mapped (imperial) sensor is not created as a native entity."""
+    bridge = _make_bridge()
+    cb = MagicMock()
+    bridge.set_add_entities(cb)
+
+    # tempc is the °C twin of tempf, which IS mapped into the SWS pipeline.
+    bridge._on_new_sensor(
+        _make_sensor(key="tempc", name="Outdoor Temperature", stype=EcoWittSensorTypes.TEMPERATURE_C)
+    )
+
+    cb.assert_not_called()
+    assert "tempc" not in bridge._know_native_keys
+
+
+def test_on_new_sensor_skips_already_created_twin() -> None:
+    """For an unmapped metric/imperial pair only the first-seen unit is created."""
+    bridge = _make_bridge()
+    created: list[Any] = []
+    bridge.set_add_entities(lambda ents: created.extend(ents))
+
+    bridge._on_new_sensor(_make_sensor(key="rainratein", name="Rain Rate", stype=EcoWittSensorTypes.RAIN_RATE_INCHES))
+    bridge._on_new_sensor(_make_sensor(key="rainratemm", name="Rain Rate", stype=EcoWittSensorTypes.RAIN_RATE_MM))
+
+    keys = [e._ecowitt_sensor.key for e in created]
+    assert keys == ["rainratein"]  # the twin rainratemm is deduplicated
+
+
+def test_native_sensor_translation_key_for_curated() -> None:
+    ent = EcoWittNativeSensor(
+        _make_sensor(key="baromabsin", name="Absolute Pressure", stype=EcoWittSensorTypes.PRESSURE_INHG)
+    )
+    assert ent._attr_translation_key == "ecowitt_absolute_pressure"
+
+
+def test_native_sensor_name_fallback_for_unknown() -> None:
+    ent = EcoWittNativeSensor(
+        _make_sensor(key="air_ch1", name="Air Gap 1", stype=EcoWittSensorTypes.INTERNAL)
+    )
+    assert ent._attr_name == "Air Gap 1"
+    assert getattr(ent, "_attr_translation_key", None) is None
