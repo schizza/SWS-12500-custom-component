@@ -103,6 +103,10 @@ async def async_setup_entry(
     runtime.add_sensor_entities = async_add_entities
     runtime.sensor_descriptions = {desc.key: desc for desc in sensor_types}
 
+    # Connect Ecowitt bridge to sensor platform so it can dynamically add
+    # native Ecowitt entities (sensors without internal SWS mapping).
+    coordinator.ecowitt_bridge.set_add_entities(async_add_entities)
+
     sensors_to_load = checked_or(config_entry.options.get(SENSORS_TO_LOAD), list[str], [])
     if not sensors_to_load:
         return
@@ -113,10 +117,6 @@ async def async_setup_entry(
         WeatherSensor(description, coordinator) for description in sensor_types if description.key in requested
     ]
     async_add_entities(entities)
-
-    # Connect Ecowitt bridge to sensor platform so it can dynamically add
-    # native Ecowitt entities (sensors without internal SWS mapping).
-    coordinator.ecowitt_bridge.set_add_entities(async_add_entities)
 
 
 def add_new_sensors(hass: HomeAssistant, config_entry: SWSConfigEntry, keys: list[str]) -> None:
