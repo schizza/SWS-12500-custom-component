@@ -663,17 +663,52 @@ def test_sensor_native_value_with_value_fn() -> None:
     assert sensor.native_value == "online"
 
 
-def test_sensor_extra_state_attributes_for_integration_health() -> None:
-    data = {"integration_status": "online_wu", "addon": {"online": False}}
+def test_sensor_extra_state_attributes_strips_internal_fields() -> None:
+    data = {
+        "integration_status": "online_wu",
+        "addon": {
+            "online": True,
+            "name": "wslink_proxy",
+            "home_assistant_source_ip": "1.2.3.4",
+            "health_url": "https://1.2.3.4:443/healthz",
+            "info_url": "https://1.2.3.4:443/status/internal",
+            "home_assistant_url": "http://ha:8123",
+            "raw_status": {"secret": "x"},
+        },
+    }
     coordinator = _stub_coordinator(data)
     sensor = hs.HealthDiagnosticSensor(coordinator, _description("integration_health"))
-    assert sensor.extra_state_attributes == data
+
+    attrs = sensor.extra_state_attributes
+    assert attrs is not None
+    # Non-sensitive fields pass through.
+    assert attrs["integration_status"] == "online_wu"
+    assert attrs["addon"]["online"] is True
+    assert attrs["addon"]["name"] == "wslink_proxy"
+    # Internal network details are stripped from the (any-user-readable) attributes.
+    for field in ("home_assistant_source_ip", "health_url", "info_url", "home_assistant_url", "raw_status"):
+        assert field not in attrs["addon"]
+    # The source snapshot is not mutated (deepcopy).
+    assert "raw_status" in data["addon"]
+
+
+def test_sensor_extra_state_attributes_none_data() -> None:
+    coordinator = _stub_coordinator(None)
+    sensor = hs.HealthDiagnosticSensor(coordinator, _description("integration_health"))
+    assert sensor.extra_state_attributes is None
 
 
 def test_sensor_extra_state_attributes_for_other_keys() -> None:
     coordinator = _stub_coordinator({"active_protocol": "wu"})
     sensor = hs.HealthDiagnosticSensor(coordinator, _description("active_protocol"))
     assert sensor.extra_state_attributes is None
+
+
+def test_public_health_snapshot_handles_missing_or_nondict_addon() -> None:
+    # addon missing -> returned as-is (copy).
+    assert hc.public_health_snapshot({"integration_status": "x"}) == {"integration_status": "x"}
+    # addon not a dict -> left untouched.
+    assert hc.public_health_snapshot({"addon": "nope"}) == {"addon": "nope"}
 
 
 def test_sensor_device_info() -> None:

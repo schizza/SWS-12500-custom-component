@@ -219,7 +219,8 @@ class WindyPush:
         headers = {"Authorization": f"Bearer {windy_station_pw}"}
 
         if self.log:
-            _LOGGER.info("Dataset for windy: %s", purged_data)
+            # Mask the station id (a credential) before logging the dataset.
+            _LOGGER.info("Dataset for windy: %s", {**purged_data, "id": "***"})
         session = async_get_clientsession(self.hass)
         try:
             async with session.get(request_url, params=purged_data, headers=headers) as resp:

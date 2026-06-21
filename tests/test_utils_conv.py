@@ -1,10 +1,27 @@
-"""Coverage for to_int / to_float edge cases."""
+"""Coverage for to_int / to_float edge cases and anonymize() masking."""
 
 from __future__ import annotations
 
 import pytest
 
-from custom_components.sws12500.utils import to_float, to_int
+from custom_components.sws12500.utils import anonymize, to_float, to_int
+
+
+def test_anonymize_masks_all_known_secrets() -> None:
+    raw = {
+        "ID": "id",
+        "PASSWORD": "pw",
+        "wsid": "ws",
+        "wspw": "wp",
+        "passkey": "ecowitt-secret",
+        "PASSKEY": "ecowitt-secret",
+        "tempf": "68",
+    }
+    out = anonymize(raw)
+    for key in ("ID", "PASSWORD", "wsid", "wspw", "passkey", "PASSKEY"):
+        assert out[key] == "***"
+    # Non-secret values pass through unchanged.
+    assert out["tempf"] == "68"
 
 
 @pytest.mark.parametrize(

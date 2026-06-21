@@ -112,7 +112,7 @@ def anonymize(
     - Keep all keys, but mask sensitive values.
     - Do not raise on unexpected/missing keys.
     """
-    secrets = {"ID", "PASSWORD", "wsid", "wspw"}
+    secrets = {"ID", "PASSWORD", "wsid", "wspw", "passkey", "PASSKEY"}
 
     return {k: ("***" if k in secrets else v) for k, v in data.items()}
 

@@ -31,6 +31,13 @@ TO_REDACT = {
     "PASSWORD",
     "wsid",
     "wspw",
+    # Internal network details from the health snapshot (admin-only download, but
+    # diagnostics are commonly shared in bug reports).
+    "home_assistant_source_ip",
+    "home_assistant_url",
+    "health_url",
+    "info_url",
+    "raw_status",
 }
 
 

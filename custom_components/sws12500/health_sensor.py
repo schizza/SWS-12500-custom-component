@@ -20,7 +20,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .data import SWSConfigEntry
-from .health_coordinator import HealthCoordinator
+from .health_coordinator import HealthCoordinator, public_health_snapshot
 
 if TYPE_CHECKING:
     from .health_coordinator import HealthCoordinator
@@ -248,11 +248,20 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
-        """Expose the full health JSON on the main health sensor for debugging."""
+        """Expose the health JSON on the main health sensor for debugging.
+
+        Entity attributes are readable by any HA user, so internal network details
+        (source IP, internal URLs, raw add-on status) are stripped here; they remain
+        available via the authenticated endpoint and the admin-only diagnostics.
+        """
         if self.entity_description.key != "integration_health":
             return None
 
-        return checked_or(self.coordinator.data, dict[str, Any], None)
+        data = checked_or(self.coordinator.data, dict[str, Any], None)
+        if data is None:
+            return None
+
+        return public_health_snapshot(data)
 
     @cached_property
     def device_info(self) -> DeviceInfo:

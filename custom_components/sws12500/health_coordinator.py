@@ -83,6 +83,28 @@ def _sanitize_path(path: str) -> str:
     return path
 
 
+# Fields under "addon" that reveal internal network topology. They must not be
+# exposed via entity attributes (readable by any HA user, incl. non-admins).
+_SENSITIVE_ADDON_FIELDS: frozenset[str] = frozenset(
+    {"health_url", "info_url", "home_assistant_url", "home_assistant_source_ip", "raw_status"}
+)
+
+
+def public_health_snapshot(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the health snapshot safe to expose to any HA user.
+
+    Removes internal network details (HA source IP, internal URLs, raw add-on
+    status). The full snapshot stays available only via the authenticated
+    `/station/health` endpoint and the admin-only (redacted) diagnostics download.
+    """
+    public: dict[str, Any] = deepcopy(data)
+    addon = checked(public.get("addon"), dict[str, Any])
+    if addon is not None:
+        for field in _SENSITIVE_ADDON_FIELDS:
+            addon.pop(field, None)
+    return public
+
+
 def _empty_forwarding_state(enabled: bool) -> dict[str, Any]:
     """Build the default forwarding status payload."""
     return {

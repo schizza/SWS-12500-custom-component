@@ -51,6 +51,7 @@
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
       "windy_id_required": "Je vyžadováno Windy ID, pokud chcete aktivovat přeposílání dat na Windy",
       "windy_pw_required": "Je vyžadován Windy KEY, pokud chcete aktivovat přeposílání dat na Windy",
+      "windy_key_required": "Pro aktivaci je vyžadováno Windy ID i heslo stanice.",
       "pocasi_id_required": "Je vyžadován Počasí ID, pokud chcete aktivovat přeposílání dat na Počasí Meteo CZ",
       "pocasi_key_required": "Klíč k účtu Počasí Meteo je povinný.",
       "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund."
@@ -107,15 +108,15 @@
         "data": {
           "POCASI_CZ_API_ID": "ID účtu na Počasí Meteo",
           "POCASI_CZ_API_KEY": "Klíč (Key) k účtu Počasí Meteo",
-          "POCASI_CZ_SEND_INTERVAL": "Interval v sekundách",
+          "POCASI_SEND_INTERVAL": "Interval v sekundách",
           "pocasi_enabled_chcekbox": "Povolit přeposílání dat na server Počasí Meteo",
           "pocasi_logger_checkbox": "Logovat data a odpovědi z Počasí Meteo"
         },
         "data_description": {
-          "POCASI_API_ID": "ID získáte ve své aplikaci Počasí Meteo",
-          "POCASI_API_KEY": "Klíč (Key) získáte ve své aplikaci Počasí Meteo",
+          "POCASI_CZ_API_ID": "ID získáte ve své aplikaci Počasí Meteo",
+          "POCASI_CZ_API_KEY": "Klíč (Key) získáte ve své aplikaci Počasí Meteo",
           "POCASI_SEND_INTERVAL": "Interval v jakém se mají data na server přeposílat (minimum 12s, defaultně 30s)",
-          "pocasi_enabled_checkbox": "Zapne přeposílání data na server Počasí Meteo",
+          "pocasi_enabled_chcekbox": "Zapne přeposílání data na server Počasí Meteo",
           "pocasi_logger_checkbox": "Zapnout pouze v případě, že chcete zaslat ladící informace vývojáři."
         }
       },
