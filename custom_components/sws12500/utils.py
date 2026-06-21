@@ -261,7 +261,7 @@ def celsius_to_fahrenheit(celsius: float) -> float:
 
 
 def to_int(val: Any) -> int | None:
-    """Convert int or string to int."""
+    """Convert int or string (including decimal-formatted, e.g. "180.0") to int."""
 
     if val is None:
         return None
@@ -270,11 +270,15 @@ def to_int(val: Any) -> int | None:
         return None
 
     try:
-        v = int(val)
+        return int(val)
+    except (TypeError, ValueError):
+        pass
+
+    # The station sometimes sends integer fields as decimals ("180.0"); accept those.
+    try:
+        return int(float(val))
     except (TypeError, ValueError):
         return None
-    else:
-        return v
 
 
 def to_float(val: Any) -> float | None:

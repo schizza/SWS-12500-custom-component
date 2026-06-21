@@ -100,6 +100,10 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         entities through the bridge callback.
         """
 
+        # See received_data: reject cleanly if the entry is mid-reload (no runtime_data).
+        if getattr(self.config, "runtime_data", None) is None:
+            return aiohttp.web.Response(text="Integration is reloading.", status=503)
+
         health = self._health_coordinator()
 
         if not checked_or(self.config.options.get(ECOWITT_ENABLED), bool, False):
@@ -183,6 +187,12 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         - auto-discovers new sensor fields and adds entities dynamically
         - updates coordinator data so existing entities refresh immediately
         """
+
+        # The aiohttp routes outlive a config-entry reload and keep pointing at this
+        # bound method. If a payload arrives while the entry is unloaded, runtime_data
+        # is gone; reject cleanly with 503 instead of raising AttributeError (500).
+        if getattr(self.config, "runtime_data", None) is None:
+            return aiohttp.web.Response(text="Integration is reloading.", status=503)
 
         # WSLink uses different auth and payload field naming than the legacy endpoint.
         _wslink: bool = checked_or(self.config.options.get(WSLINK), bool, False)

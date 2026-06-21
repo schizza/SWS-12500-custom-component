@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
 from typing import Any, Literal
 
@@ -12,6 +12,7 @@ from py_typecheck.core import checked
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DEFAULT_URL,
@@ -56,8 +57,8 @@ class PocasiPush:
         self.last_attempt_at: str | None = None
         self._interval = int(self.config.options.get(POCASI_CZ_SEND_INTERVAL, 30))
 
-        self.last_update = datetime.now()
-        self.next_update = datetime.now() + timedelta(seconds=self._interval)
+        self.last_update = dt_util.utcnow()
+        self.next_update = dt_util.utcnow() + timedelta(seconds=self._interval)
 
         self.log = self.config.options.get(POCASI_CZ_LOGGER_ENABLED)
         self.invalid_response_count = 0
@@ -81,7 +82,7 @@ class PocasiPush:
 
         _data = data.copy()
         self.enabled = self.config.options.get(POCASI_CZ_ENABLED, False)
-        self.last_attempt_at = datetime.now().isoformat()
+        self.last_attempt_at = dt_util.utcnow().isoformat()
         self.last_error = None
 
         if (_api_id := checked(self.config.options.get(POCASI_CZ_API_ID), str)) is None:
@@ -103,7 +104,7 @@ class PocasiPush:
                 str(self.next_update),
             )
 
-        if self.next_update > datetime.now():
+        if self.next_update > dt_util.utcnow():
             self.last_status = "rate_limited_local"
             _LOGGER.debug(
                 "Triggered update interval limit of %s seconds. Next possilbe update is set to: %s",
@@ -111,6 +112,9 @@ class PocasiPush:
                 self.next_update,
             )
             return
+
+        # Reserve the next send window before the await to avoid concurrent double-sends.
+        self.next_update = dt_util.utcnow() + timedelta(seconds=self._interval)
 
         request_url: str = ""
         if mode == "WSLINK":
@@ -161,8 +165,8 @@ class PocasiPush:
                 self.enabled = False
                 await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False)
 
-        self.last_update = datetime.now()
-        self.next_update = datetime.now() + timedelta(seconds=self._interval)
+        self.last_update = dt_util.utcnow()
+        self.next_update = dt_util.utcnow() + timedelta(seconds=self._interval)
 
         if self.log:
             _LOGGER.info("Next update: %s", str(self.next_update))

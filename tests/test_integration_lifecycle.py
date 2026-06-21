@@ -393,6 +393,7 @@ async def test_received_data_auth_unauthorized_and_incorrect_data_paths(hass):
         options={API_ID: "id", API_KEY: "key", WSLINK: False},
     )
     entry.add_to_hass(hass)
+    entry.runtime_data = SWSRuntimeData(coordinator=object(), health_coordinator=None, last_options={})  # type: ignore[arg-type]
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
     # Missing security params -> unauthorized
@@ -408,11 +409,26 @@ async def test_received_data_auth_unauthorized_and_incorrect_data_paths(hass):
     # Missing API_ID in options -> IncorrectDataError
     entry2 = MockConfigEntry(domain=DOMAIN, data={}, options={API_KEY: "key", WSLINK: False})
     entry2.add_to_hass(hass)
+    entry2.runtime_data = SWSRuntimeData(coordinator=object(), health_coordinator=None, last_options={})  # type: ignore[arg-type]
     coordinator2 = WeatherDataUpdateCoordinator(hass, entry2)
     with pytest.raises(IncorrectDataError):
         await coordinator2.received_data(
             _RequestStub(query={"ID": "id", "PASSWORD": "key"})
         )  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_received_data_returns_503_when_runtime_data_missing(hass):
+    """A payload arriving while the entry is unloaded is rejected with 503, not 500."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key", WSLINK: False})
+    entry.add_to_hass(hass)
+    # No runtime_data assigned -> simulates the unloaded/reloading window.
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+
+    resp = await coordinator.received_data(
+        _RequestStub(query={"ID": "id", "PASSWORD": "key"})
+    )  # type: ignore[arg-type]
+    assert resp.status == 503
 
 
 @pytest.mark.asyncio

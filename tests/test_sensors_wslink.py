@@ -1,5 +1,5 @@
+
 from custom_components.sws12500.sensors_wslink import SENSOR_TYPES_WSLINK
-import pytest
 
 
 def test_sensor_types_wslink_structure():

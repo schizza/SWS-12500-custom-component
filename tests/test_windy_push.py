@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -12,21 +12,14 @@ import pytest
 from custom_components.sws12500.const import (
     PURGE_DATA,
     WINDY_ENABLED,
-    WINDY_INVALID_KEY,
     WINDY_LOGGER_ENABLED,
-    WINDY_NOT_INSERTED,
     WINDY_STATION_ID,
     WINDY_STATION_PW,
-    WINDY_SUCCESS,
     WINDY_UNEXPECTED,
     WINDY_URL,
 )
-from custom_components.sws12500.windy_func import (
-    WindyNotInserted,
-    WindyPasswordMissing,
-    WindyPush,
-    WindySuccess,
-)
+from custom_components.sws12500.windy_func import WindyNotInserted, WindyPasswordMissing, WindyPush, WindySuccess
+from homeassistant.util import dt as dt_util
 
 
 @dataclass(slots=True)
@@ -151,7 +144,7 @@ async def test_push_data_to_windy_respects_initial_next_update(monkeypatch, hass
     wp = WindyPush(hass, entry)
 
     # Ensure "next_update > now" is true
-    wp.next_update = datetime.now() + timedelta(minutes=10)
+    wp.next_update = dt_util.utcnow() + timedelta(minutes=10)
 
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
@@ -167,7 +160,7 @@ async def test_push_data_to_windy_purges_data_and_sets_auth(monkeypatch, hass):
     wp = WindyPush(hass, entry)
 
     # Force it to send now
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
@@ -198,7 +191,7 @@ async def test_push_data_to_windy_purges_data_and_sets_auth(monkeypatch, hass):
 async def test_push_data_to_windy_wslink_conversion_applied(monkeypatch, hass):
     entry = _make_entry()
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
@@ -219,7 +212,7 @@ async def test_push_data_to_windy_missing_station_id_returns_false(monkeypatch, 
     entry = _make_entry()
     entry.options.pop(WINDY_STATION_ID)
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
@@ -246,7 +239,7 @@ async def test_push_data_to_windy_missing_station_pw_returns_false(monkeypatch, 
     entry = _make_entry()
     entry.options.pop(WINDY_STATION_PW)
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
@@ -272,7 +265,7 @@ async def test_push_data_to_windy_missing_station_pw_returns_false(monkeypatch, 
 async def test_push_data_to_windy_invalid_api_key_disables_windy(monkeypatch, hass):
     entry = _make_entry()
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     # Response triggers WindyPasswordMissing (401)
     session = _FakeSession(
@@ -303,7 +296,7 @@ async def test_push_data_to_windy_invalid_api_key_update_options_failure_logs_de
 ):
     entry = _make_entry()
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(
         response=_FakeResponse(status=401, text_value="Unauthorized")
@@ -335,7 +328,7 @@ async def test_push_data_to_windy_invalid_api_key_update_options_failure_logs_de
 async def test_push_data_to_windy_notice_logs_not_inserted(monkeypatch, hass):
     entry = _make_entry(**{WINDY_LOGGER_ENABLED: True})
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=400, text_value="Bad Request"))
     monkeypatch.setattr(
@@ -358,7 +351,7 @@ async def test_push_data_to_windy_success_logs_info_when_logger_enabled(
 ):
     entry = _make_entry(**{WINDY_LOGGER_ENABLED: True})
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
     monkeypatch.setattr(
@@ -390,7 +383,7 @@ async def test_push_data_to_windy_verify_no_raise_logs_debug_not_inserted_when_l
     """
     entry = _make_entry(**{WINDY_LOGGER_ENABLED: True})
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     # Response text that does not contain any of the known markers (NOTICE/SUCCESS/Invalid/Unauthorized)
     session = _FakeSession(response=_FakeResponse(status=500, text_value="Error"))
@@ -413,7 +406,7 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
 ):
     entry = _make_entry()
     wp = WindyPush(hass, entry)
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     update_options = AsyncMock(return_value=True)
     monkeypatch.setattr(
@@ -436,7 +429,7 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
 
     # First 3 calls should not disable; 4th should
     for i in range(4):
-        wp.next_update = datetime.now() - timedelta(seconds=1)
+        wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
         ok = await wp.push_data_to_windy({"a": "b"})
         assert ok is True
 
@@ -459,7 +452,7 @@ async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
     entry = _make_entry()
     wp = WindyPush(hass, entry)
     wp.invalid_response_count = 3  # next error will push it over the threshold
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     update_options = AsyncMock(return_value=False)
     monkeypatch.setattr(

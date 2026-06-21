@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -12,6 +12,7 @@ import pytest
 
 from custom_components.sws12500.const import WINDY_ENABLED, WINDY_LOGGER_ENABLED, WINDY_STATION_ID, WINDY_STATION_PW
 from custom_components.sws12500.windy_func import WindyDuplicatePayloadDetected, WindyPush, WindyRateLimitExceeded
+from homeassistant.util import dt as dt_util
 
 
 @dataclass(slots=True)
@@ -64,7 +65,7 @@ def test_verify_response_rate_limit_raises(hass):
 @pytest.mark.asyncio
 async def test_push_duplicate_payload_sets_status_and_counts(monkeypatch, hass):
     wp = WindyPush(hass, _make_entry())
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
@@ -80,14 +81,14 @@ async def test_push_duplicate_payload_sets_status_and_counts(monkeypatch, hass):
 @pytest.mark.asyncio
 async def test_push_rate_limited_pauses_five_minutes(monkeypatch, hass):
     wp = WindyPush(hass, _make_entry())
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     monkeypatch.setattr(
         "custom_components.sws12500.windy_func.async_get_clientsession",
         lambda _h: _FakeSession(_FakeResponse(status=429)),
     )
 
-    before = datetime.now()
+    before = dt_util.utcnow()
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is True
     assert wp.last_status == "rate_limited_remote"
@@ -99,7 +100,7 @@ async def test_push_rate_limited_pauses_five_minutes(monkeypatch, hass):
 async def test_push_duplicate_third_strike_disables(monkeypatch, hass):
     wp = WindyPush(hass, _make_entry())
     wp.invalid_response_count = 2  # next duplicate makes it 3 -> finally disables
-    wp.next_update = datetime.now() - timedelta(seconds=1)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     update_options = AsyncMock(return_value=True)
     monkeypatch.setattr(

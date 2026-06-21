@@ -212,3 +212,9 @@ def test_add_new_sensors_adds_known_keys(hass):
     assert len(entities_arg) == 1
     assert isinstance(entities_arg[0], WeatherSensor)
     assert entities_arg[0].entity_description.key == known_desc.key
+
+
+def test_add_new_sensors_noop_when_runtime_data_missing():
+    """add_new_sensors is a safe no-op when the entry is unloaded (no runtime_data)."""
+    entry = SimpleNamespace(entry_id="x", options={}, runtime_data=None)
+    add_new_sensors(None, entry, keys=["anything"])  # must not raise

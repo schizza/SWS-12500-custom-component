@@ -46,7 +46,9 @@ from .const import (
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
     LEGACY_ENABLED,
+    POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
+    WINDY_ENABLED,
     WSLINK,
     WSLINK_URL,
 )
@@ -202,10 +204,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
 async def update_listener(hass: HomeAssistant, entry: SWSConfigEntry):
     """Handle config entry option updates.
 
-    We skip reloading when only `SENSORS_TO_LOAD` changes.
+    We skip reloading when only live-read options change:
+    - `SENSORS_TO_LOAD` (auto-discovery updates it as new payload fields appear), and
+    - the forwarding enable flags (`WINDY_ENABLED`/`POCASI_CZ_ENABLED`), which the
+      forwarders read on every push - so a forwarder that auto-disables itself from the
+      hot path no longer triggers a disruptive reload.
 
     Why:
-    - Auto-discovery updates `SENSORS_TO_LOAD` as new payload fields appear.
     - Reloading a push-based integration temporarily unloads platforms and removes
       coordinator listeners, which can make the UI appear "stuck" until restart.
     """
@@ -219,8 +224,8 @@ async def update_listener(hass: HomeAssistant, entry: SWSConfigEntry):
 
         runtime.last_options = new_options
 
-        if changed_keys == {SENSORS_TO_LOAD}:
-            _LOGGER.debug("Options updated (%s); skipping reload.", SENSORS_TO_LOAD)
+        if changed_keys and changed_keys <= {SENSORS_TO_LOAD, WINDY_ENABLED, POCASI_CZ_ENABLED}:
+            _LOGGER.debug("Options updated (%s); skipping reload.", ", ".join(sorted(changed_keys)))
             return
 
     update_legacy_battery_issue(hass, entry)

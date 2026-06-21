@@ -13,6 +13,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import dt as dt_util
 
 from .const import (
     PURGE_DATA,
@@ -88,8 +89,8 @@ class WindyPush:
         """ lets wait for 1 minute to get initial data from station
             and then try to push first data to Windy
         """
-        self.last_update: datetime = datetime.now()
-        self.next_update: datetime = datetime.now() + timed(minutes=1)
+        self.last_update: datetime = dt_util.utcnow()
+        self.next_update: datetime = dt_util.utcnow() + timed(minutes=1)
 
         self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
 
@@ -170,7 +171,7 @@ class WindyPush:
 
         # First check if we have valid credentials, before any data manipulation.
         self.enabled = self.config.options.get(WINDY_ENABLED, False)
-        self.last_attempt_at = datetime.now().isoformat()
+        self.last_attempt_at = dt_util.utcnow().isoformat()
         self.last_error = None
 
         if (windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)) is None:
@@ -196,9 +197,13 @@ class WindyPush:
                 str(self.next_update),
             )
 
-        if self.next_update > datetime.now():
+        if self.next_update > dt_util.utcnow():
             self.last_status = "rate_limited_local"
             return False
+
+        # Reserve the next send window now (before the await below) so a concurrent
+        # webhook does not also pass the rate-limit check and double-send.
+        self.next_update = dt_util.utcnow() + timed(minutes=5)
 
         purged_data = data.copy()
 
@@ -261,7 +266,7 @@ class WindyPush:
                     _LOGGER.critical(
                         "Windy responded with WindyRateLimitExceeded, this should happend only on restarting Home Assistant when we lost track of last send time. Pause resend for next 5 minutes."
                     )
-                    self.next_update = datetime.now() + timedelta(minutes=5)
+                    self.next_update = dt_util.utcnow() + timedelta(minutes=5)
 
                 except WindySuccess:
                     # reset invalid_response_count
@@ -300,7 +305,7 @@ class WindyPush:
             if self.invalid_response_count >= WINDY_MAX_RETRIES:
                 _LOGGER.critical(WINDY_UNEXPECTED)
                 await self._disable_windy(reason="Invalid response from Windy 3 times. Disabling resending option.")
-        self.last_update = datetime.now()
+        self.last_update = dt_util.utcnow()
         self.next_update = self.last_update + timed(minutes=5)
 
         if self.log:

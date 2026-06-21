@@ -166,9 +166,17 @@ class EcowittBridge:
         self._add_entities_cb: AddEntitiesCallback | None = None
 
     def set_add_entities(self, callback: AddEntitiesCallback) -> None:
-        """Store the platform callback for dynamic entity creation."""
+        """Store the platform callback for dynamic entity creation.
+
+        aioecowitt fires `new_sensor_cb` only once per key. If a payload arrived
+        before the platform was ready (callback unset), those unmapped sensors were
+        skipped and would never get an entity. Flush them now so nothing is lost.
+        """
 
         self._add_entities_cb = callback
+
+        for sensor in self.unmapped_sensor.values():
+            self._on_new_sensor(sensor)
 
     async def process_payload(self, data: dict[str, Any]) -> dict[str, str]:
         """Process raw Ecowitt POST payload.

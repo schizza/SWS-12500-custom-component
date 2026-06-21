@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any, Literal
 from unittest.mock import AsyncMock, MagicMock
@@ -21,11 +21,8 @@ from custom_components.sws12500.const import (
     POCASI_INVALID_KEY,
     WSLINK_URL,
 )
-from custom_components.sws12500.pocasti_cz import (
-    PocasiApiKeyError,
-    PocasiPush,
-    PocasiSuccess,
-)
+from custom_components.sws12500.pocasti_cz import PocasiApiKeyError, PocasiPush, PocasiSuccess
+from homeassistant.util import dt as dt_util
 
 
 @dataclass(slots=True)
@@ -123,7 +120,7 @@ async def test_push_data_to_server_respects_interval_limit(monkeypatch, hass):
     pp = PocasiPush(hass, entry)
 
     # Ensure "next_update > now" so it returns early before doing HTTP.
-    pp.next_update = datetime.now() + timedelta(seconds=999)
+    pp.next_update = dt_util.utcnow() + timedelta(seconds=999)
 
     session = _FakeSession(response=_FakeResponse("OK"))
     monkeypatch.setattr(
@@ -146,7 +143,7 @@ async def test_push_data_to_server_injects_auth_and_chooses_url(
     pp = PocasiPush(hass, entry)
 
     # Force send now.
-    pp.next_update = datetime.now() - timedelta(seconds=1)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse("OK"))
     monkeypatch.setattr(
@@ -176,7 +173,7 @@ async def test_push_data_to_server_injects_auth_and_chooses_url(
 async def test_push_data_to_server_calls_verify_response(monkeypatch, hass):
     entry = _make_entry()
     pp = PocasiPush(hass, entry)
-    pp.next_update = datetime.now() - timedelta(seconds=1)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse("OK"))
     monkeypatch.setattr(
@@ -196,7 +193,7 @@ async def test_push_data_to_server_calls_verify_response(monkeypatch, hass):
 async def test_push_data_to_server_api_key_error_disables_feature(monkeypatch, hass):
     entry = _make_entry()
     pp = PocasiPush(hass, entry)
-    pp.next_update = datetime.now() - timedelta(seconds=1)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse("OK"))
     monkeypatch.setattr(
@@ -232,7 +229,7 @@ async def test_push_data_to_server_api_key_error_disables_feature(monkeypatch, h
 async def test_push_data_to_server_success_logs_when_logger_enabled(monkeypatch, hass):
     entry = _make_entry(logger=True)
     pp = PocasiPush(hass, entry)
-    pp.next_update = datetime.now() - timedelta(seconds=1)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
     session = _FakeSession(response=_FakeResponse("OK"))
     monkeypatch.setattr(
@@ -276,7 +273,7 @@ async def test_push_data_to_server_client_error_increments_and_disables_after_th
 
     # Force request attempts and exceed invalid count threshold.
     for _i in range(4):
-        pp.next_update = datetime.now() - timedelta(seconds=1)
+        pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
         await pp.push_data_to_server({"x": 1}, "WU")
 
     assert pp.invalid_response_count == 4

@@ -576,3 +576,19 @@ async def test_received_data_success_with_health_autodiscovery_and_binary(hass, 
     assert kw["accepted"] is True
     assert kw["reason"] == "accepted"
     health.update_forwarding.assert_called_once_with(coordinator.windy, coordinator.pocasi)
+
+
+@pytest.mark.asyncio
+async def test_received_ecowitt_returns_503_when_runtime_data_missing(hass):
+    """An Ecowitt payload during the unload window is rejected with 503, not 500."""
+    entry = SimpleNamespace(
+        entry_id="x",
+        options={ECOWITT_ENABLED: True},
+        async_on_unload=lambda *_a, **_k: None,
+    )  # no runtime_data attribute -> guard triggers
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+
+    resp = await coordinator.received_ecowitt_data(
+        _EcowittRequestStub(match_info={"webhook_id": "x"})
+    )  # type: ignore[arg-type]
+    assert resp.status == 503

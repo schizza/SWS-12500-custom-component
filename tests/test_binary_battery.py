@@ -215,3 +215,9 @@ def test_device_info():
     assert info["manufacturer"] == "Schizza"
     assert info["model"] == "Weather Station SWS 12500"
     assert info["identifiers"] == {(DOMAIN,)}
+
+
+def test_add_new_binary_sensors_noop_when_runtime_data_missing():
+    """add_new_binary_sensors is a safe no-op when the entry is unloaded (no runtime_data)."""
+    entry = SimpleNamespace(entry_id="x", options={}, runtime_data=None)
+    add_new_binary_sensors(None, entry, keys=["outside_battery"])  # must not raise

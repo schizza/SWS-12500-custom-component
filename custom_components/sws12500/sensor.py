@@ -132,7 +132,9 @@ def add_new_sensors(hass: HomeAssistant, config_entry: SWSConfigEntry, keys: lis
 
     del hass  # kept for backwards-compatible call signature; not used after runtime_data migration
 
-    runtime = config_entry.runtime_data
+    runtime = getattr(config_entry, "runtime_data", None)
+    if runtime is None:
+        return
     add_entities = runtime.add_sensor_entities
     if add_entities is None:
         return

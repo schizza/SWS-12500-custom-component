@@ -352,3 +352,21 @@ def test_handle_update_writes_ha_state() -> None:
     entity._handle_update()
 
     entity.async_write_ha_state.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_set_add_entities_flushes_pending_unmapped_sensors() -> None:
+    """Unmapped sensors parsed before the callback was set are flushed on set_add_entities."""
+    bridge = _make_bridge()
+
+    # Payload arrives before the platform is ready (no callback): native sensors are
+    # parsed by aioecowitt but skipped by _on_new_sensor.
+    await bridge.process_payload(dict(_PAYLOAD))
+    assert bridge.unmapped_sensor  # e.g. pm25_ch1 / co2 parsed but not yet created
+
+    created: list[Any] = []
+    bridge.set_add_entities(lambda entities: created.extend(entities))
+
+    # The previously-skipped unmapped sensors are created now.
+    assert created
+    assert all(isinstance(e, EcoWittNativeSensor) for e in created)
