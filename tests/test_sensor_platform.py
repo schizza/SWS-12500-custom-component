@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -17,11 +17,7 @@ from custom_components.sws12500.const import (
     WIND_SPEED,
     WSLINK,
 )
-from custom_components.sws12500.data import (
-    ENTRY_ADD_ENTITIES,
-    ENTRY_COORDINATOR,
-    ENTRY_DESCRIPTIONS,
-)
+from custom_components.sws12500.data import SWSRuntimeData
 from custom_components.sws12500.sensor import (
     WeatherSensor,
     _auto_enable_derived_sensors,
@@ -32,35 +28,60 @@ from custom_components.sws12500.sensors_weather import SENSOR_TYPES_WEATHER_API
 from custom_components.sws12500.sensors_wslink import SENSOR_TYPES_WSLINK
 
 
-@dataclass(slots=True)
-class _ConfigEntryStub:
-    entry_id: str
-    options: dict[str, Any]
+class _EcowittBridgeStub:
+    """Records the platform callback the sensor setup wires into the bridge."""
+
+    def __init__(self) -> None:
+        self.add_entities_cb: Any = None
+
+    def set_add_entities(self, callback: Any) -> None:
+        self.add_entities_cb = callback
 
 
 class _CoordinatorStub:
     """Minimal coordinator stub for WeatherSensor and platform setup."""
 
-    def __init__(
-        self, data: dict[str, Any] | None = None, *, config: Any | None = None
-    ) -> None:
+    def __init__(self, data: dict[str, Any] | None = None, *, options: dict[str, Any] | None = None) -> None:
         self.data = data if data is not None else {}
-        self.config = config
+        # WeatherSensor.__init__ reads coordinator.config.options for the dev-log flag.
+        self.config = SimpleNamespace(options=options if options is not None else {})
+        self.ecowitt_bridge = _EcowittBridgeStub()
+
+
+class _HealthCoordinatorStub:
+    """Stand-in for HealthCoordinator (health diagnostic sensors subscribe to it)."""
+
+    def __init__(self) -> None:
+        self.data: dict[str, Any] = {}
+
+
+def _make_entry(
+    *, options: dict[str, Any] | None = None, coordinator: _CoordinatorStub | None = None
+) -> tuple[Any, _CoordinatorStub, SWSRuntimeData]:
+    """Build a config-entry stub carrying typed runtime_data, like the integration does."""
+    coordinator = coordinator or _CoordinatorStub()
+    runtime = SWSRuntimeData(
+        coordinator=coordinator,  # type: ignore[arg-type]
+        health_coordinator=_HealthCoordinatorStub(),  # type: ignore[arg-type]
+        last_options={},
+    )
+    entry = SimpleNamespace(
+        entry_id="test_entry_id",
+        options=options if options is not None else {},
+        runtime_data=runtime,
+    )
+    return entry, coordinator, runtime
 
 
 @pytest.fixture
 def hass():
-    # Use a very small hass-like object; sensor platform uses only `hass.data`.
+    # Sensor platform setup only forwards hass to health_sensor.async_setup_entry,
+    # which ignores it, and add_new_sensors deletes it. A tiny stub is enough.
     class _Hass:
         def __init__(self) -> None:
             self.data: dict[str, Any] = {}
 
     return _Hass()
-
-
-@pytest.fixture
-def config_entry() -> _ConfigEntryStub:
-    return _ConfigEntryStub(entry_id="test_entry_id", options={})
 
 
 def _capture_add_entities():
@@ -72,207 +93,118 @@ def _capture_add_entities():
     return captured, _add_entities
 
 
+def _weather_keys(captured: list[Any]) -> set[str]:
+    return {e.entity_description.key for e in captured if isinstance(e, WeatherSensor)}
+
+
+# --- _auto_enable_derived_sensors ------------------------------------------
+
+
 def test_auto_enable_derived_sensors_wind_azimut():
-    requested = {WIND_DIR}
-    expanded = _auto_enable_derived_sensors(requested)
+    expanded = _auto_enable_derived_sensors({WIND_DIR})
     assert WIND_DIR in expanded
     assert WIND_AZIMUT in expanded
 
 
 def test_auto_enable_derived_sensors_heat_index():
-    requested = {OUTSIDE_TEMP, OUTSIDE_HUMIDITY}
-    expanded = _auto_enable_derived_sensors(requested)
+    expanded = _auto_enable_derived_sensors({OUTSIDE_TEMP, OUTSIDE_HUMIDITY})
     assert HEAT_INDEX in expanded
 
 
 def test_auto_enable_derived_sensors_chill_index():
-    requested = {OUTSIDE_TEMP, WIND_SPEED}
-    expanded = _auto_enable_derived_sensors(requested)
+    expanded = _auto_enable_derived_sensors({OUTSIDE_TEMP, WIND_SPEED})
     assert CHILL_INDEX in expanded
 
 
-@pytest.mark.asyncio
-async def test_sensor_async_setup_entry_no_coordinator_is_noop(hass, config_entry):
-    # No entry dict created by integration yet; async_setup_entry should be defensive and no-op.
-    captured, add_entities = _capture_add_entities()
-
-    await async_setup_entry(hass, config_entry, add_entities)
-
-    assert captured == []
+# --- async_setup_entry -----------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_sensor_async_setup_entry_stores_callback_and_descriptions_even_if_no_sensors_to_load(
-    hass, config_entry
-):
-    # Prepare runtime entry data and coordinator like integration does.
-    hass.data.setdefault("sws12500", {})
-    hass.data["sws12500"][config_entry.entry_id] = {
-        ENTRY_COORDINATOR: _CoordinatorStub()
-    }
-
+async def test_setup_stores_callback_and_descriptions_even_without_sensors_to_load(hass):
+    entry, coordinator, runtime = _make_entry()
     captured, add_entities = _capture_add_entities()
 
-    # No SENSORS_TO_LOAD set -> early return, but it should still store callback + descriptions.
-    await async_setup_entry(hass, config_entry, add_entities)
+    await async_setup_entry(hass, entry, add_entities)
 
-    entry_data = hass.data["sws12500"][config_entry.entry_id]
-    assert entry_data[ENTRY_ADD_ENTITIES] is add_entities
-    assert isinstance(entry_data[ENTRY_DESCRIPTIONS], dict)
-    assert captured == []
+    # Callback + description map persisted for dynamic entity creation.
+    assert runtime.add_sensor_entities is add_entities
+    assert isinstance(runtime.sensor_descriptions, dict)
+    # Ecowitt bridge wired up even though there are no sensors to load yet.
+    assert coordinator.ecowitt_bridge.add_entities_cb is add_entities
+    # No weather sensors created (only health diagnostics, which we ignore here).
+    assert _weather_keys(captured) == set()
 
 
 @pytest.mark.asyncio
-async def test_sensor_async_setup_entry_selects_weather_api_descriptions_when_wslink_disabled(
-    hass, config_entry
-):
-    hass.data.setdefault("sws12500", {})
-    hass.data["sws12500"][config_entry.entry_id] = {
-        ENTRY_COORDINATOR: _CoordinatorStub()
-    }
+async def test_setup_selects_weather_api_descriptions_when_wslink_disabled(hass):
+    entry, _coordinator, runtime = _make_entry(options={WSLINK: False})
+    _captured, add_entities = _capture_add_entities()
 
-    captured, add_entities = _capture_add_entities()
+    await async_setup_entry(hass, entry, add_entities)
 
-    # Explicitly disabled WSLINK
-    config_entry.options[WSLINK] = False
-
-    await async_setup_entry(hass, config_entry, add_entities)
-
-    descriptions = hass.data["sws12500"][config_entry.entry_id][ENTRY_DESCRIPTIONS]
-    assert set(descriptions.keys()) == {d.key for d in SENSOR_TYPES_WEATHER_API}
-    assert captured == []
+    assert set(runtime.sensor_descriptions.keys()) == {d.key for d in SENSOR_TYPES_WEATHER_API}
 
 
 @pytest.mark.asyncio
-async def test_sensor_async_setup_entry_selects_wslink_descriptions_when_wslink_enabled(
-    hass, config_entry
-):
-    hass.data.setdefault("sws12500", {})
-    hass.data["sws12500"][config_entry.entry_id] = {
-        ENTRY_COORDINATOR: _CoordinatorStub()
-    }
+async def test_setup_selects_wslink_descriptions_when_wslink_enabled(hass):
+    entry, _coordinator, runtime = _make_entry(options={WSLINK: True})
+    _captured, add_entities = _capture_add_entities()
 
-    captured, add_entities = _capture_add_entities()
+    await async_setup_entry(hass, entry, add_entities)
 
-    config_entry.options[WSLINK] = True
-
-    await async_setup_entry(hass, config_entry, add_entities)
-
-    descriptions = hass.data["sws12500"][config_entry.entry_id][ENTRY_DESCRIPTIONS]
-    assert set(descriptions.keys()) == {d.key for d in SENSOR_TYPES_WSLINK}
-    assert captured == []
+    assert set(runtime.sensor_descriptions.keys()) == {d.key for d in SENSOR_TYPES_WSLINK}
 
 
 @pytest.mark.asyncio
-async def test_sensor_async_setup_entry_adds_requested_entities_and_auto_enables_derived(
-    hass, config_entry
-):
-    hass.data.setdefault("sws12500", {})
-    coordinator = _CoordinatorStub()
-    hass.data["sws12500"][config_entry.entry_id] = {ENTRY_COORDINATOR: coordinator}
-
-    captured, add_entities = _capture_add_entities()
-
-    # Request WIND_DIR, OUTSIDE_TEMP, OUTSIDE_HUMIDITY, WIND_SPEED -> should auto-add derived keys too.
-    config_entry.options[WSLINK] = False
-    config_entry.options[SENSORS_TO_LOAD] = [
-        WIND_DIR,
-        OUTSIDE_TEMP,
-        OUTSIDE_HUMIDITY,
-        WIND_SPEED,
-    ]
-
-    await async_setup_entry(hass, config_entry, add_entities)
-
-    # We should have at least those requested + derived in the added entities.
-    keys_added = {
-        e.entity_description.key for e in captured if isinstance(e, WeatherSensor)
-    }
-    assert WIND_DIR in keys_added
-    assert OUTSIDE_TEMP in keys_added
-    assert OUTSIDE_HUMIDITY in keys_added
-    assert WIND_SPEED in keys_added
-
-    # Derived:
-    assert WIND_AZIMUT in keys_added
-    assert HEAT_INDEX in keys_added
-    assert CHILL_INDEX in keys_added
-
-
-def test_add_new_sensors_is_noop_when_domain_missing(hass, config_entry):
-    called = False
-
-    def add_entities(_entities: list[Any]) -> None:
-        nonlocal called
-        called = True
-
-    # No hass.data["sws12500"] at all.
-    add_new_sensors(hass, config_entry, keys=["anything"])
-
-    assert called is False
-
-
-def test_add_new_sensors_is_noop_when_entry_missing(hass, config_entry):
-    hass.data["sws12500"] = {}
-    called = False
-
-    def add_entities(_entities: list[Any]) -> None:
-        nonlocal called
-        called = True
-
-    add_new_sensors(hass, config_entry, keys=["anything"])
-
-    assert called is False
-
-
-def test_add_new_sensors_is_noop_when_callback_or_descriptions_missing(
-    hass, config_entry
-):
-    hass.data["sws12500"] = {
-        config_entry.entry_id: {ENTRY_COORDINATOR: _CoordinatorStub()}
-    }
-    called = False
-
-    def add_entities(_entities: list[Any]) -> None:
-        nonlocal called
-        called = True
-
-    # Missing ENTRY_ADD_ENTITIES + ENTRY_DESCRIPTIONS -> no-op.
-    add_new_sensors(hass, config_entry, keys=["anything"])
-
-    assert called is False
-
-
-def test_add_new_sensors_ignores_unknown_keys(hass, config_entry):
-    hass.data["sws12500"] = {
-        config_entry.entry_id: {
-            ENTRY_COORDINATOR: _CoordinatorStub(),
-            ENTRY_ADD_ENTITIES: MagicMock(),
-            ENTRY_DESCRIPTIONS: {},  # nothing known
+async def test_setup_adds_requested_entities_and_auto_enables_derived(hass):
+    entry, _coordinator, _runtime = _make_entry(
+        options={
+            WSLINK: False,
+            SENSORS_TO_LOAD: [WIND_DIR, OUTSIDE_TEMP, OUTSIDE_HUMIDITY, WIND_SPEED],
         }
-    }
+    )
+    captured, add_entities = _capture_add_entities()
 
-    add_new_sensors(hass, config_entry, keys=["unknown_key"])
+    await async_setup_entry(hass, entry, add_entities)
 
-    hass.data["sws12500"][config_entry.entry_id][ENTRY_ADD_ENTITIES].assert_not_called()
+    keys_added = _weather_keys(captured)
+    # Requested.
+    assert {WIND_DIR, OUTSIDE_TEMP, OUTSIDE_HUMIDITY, WIND_SPEED} <= keys_added
+    # Derived.
+    assert {WIND_AZIMUT, HEAT_INDEX, CHILL_INDEX} <= keys_added
 
 
-def test_add_new_sensors_adds_known_keys(hass, config_entry):
-    coordinator = _CoordinatorStub()
+# --- add_new_sensors -------------------------------------------------------
+
+
+def test_add_new_sensors_is_noop_when_callback_missing(hass):
+    entry, _coordinator, runtime = _make_entry()
+    # Platform not set up yet -> no stored callback.
+    assert runtime.add_sensor_entities is None
+
+    # Must not raise.
+    add_new_sensors(hass, entry, keys=["anything"])
+
+
+def test_add_new_sensors_ignores_unknown_keys(hass):
+    entry, _coordinator, runtime = _make_entry()
     add_entities = MagicMock()
+    runtime.add_sensor_entities = add_entities
+    runtime.sensor_descriptions = {}  # nothing known
 
-    # Use one known description from the weather API list.
+    add_new_sensors(hass, entry, keys=["unknown_key"])
+
+    add_entities.assert_not_called()
+
+
+def test_add_new_sensors_adds_known_keys(hass):
+    entry, _coordinator, runtime = _make_entry()
+    add_entities = MagicMock()
     known_desc = SENSOR_TYPES_WEATHER_API[0]
+    runtime.add_sensor_entities = add_entities
+    runtime.sensor_descriptions = {known_desc.key: known_desc}
 
-    hass.data["sws12500"] = {
-        config_entry.entry_id: {
-            ENTRY_COORDINATOR: coordinator,
-            ENTRY_ADD_ENTITIES: add_entities,
-            ENTRY_DESCRIPTIONS: {known_desc.key: known_desc},
-        }
-    }
-
-    add_new_sensors(hass, config_entry, keys=[known_desc.key])
+    add_new_sensors(hass, entry, keys=[known_desc.key])
 
     add_entities.assert_called_once()
     (entities_arg,) = add_entities.call_args.args

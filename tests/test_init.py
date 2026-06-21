@@ -22,6 +22,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sws12500 import WeatherDataUpdateCoordinator, async_setup_entry
 from custom_components.sws12500.const import DOMAIN
+from custom_components.sws12500.data import SWSRuntimeData
 
 
 @pytest.fixture
@@ -43,6 +44,14 @@ async def test_async_setup_entry_creates_runtime_state(
         lambda _hass, _coordinator, _coordinator_h, _entry: True,
     )
 
+    # Calling async_setup_entry directly leaves the entry in NOT_LOADED state, so the
+    # health coordinator's first refresh (which requires SETUP_IN_PROGRESS and does
+    # network I/O) is mocked out to keep this test focused on setup wiring.
+    monkeypatch.setattr(
+        "custom_components.sws12500.HealthCoordinator.async_config_entry_first_refresh",
+        AsyncMock(return_value=None),
+    )
+
     # Avoid depending on Home Assistant integration loader in this test.
     # This keeps the test focused on our integration's setup behavior.
     monkeypatch.setattr(
@@ -54,9 +63,12 @@ async def test_async_setup_entry_creates_runtime_state(
     result = await async_setup_entry(hass, config_entry)
     assert result is True
 
+    # Per-entry state now lives on entry.runtime_data (SWSRuntimeData), not in
+    # hass.data[DOMAIN][entry_id]. hass.data[DOMAIN] only holds shared route state.
     assert DOMAIN in hass.data
-    assert config_entry.entry_id in hass.data[DOMAIN]
-    assert isinstance(hass.data[DOMAIN][config_entry.entry_id], dict)
+    assert isinstance(config_entry.runtime_data, SWSRuntimeData)
+    assert config_entry.runtime_data.coordinator is not None
+    assert config_entry.runtime_data.health_coordinator is not None
 
 
 async def test_async_setup_entry_forwards_sensor_platform(
@@ -70,6 +82,14 @@ async def test_async_setup_entry_forwards_sensor_platform(
     monkeypatch.setattr(
         "custom_components.sws12500.register_path",
         lambda _hass, _coordinator, _coordinator_h, _entry: True,
+    )
+
+    # Calling async_setup_entry directly leaves the entry in NOT_LOADED state, so the
+    # health coordinator's first refresh (which requires SETUP_IN_PROGRESS and does
+    # network I/O) is mocked out to keep this test focused on setup wiring.
+    monkeypatch.setattr(
+        "custom_components.sws12500.HealthCoordinator.async_config_entry_first_refresh",
+        AsyncMock(return_value=None),
     )
 
     # Patch forwarding so we don't need to load real platforms for this unit/integration test.

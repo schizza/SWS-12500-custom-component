@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock
 from aiohttp.web_exceptions import HTTPUnauthorized
 import pytest
 
-from custom_components.sws12500 import IncorrectDataError, WeatherDataUpdateCoordinator
 from custom_components.sws12500.const import (
     API_ID,
     API_KEY,
@@ -20,6 +19,8 @@ from custom_components.sws12500.const import (
     WSLINK,
     WSLINK_URL,
 )
+from custom_components.sws12500.coordinator import IncorrectDataError, WeatherDataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 
 @dataclass(slots=True)
@@ -60,6 +61,18 @@ def _make_entry(
     entry = SimpleNamespace()
     entry.entry_id = "test_entry_id"
     entry.options = options
+    # DataUpdateCoordinator.__init__ calls config_entry.async_on_unload(...) when a
+    # config_entry is passed (see WeatherDataUpdateCoordinator.__init__).
+    entry.async_on_unload = lambda *_args, **_kwargs: None
+    # Per-entry runtime state lives on entry.runtime_data (SWSRuntimeData) since v2.0.
+    # received_data writes last_seen and reads health_coordinator / add_*_entities.
+    entry.runtime_data = SimpleNamespace(
+        health_coordinator=None,
+        add_sensor_entities=None,
+        add_binary_entities=None,
+        last_seen={},
+        started_at=dt_util.utcnow(),
+    )
     return entry
 
 
@@ -135,13 +148,13 @@ async def test_received_data_success_remaps_and_updates_coordinator_data(
     # Patch remapping so this test doesn't depend on mapping tables.
     remapped = {"outside_temp": "10"}
     monkeypatch.setattr(
-        "custom_components.sws12500.remap_items",
+        "custom_components.sws12500.coordinator.remap_items",
         lambda _data: remapped,
     )
 
     # Ensure no autodiscovery triggers
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: [],
     )
 
@@ -162,12 +175,12 @@ async def test_received_data_success_wslink_uses_wslink_remap(hass, monkeypatch)
 
     remapped = {"ws_temp": "1"}
     monkeypatch.setattr(
-        "custom_components.sws12500.remap_wslink_items",
+        "custom_components.sws12500.coordinator.remap_wslink_items",
         lambda _data: remapped,
     )
     # If the wrong remapper is used, we'd crash because we won't patch it:
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: [],
     )
 
@@ -188,11 +201,11 @@ async def test_received_data_forwards_to_windy_when_enabled(hass, monkeypatch):
     coordinator.windy.push_data_to_windy = AsyncMock()
 
     monkeypatch.setattr(
-        "custom_components.sws12500.remap_items",
+        "custom_components.sws12500.coordinator.remap_items",
         lambda _data: {"k": "v"},
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: [],
     )
 
@@ -216,11 +229,11 @@ async def test_received_data_forwards_to_pocasi_when_enabled(hass, monkeypatch):
     coordinator.pocasi.push_data_to_server = AsyncMock()
 
     monkeypatch.setattr(
-        "custom_components.sws12500.remap_wslink_items",
+        "custom_components.sws12500.coordinator.remap_wslink_items",
         lambda _data: {"k": "v"},
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: [],
     )
 
@@ -246,35 +259,35 @@ async def test_received_data_autodiscovery_updates_options_notifies_and_adds_sen
 
     # Arrange: remapped payload contains keys that are disabled.
     remapped = {"a": "1", "b": "2"}
-    monkeypatch.setattr("custom_components.sws12500.remap_items", lambda _d: remapped)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.remap_items", lambda _d: remapped)
 
     # Autodiscovery finds two sensors to add
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: ["a", "b"],
     )
 
     # No previously loaded sensors
-    monkeypatch.setattr("custom_components.sws12500.loaded_sensors", lambda _c: [])
+    monkeypatch.setattr("custom_components.sws12500.coordinator.loaded_sensors", lambda _c: [])
 
     # translations returns a friendly name for each sensor key
     async def _translations(_hass, _domain, _key, **_kwargs):
         # return something non-None so it's included in human readable string
         return "Name"
 
-    monkeypatch.setattr("custom_components.sws12500.translations", _translations)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.translations", _translations)
 
     translated_notification = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.translated_notification", translated_notification
+        "custom_components.sws12500.coordinator.translated_notification", translated_notification
     )
 
     update_options = AsyncMock()
-    monkeypatch.setattr("custom_components.sws12500.update_options", update_options)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.update_options", update_options)
 
     add_new_sensors = MagicMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.sensor.add_new_sensors", add_new_sensors
+        "custom_components.sws12500.coordinator.add_new_sensors", add_new_sensors
     )
 
     coordinator.async_set_updated_data = MagicMock()
@@ -313,19 +326,19 @@ async def test_received_data_autodiscovery_human_readable_empty_branch_via_check
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
     remapped = {"a": "1"}
-    monkeypatch.setattr("custom_components.sws12500.remap_items", lambda _d: remapped)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.remap_items", lambda _d: remapped)
 
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: ["a"],
     )
-    monkeypatch.setattr("custom_components.sws12500.loaded_sensors", lambda _c: [])
+    monkeypatch.setattr("custom_components.sws12500.coordinator.loaded_sensors", lambda _c: [])
 
     # Return a translation so the list comprehension would normally include an item.
     async def _translations(_hass, _domain, _key, **_kwargs):
         return "Name"
 
-    monkeypatch.setattr("custom_components.sws12500.translations", _translations)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.translations", _translations)
 
     # Force checked(...) to return None when the code tries to validate translate_sensors as list[str].
     def _checked_override(value, expected_type):
@@ -333,19 +346,19 @@ async def test_received_data_autodiscovery_human_readable_empty_branch_via_check
             return None
         return value
 
-    monkeypatch.setattr("custom_components.sws12500.checked", _checked_override)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.checked", _checked_override)
 
     translated_notification = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.translated_notification", translated_notification
+        "custom_components.sws12500.coordinator.translated_notification", translated_notification
     )
 
     update_options = AsyncMock()
-    monkeypatch.setattr("custom_components.sws12500.update_options", update_options)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.update_options", update_options)
 
     add_new_sensors = MagicMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.sensor.add_new_sensors", add_new_sensors
+        "custom_components.sws12500.coordinator.add_new_sensors", add_new_sensors
     )
 
     coordinator.async_set_updated_data = MagicMock()
@@ -371,33 +384,33 @@ async def test_received_data_autodiscovery_extends_with_loaded_sensors_branch(
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
     remapped = {"new": "1"}
-    monkeypatch.setattr("custom_components.sws12500.remap_items", lambda _d: remapped)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.remap_items", lambda _d: remapped)
 
     # Autodiscovery finds one new sensor
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: ["new"],
     )
 
     # Pretend there are already loaded sensors in options
     monkeypatch.setattr(
-        "custom_components.sws12500.loaded_sensors", lambda _c: ["existing"]
+        "custom_components.sws12500.coordinator.loaded_sensors", lambda _c: ["existing"]
     )
 
     async def _translations(_hass, _domain, _key, **_kwargs):
         return "Name"
 
-    monkeypatch.setattr("custom_components.sws12500.translations", _translations)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.translations", _translations)
 
     monkeypatch.setattr(
-        "custom_components.sws12500.translated_notification", AsyncMock()
+        "custom_components.sws12500.coordinator.translated_notification", AsyncMock()
     )
 
     update_options = AsyncMock()
-    monkeypatch.setattr("custom_components.sws12500.update_options", update_options)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.update_options", update_options)
 
     monkeypatch.setattr(
-        "custom_components.sws12500.sensor.add_new_sensors", MagicMock()
+        "custom_components.sws12500.coordinator.add_new_sensors", MagicMock()
     )
 
     coordinator.async_set_updated_data = MagicMock()
@@ -424,31 +437,31 @@ async def test_received_data_autodiscovery_translations_all_none_still_notifies_
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
     remapped = {"a": "1"}
-    monkeypatch.setattr("custom_components.sws12500.remap_items", lambda _d: remapped)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.remap_items", lambda _d: remapped)
 
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: ["a"],
     )
-    monkeypatch.setattr("custom_components.sws12500.loaded_sensors", lambda _c: [])
+    monkeypatch.setattr("custom_components.sws12500.coordinator.loaded_sensors", lambda _c: [])
 
     # Force translations to return None for every lookup -> translate_sensors becomes None and human_readable ""
     async def _translations(_hass, _domain, _key, **_kwargs):
         return None
 
-    monkeypatch.setattr("custom_components.sws12500.translations", _translations)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.translations", _translations)
 
     translated_notification = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.translated_notification", translated_notification
+        "custom_components.sws12500.coordinator.translated_notification", translated_notification
     )
 
     update_options = AsyncMock()
-    monkeypatch.setattr("custom_components.sws12500.update_options", update_options)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.update_options", update_options)
 
     add_new_sensors = MagicMock()
     monkeypatch.setattr(
-        "custom_components.sws12500.sensor.add_new_sensors", add_new_sensors
+        "custom_components.sws12500.coordinator.add_new_sensors", add_new_sensors
     )
 
     coordinator.async_set_updated_data = MagicMock()
@@ -469,17 +482,17 @@ async def test_received_data_dev_logging_calls_anonymize_and_logs(hass, monkeypa
     entry = _make_entry(wslink=False, api_id="id", api_key="key", dev_debug=True)
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
 
-    monkeypatch.setattr("custom_components.sws12500.remap_items", lambda _d: {"k": "v"})
+    monkeypatch.setattr("custom_components.sws12500.coordinator.remap_items", lambda _d: {"k": "v"})
     monkeypatch.setattr(
-        "custom_components.sws12500.check_disabled",
+        "custom_components.sws12500.coordinator.check_disabled",
         lambda _remaped_items, _config: [],
     )
 
     anonymize = MagicMock(return_value={"safe": True})
-    monkeypatch.setattr("custom_components.sws12500.anonymize", anonymize)
+    monkeypatch.setattr("custom_components.sws12500.coordinator.anonymize", anonymize)
 
     log_info = MagicMock()
-    monkeypatch.setattr("custom_components.sws12500._LOGGER.info", log_info)
+    monkeypatch.setattr("custom_components.sws12500.coordinator._LOGGER.info", log_info)
 
     coordinator.async_set_updated_data = MagicMock()
 

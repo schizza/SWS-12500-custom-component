@@ -5,8 +5,6 @@ from types import SimpleNamespace
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
-import pytest
-
 from custom_components.sws12500.const import DOMAIN
 from custom_components.sws12500.sensor import WeatherSensor
 
@@ -33,7 +31,9 @@ class _CoordinatorStub:
         self, data: dict[str, Any] | None = None, *, config: Any | None = None
     ):
         self.data = data if data is not None else {}
-        self.config = config
+        # WeatherSensor.__init__ reads coordinator.config.options for the dev-log flag,
+        # so default to a config with empty options when the test doesn't supply one.
+        self.config = config if config is not None else SimpleNamespace(options={})
 
 
 def test_native_value_prefers_value_from_data_fn_success():

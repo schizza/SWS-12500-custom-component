@@ -70,11 +70,13 @@ def test_t9_keys_are_remapped() -> None:
 
 
 def test_connection_gated_sensors_definition() -> None:
-    assert CONNECTION_GATED_SENSORS == {"t9cn": [HCHO, VOC, T9_BATTERY]}
+    # The T9 HCHO/VOC probe is gated by its own connection flag. (Multi-channel
+    # CH2-CH8 probes have their own gates too; we only assert the T9 one here.)
+    assert CONNECTION_GATED_SENSORS["t9cn"] == [HCHO, VOC, T9_BATTERY]
 
 
 def test_t9_battery_is_non_binary_only() -> None:
-    assert BATTERY_NON_BINARY == [T9_BATTERY]
+    assert BATTERY_NON_BINARY == (T9_BATTERY,)
     # the 0-5 / percentage battery must not be treated as a binary low/normal one
     assert T9_BATTERY not in BATTERY_LIST
 
@@ -84,7 +86,7 @@ def test_voc_level_map_is_complete_and_ordered() -> None:
     assert set(VOC_LEVEL_MAP) == {1, 2, 3, 4, 5}
     assert set(VOC_LEVEL_MAP.values()) == set(VOCLevel)
     assert VOC_LEVEL_MAP[1] is VOCLevel.UNHEALTHY
-    assert VOC_LEVEL_MAP[5] is VOCLevel.EXCELENT
+    assert VOC_LEVEL_MAP[5] is VOCLevel.EXCELLENT
     assert [member.value for member in VOCLevel] == [
         "unhealthy",
         "poor",
@@ -109,7 +111,7 @@ def test_voc_level_to_text_handles_empty(empty) -> None:
         ("2", VOCLevel.POOR),
         ("3", VOCLevel.MODERATE),
         ("4", VOCLevel.GOOD),
-        ("5", VOCLevel.EXCELENT),
+        ("5", VOCLevel.EXCELLENT),
         (3, VOCLevel.MODERATE),
     ],
 )
@@ -184,8 +186,8 @@ def test_hcho_entity_description(wslink_descriptions) -> None:
     assert description.device_class is SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS
     assert description.native_unit_of_measurement == CONCENTRATION_PARTS_PER_BILLION
     assert description.state_class is SensorStateClass.MEASUREMENT
-    # value_fn is a pass-through (typing.cast is a no-op at runtime; HA coerces the str)
-    assert description.value_fn("57") == "57"
+    # HCHO is a numeric ppb concentration, so value_fn coerces to int.
+    assert description.value_fn("57") == 57
 
 
 def test_voc_entity_description(wslink_descriptions) -> None:

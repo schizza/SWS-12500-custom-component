@@ -13,6 +13,7 @@ from custom_components.sws12500.const import (
     ECOWITT_ENABLED,
     ECOWITT_WEBHOOK_ID,
     INVALID_CREDENTIALS,
+    LEGACY_ENABLED,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
     POCASI_CZ_ENABLED,
@@ -36,8 +37,14 @@ async def test_config_flow_user_form_then_create_entry(
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
     assert result["step_id"] == "user"
+
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+    assert form["type"] == "form"
+    assert form["step_id"] == "pws"
 
     user_input = {
         API_ID: "my_id",
@@ -46,12 +53,16 @@ async def test_config_flow_user_form_then_create_entry(
         DEV_DBG: False,
     }
     result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=user_input
+        form["flow_id"], user_input=user_input
     )
     assert result2["type"] == "create_entry"
     assert result2["title"] == DOMAIN
-    assert result2["data"] == user_input
-    assert result2["options"] == user_input
+    # The PWS step augments user input with legacy/ecowitt flags.
+    assert result2["data"][API_ID] == "my_id"
+    assert result2["data"][API_KEY] == "my_key"
+    assert result2["data"][LEGACY_ENABLED] is True
+    assert result2["data"][ECOWITT_ENABLED] is False
+    assert result2["options"] == result2["data"]
 
 
 @pytest.mark.asyncio
@@ -62,7 +73,13 @@ async def test_config_flow_user_invalid_credentials_api_id(
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
+
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+    assert form["type"] == "form"
+    assert form["step_id"] == "pws"
 
     user_input = {
         API_ID: INVALID_CREDENTIALS[0],
@@ -71,10 +88,10 @@ async def test_config_flow_user_invalid_credentials_api_id(
         DEV_DBG: False,
     }
     result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=user_input
+        form["flow_id"], user_input=user_input
     )
     assert result2["type"] == "form"
-    assert result2["step_id"] == "user"
+    assert result2["step_id"] == "pws"
     assert result2["errors"][API_ID] == "valid_credentials_api"
 
 
@@ -86,7 +103,13 @@ async def test_config_flow_user_invalid_credentials_api_key(
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
+
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+    assert form["type"] == "form"
+    assert form["step_id"] == "pws"
 
     user_input = {
         API_ID: "ok_id",
@@ -95,10 +118,10 @@ async def test_config_flow_user_invalid_credentials_api_key(
         DEV_DBG: False,
     }
     result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=user_input
+        form["flow_id"], user_input=user_input
     )
     assert result2["type"] == "form"
-    assert result2["step_id"] == "user"
+    assert result2["step_id"] == "pws"
     assert result2["errors"][API_KEY] == "valid_credentials_key"
 
 
@@ -110,7 +133,13 @@ async def test_config_flow_user_invalid_credentials_match(
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
+
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+    assert form["type"] == "form"
+    assert form["step_id"] == "pws"
 
     user_input = {
         API_ID: "same",
@@ -119,10 +148,10 @@ async def test_config_flow_user_invalid_credentials_match(
         DEV_DBG: False,
     }
     result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=user_input
+        form["flow_id"], user_input=user_input
     )
     assert result2["type"] == "form"
-    assert result2["step_id"] == "user"
+    assert result2["step_id"] == "pws"
     assert result2["errors"]["base"] == "valid_credentials_match"
 
 
@@ -135,7 +164,7 @@ async def test_options_flow_init_menu(hass, enable_custom_integrations) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == "menu"
     assert result["step_id"] == "init"
-    assert set(result["menu_options"]) == {"basic", "ecowitt", "windy", "pocasi"}
+    assert set(result["menu_options"]) == {"basic", "wslink_port_setup", "ecowitt", "windy", "pocasi"}
 
 
 @pytest.mark.asyncio

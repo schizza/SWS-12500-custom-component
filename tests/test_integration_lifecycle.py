@@ -9,26 +9,23 @@ from aiohttp.web_exceptions import HTTPUnauthorized
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sws12500 import (
-    HealthCoordinator,
-    IncorrectDataError,
-    WeatherDataUpdateCoordinator,
-    async_setup_entry,
-    async_unload_entry,
-    register_path,
-    update_listener,
-)
+from custom_components.sws12500 import async_setup_entry, async_unload_entry, register_path, update_listener
 from custom_components.sws12500.const import (
     API_ID,
     API_KEY,
     DEFAULT_URL,
     DOMAIN,
+    ECOWITT_URL_PREFIX,
     HEALTH_URL,
     SENSORS_TO_LOAD,
     WSLINK,
     WSLINK_URL,
 )
-from custom_components.sws12500.data import ENTRY_COORDINATOR, ENTRY_LAST_OPTIONS
+from custom_components.sws12500.coordinator import IncorrectDataError, WeatherDataUpdateCoordinator
+from custom_components.sws12500.data import SWSRuntimeData
+from custom_components.sws12500.health_coordinator import HealthCoordinator
+
+ECOWITT_PATH = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
 
 @dataclass(slots=True)
@@ -70,16 +67,27 @@ def hass_with_http(hass):
     return hass
 
 
+def _mock_health_first_refresh(monkeypatch) -> None:
+    """Calling async_setup_entry directly leaves the entry NOT_LOADED.
+
+    The health coordinator's first refresh requires SETUP_IN_PROGRESS and does network
+    I/O, so we mock it out to keep these lifecycle tests focused on wiring.
+    """
+    monkeypatch.setattr(
+        "custom_components.sws12500.HealthCoordinator.async_config_entry_first_refresh",
+        AsyncMock(return_value=None),
+    )
+
+
+# --- register_path ---------------------------------------------------------
+
+
 @pytest.mark.asyncio
 async def test_register_path_registers_routes_and_stores_dispatcher(hass_with_http):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
-        options={
-            API_ID: "id",
-            API_KEY: "key",
-            WSLINK: False,
-        },
+        options={API_ID: "id", API_KEY: "key", WSLINK: False},
     )
     entry.add_to_hass(hass_with_http)
 
@@ -89,21 +97,19 @@ async def test_register_path_registers_routes_and_stores_dispatcher(hass_with_ht
     ok = register_path(hass_with_http, coordinator, coordinator_health, entry)
     assert ok is True
 
-    # Router registrations
+    # Router registrations: GET for legacy/wslink/health, POST for wslink + ecowitt.
     router: _RouterStub = hass_with_http.http.app.router
     assert [p for (p, _h) in router.add_get_calls] == [
         DEFAULT_URL,
         WSLINK_URL,
         HEALTH_URL,
     ]
-    assert [p for (p, _h) in router.add_post_calls] == [WSLINK_URL]
+    assert [p for (p, _h) in router.add_post_calls] == [WSLINK_URL, ECOWITT_PATH]
 
-    # Dispatcher stored
+    # Dispatcher stored under the shared (cross-reload) hass.data[DOMAIN].
     assert DOMAIN in hass_with_http.data
-    assert "routes" in hass_with_http.data[DOMAIN]
-    routes = hass_with_http.data[DOMAIN]["routes"]
+    routes = hass_with_http.data[DOMAIN].get("routes")
     assert routes is not None
-    # show_enabled() should return a string
     assert isinstance(routes.show_enabled(), str)
 
 
@@ -116,18 +122,13 @@ async def test_register_path_raises_config_entry_not_ready_on_router_runtime_err
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
-        options={
-            API_ID: "id",
-            API_KEY: "key",
-            WSLINK: False,
-        },
+        options={API_ID: "id", API_KEY: "key", WSLINK: False},
     )
     entry.add_to_hass(hass_with_http)
 
     coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
     coordinator_health = HealthCoordinator(hass_with_http, entry)
 
-    # Make router raise RuntimeError on add
     router: _RouterStub = hass_with_http.http.app.router
     router.raise_on_add = RuntimeError("router broken")
 
@@ -145,26 +146,24 @@ async def test_register_path_checked_hass_data_wrong_type_raises_config_entry_no
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
-        options={
-            API_ID: "id",
-            API_KEY: "key",
-            WSLINK: False,
-        },
+        options={API_ID: "id", API_KEY: "key", WSLINK: False},
     )
     entry.add_to_hass(hass_with_http)
 
     coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
     coordinator_health = HealthCoordinator(hass_with_http, entry)
 
-    # Force wrong type under DOMAIN so `checked(..., dict)` fails.
-    hass_with_http.data[DOMAIN] = []
+    hass_with_http.data[DOMAIN] = []  # wrong type -> checked(..., dict) fails
 
     with pytest.raises(ConfigEntryNotReady):
         register_path(hass_with_http, coordinator, coordinator_health, entry)
 
 
+# --- async_setup_entry -----------------------------------------------------
+
+
 @pytest.mark.asyncio
-async def test_async_setup_entry_creates_entry_dict_and_coordinator_and_forwards_platforms(
+async def test_async_setup_entry_creates_runtime_data_and_forwards_platforms(
     hass_with_http,
     monkeypatch,
 ):
@@ -175,7 +174,7 @@ async def test_async_setup_entry_creates_entry_dict_and_coordinator_and_forwards
     )
     entry.add_to_hass(hass_with_http)
 
-    # Avoid loading actual platforms via HA loader.
+    _mock_health_first_refresh(monkeypatch)
     monkeypatch.setattr(
         hass_with_http.config_entries,
         "async_forward_entry_setups",
@@ -185,17 +184,14 @@ async def test_async_setup_entry_creates_entry_dict_and_coordinator_and_forwards
     ok = await async_setup_entry(hass_with_http, entry)
     assert ok is True
 
-    # Runtime storage exists and is a dict
-    assert DOMAIN in hass_with_http.data
-    assert entry.entry_id in hass_with_http.data[DOMAIN]
-    entry_data = hass_with_http.data[DOMAIN][entry.entry_id]
-    assert isinstance(entry_data, dict)
+    # Per-entry state now lives on entry.runtime_data (SWSRuntimeData).
+    assert isinstance(entry.runtime_data, SWSRuntimeData)
+    assert isinstance(entry.runtime_data.coordinator, WeatherDataUpdateCoordinator)
+    assert isinstance(entry.runtime_data.last_options, dict)
 
-    # Coordinator stored and last options snapshot stored
-    assert isinstance(entry_data.get(ENTRY_COORDINATOR), WeatherDataUpdateCoordinator)
-    assert isinstance(entry_data.get(ENTRY_LAST_OPTIONS), dict)
+    # Shared dispatcher registered under hass.data[DOMAIN].
+    assert "routes" in hass_with_http.data[DOMAIN]
 
-    # Forwarded setups invoked
     hass_with_http.config_entries.async_forward_entry_setups.assert_awaited()
 
 
@@ -203,12 +199,7 @@ async def test_async_setup_entry_creates_entry_dict_and_coordinator_and_forwards
 async def test_async_setup_entry_fatal_when_register_path_returns_false(
     hass_with_http, monkeypatch
 ):
-    """Cover the fatal branch when `register_path` returns False.
-
-    async_setup_entry does:
-      routes_enabled = register_path(...)
-      if not routes_enabled: raise PlatformNotReady
-    """
+    """Cover the fatal branch when `register_path` returns False -> PlatformNotReady."""
     from homeassistant.exceptions import PlatformNotReady
 
     entry = MockConfigEntry(
@@ -218,17 +209,14 @@ async def test_async_setup_entry_fatal_when_register_path_returns_false(
     )
     entry.add_to_hass(hass_with_http)
 
-    # Ensure there are no pre-registered routes so async_setup_entry calls register_path.
+    # No pre-registered routes -> async_setup_entry calls register_path.
     hass_with_http.data.setdefault(DOMAIN, {})
     hass_with_http.data[DOMAIN].pop("routes", None)
 
-    # Force register_path to return False
     monkeypatch.setattr(
         "custom_components.sws12500.register_path",
         lambda _hass, _coordinator, _coordinator_h, _entry: False,
     )
-
-    # Forwarding shouldn't be reached; patch anyway to avoid accidental loader calls.
     monkeypatch.setattr(
         hass_with_http.config_entries,
         "async_forward_entry_setups",
@@ -240,10 +228,11 @@ async def test_async_setup_entry_fatal_when_register_path_returns_false(
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_reuses_existing_coordinator_and_switches_routes(
+async def test_async_setup_entry_reuses_route_dispatcher_and_switches_protocol(
     hass_with_http,
     monkeypatch,
 ):
+    """On reload the shared route dispatcher is reused; the coordinator is recreated."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
@@ -251,29 +240,19 @@ async def test_async_setup_entry_reuses_existing_coordinator_and_switches_routes
     )
     entry.add_to_hass(hass_with_http)
 
-    # Pretend setup already happened and a coordinator exists
-    hass_with_http.data.setdefault(DOMAIN, {})
-    existing_coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
-    hass_with_http.data[DOMAIN][entry.entry_id] = {
-        ENTRY_COORDINATOR: existing_coordinator,
-        ENTRY_LAST_OPTIONS: dict(entry.options),
-    }
+    # Pre-register routes once (legacy/WU active).
+    initial_coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    initial_health = HealthCoordinator(hass_with_http, entry)
+    register_path(hass_with_http, initial_coordinator, initial_health, entry)
+    routes_before = hass_with_http.data[DOMAIN]["routes"]
+    assert routes_before.path_enabled(DEFAULT_URL) is True
 
-    # Provide pre-registered routes dispatcher
-    routes = hass_with_http.data[DOMAIN].get("routes")
-    if routes is None:
-        # Create a dispatcher via register_path once
-        coordinator_health = HealthCoordinator(hass_with_http, entry)
-        register_path(hass_with_http, existing_coordinator, coordinator_health, entry)
-        routes = hass_with_http.data[DOMAIN]["routes"]
-
-    # Turn on WSLINK to trigger dispatcher switching.
-    # ConfigEntry.options cannot be changed directly; use async_update_entry.
+    # Switch to WSLink and run setup again.
     hass_with_http.config_entries.async_update_entry(
         entry, options={**dict(entry.options), WSLINK: True}
     )
 
-    # Avoid loading actual platforms via HA loader.
+    _mock_health_first_refresh(monkeypatch)
     monkeypatch.setattr(
         hass_with_http.config_entries,
         "async_forward_entry_setups",
@@ -283,34 +262,42 @@ async def test_async_setup_entry_reuses_existing_coordinator_and_switches_routes
     ok = await async_setup_entry(hass_with_http, entry)
     assert ok is True
 
-    # Coordinator reused (same object)
-    entry_data = hass_with_http.data[DOMAIN][entry.entry_id]
-    assert entry_data[ENTRY_COORDINATOR] is existing_coordinator
+    # Same dispatcher object reused (survives across reloads).
+    assert hass_with_http.data[DOMAIN]["routes"] is routes_before
+    # Protocol switched to WSLink.
+    assert routes_before.path_enabled(WSLINK_URL) is True
+    assert routes_before.path_enabled(DEFAULT_URL) is False
+    # A fresh coordinator is wired onto entry.runtime_data.
+    assert isinstance(entry.runtime_data, SWSRuntimeData)
+    assert isinstance(entry.runtime_data.coordinator, WeatherDataUpdateCoordinator)
+
+
+# --- update_listener -------------------------------------------------------
+
+
+def _entry_with_runtime(hass, *, options: dict[str, Any]) -> MockConfigEntry:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=options)
+    entry.add_to_hass(hass)
+    entry.runtime_data = SWSRuntimeData(
+        coordinator=object(),  # type: ignore[arg-type]
+        health_coordinator=object(),  # type: ignore[arg-type]
+        last_options=dict(options),
+    )
+    return entry
 
 
 @pytest.mark.asyncio
 async def test_update_listener_skips_reload_when_only_sensors_to_load_changes(
     hass_with_http,
 ):
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={},
+    entry = _entry_with_runtime(
+        hass_with_http,
         options={API_ID: "id", API_KEY: "key", SENSORS_TO_LOAD: ["a"]},
     )
-    entry.add_to_hass(hass_with_http)
-
-    # Seed hass.data snapshot
-    hass_with_http.data.setdefault(DOMAIN, {})
-    hass_with_http.data[DOMAIN][entry.entry_id] = {
-        # Seed the full old options snapshot. If we only store SENSORS_TO_LOAD here,
-        # update_listener will detect differences for other keys (e.g. auth keys) and reload.
-        ENTRY_LAST_OPTIONS: dict(entry.options),
-    }
 
     hass_with_http.config_entries.async_reload = AsyncMock()
 
     # Only SENSORS_TO_LOAD changes.
-    # ConfigEntry.options cannot be changed directly; use async_update_entry.
     hass_with_http.config_entries.async_update_entry(
         entry, options={**dict(entry.options), SENSORS_TO_LOAD: ["a", "b"]}
     )
@@ -318,9 +305,8 @@ async def test_update_listener_skips_reload_when_only_sensors_to_load_changes(
     await update_listener(hass_with_http, entry)
 
     hass_with_http.config_entries.async_reload.assert_not_awaited()
-    # Snapshot should be updated
-    entry_data = hass_with_http.data[DOMAIN][entry.entry_id]
-    assert entry_data[ENTRY_LAST_OPTIONS] == dict(entry.options)
+    # The snapshot on runtime_data is refreshed.
+    assert entry.runtime_data.last_options == dict(entry.options)
 
 
 @pytest.mark.asyncio
@@ -328,22 +314,13 @@ async def test_update_listener_triggers_reload_when_other_option_changes(
     hass_with_http,
     monkeypatch,
 ):
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={},
+    entry = _entry_with_runtime(
+        hass_with_http,
         options={API_ID: "id", API_KEY: "key", SENSORS_TO_LOAD: ["a"], WSLINK: False},
     )
-    entry.add_to_hass(hass_with_http)
-
-    hass_with_http.data.setdefault(DOMAIN, {})
-    hass_with_http.data[DOMAIN][entry.entry_id] = {
-        ENTRY_LAST_OPTIONS: dict(entry.options),
-    }
 
     hass_with_http.config_entries.async_reload = AsyncMock(return_value=True)
 
-    # Change a different option.
-    # ConfigEntry.options cannot be changed directly; use async_update_entry.
     hass_with_http.config_entries.async_update_entry(
         entry, options={**dict(entry.options), WSLINK: True}
     )
@@ -358,76 +335,58 @@ async def test_update_listener_triggers_reload_when_other_option_changes(
 
 
 @pytest.mark.asyncio
-async def test_update_listener_missing_snapshot_stores_current_options_then_reloads(
-    hass_with_http,
-):
-    """Cover update_listener branch where the options snapshot is missing/invalid.
-
-    This hits:
-        entry_data[ENTRY_LAST_OPTIONS] = dict(entry.options)
-    and then proceeds to reload.
-    """
+async def test_update_listener_without_runtime_snapshot_reloads(hass_with_http):
+    """When runtime_data is not a valid snapshot, update_listener reloads."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
         options={API_ID: "id", API_KEY: "key", SENSORS_TO_LOAD: ["a"], WSLINK: False},
     )
     entry.add_to_hass(hass_with_http)
-
-    hass_with_http.data.setdefault(DOMAIN, {})
-    # Store an invalid snapshot type to force the "No/invalid snapshot" branch.
-    hass_with_http.data[DOMAIN][entry.entry_id] = {ENTRY_LAST_OPTIONS: "invalid"}
+    # Not an SWSRuntimeData instance -> the skip-reload fast path is bypassed.
+    entry.runtime_data = "invalid"
 
     hass_with_http.config_entries.async_reload = AsyncMock(return_value=True)
 
     await update_listener(hass_with_http, entry)
 
-    entry_data = hass_with_http.data[DOMAIN][entry.entry_id]
-    assert entry_data[ENTRY_LAST_OPTIONS] == dict(entry.options)
     hass_with_http.config_entries.async_reload.assert_awaited_once_with(entry.entry_id)
 
 
-@pytest.mark.asyncio
-async def test_async_unload_entry_pops_runtime_data_on_success(hass_with_http):
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={},
-        options={API_ID: "id", API_KEY: "key"},
-    )
-    entry.add_to_hass(hass_with_http)
+# --- async_unload_entry ----------------------------------------------------
 
-    hass_with_http.data.setdefault(DOMAIN, {})
-    hass_with_http.data[DOMAIN][entry.entry_id] = {ENTRY_COORDINATOR: object()}
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_returns_true_on_success(hass_with_http):
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
+    entry.add_to_hass(hass_with_http)
 
     hass_with_http.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
     ok = await async_unload_entry(hass_with_http, entry)
+
     assert ok is True
-    assert entry.entry_id not in hass_with_http.data[DOMAIN]
+    hass_with_http.config_entries.async_unload_platforms.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry_keeps_runtime_data_on_failure(hass_with_http):
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={},
-        options={API_ID: "id", API_KEY: "key"},
-    )
+async def test_async_unload_entry_returns_false_on_failure(hass_with_http):
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
     entry.add_to_hass(hass_with_http)
-
-    hass_with_http.data.setdefault(DOMAIN, {})
-    hass_with_http.data[DOMAIN][entry.entry_id] = {ENTRY_COORDINATOR: object()}
 
     hass_with_http.config_entries.async_unload_platforms = AsyncMock(return_value=False)
 
     ok = await async_unload_entry(hass_with_http, entry)
+
     assert ok is False
-    assert entry.entry_id in hass_with_http.data[DOMAIN]
+
+
+# --- coordinator auth (lifecycle-adjacent) ---------------------------------
 
 
 @pytest.mark.asyncio
 async def test_received_data_auth_unauthorized_and_incorrect_data_paths(hass):
-    """A few lifecycle-adjacent assertions to cover coordinator auth behavior in __init__.py."""
+    """Cover coordinator auth behavior reachable from the webhook entrypoint."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={},
@@ -447,9 +406,7 @@ async def test_received_data_auth_unauthorized_and_incorrect_data_paths(hass):
         )  # type: ignore[arg-type]
 
     # Missing API_ID in options -> IncorrectDataError
-    entry2 = MockConfigEntry(
-        domain=DOMAIN, data={}, options={API_KEY: "key", WSLINK: False}
-    )
+    entry2 = MockConfigEntry(domain=DOMAIN, data={}, options={API_KEY: "key", WSLINK: False})
     entry2.add_to_hass(hass)
     coordinator2 = WeatherDataUpdateCoordinator(hass, entry2)
     with pytest.raises(IncorrectDataError):
