@@ -23,8 +23,10 @@ from typing import Any
 import aiohttp
 from aiohttp import ClientConnectionError
 import aiohttp.web
+from aiohttp.web_exceptions import HTTPUnauthorized
 from py_typecheck import checked, checked_or
 
+from homeassistant.components.http import KEY_AUTHENTICATED
 from homeassistant.components.network import async_get_source_ip
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -67,6 +69,18 @@ def _protocol_from_path(path: str) -> str:
     if path.startswith(ECOWITT_URL_PREFIX + "/"):
         return "ecowitt"
     return "unknown"
+
+
+def _sanitize_path(path: str) -> str:
+    """Strip the secret Ecowitt webhook id from a path before storing/exposing it.
+
+    The Ecowitt endpoint is `/weatherhub/<webhook_id>` where the id is the only
+    credential. Keeping the raw path in the health snapshot would leak it via the
+    health endpoint and diagnostics, so mask the id segment.
+    """
+    if path.startswith(ECOWITT_URL_PREFIX + "/"):
+        return ECOWITT_URL_PREFIX + "/***"
+    return path
 
 
 def _empty_forwarding_state(enabled: bool) -> dict[str, Any]:
@@ -269,7 +283,7 @@ class HealthCoordinator(DataUpdateCoordinator):
         data["last_ingress"] = {
             "time": dt_util.utcnow().isoformat(),
             "protocol": _protocol_from_path(request.path),
-            "path": request.path,
+            "path": _sanitize_path(request.path),
             "method": request.method,
             "route_enabled": route_enabled,
             "accepted": False,
@@ -294,7 +308,7 @@ class HealthCoordinator(DataUpdateCoordinator):
             {
                 "time": dt_util.utcnow().isoformat(),
                 "protocol": _protocol_from_path(request.path),
-                "path": request.path,
+                "path": _sanitize_path(request.path),
                 "method": request.method,
                 "accepted": accepted,
                 "authorized": authorized,
@@ -326,11 +340,23 @@ class HealthCoordinator(DataUpdateCoordinator):
         self._refresh_summary(data)
         self._commit(data)
 
-    async def health_status(self, _: aiohttp.web.Request) -> aiohttp.web.Response:
+    async def health_status(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         """Serve the current health snapshot over HTTP.
+
+        Requires Home Assistant authentication. The route is registered directly on
+        the aiohttp router (so it can share the dispatcher), which means HA's auth
+        middleware only *flags* the request - it does not block it. We therefore
+        enforce auth here so the snapshot (internal URLs/IPs, add-on status, last
+        ingress) is never exposed to unauthenticated callers.
+
+        Auth is satisfied by a valid bearer token or a signed request, the same as
+        any HomeAssistantView.
 
         The endpoint forces one refresh before returning so that the caller sees
         a reasonably fresh add-on status.
         """
+        if not request.get(KEY_AUTHENTICATED, False):
+            raise HTTPUnauthorized
+
         await self.async_request_refresh()
         return aiohttp.web.json_response(self.data, status=200)

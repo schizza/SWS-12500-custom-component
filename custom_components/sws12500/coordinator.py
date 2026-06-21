@@ -115,7 +115,10 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         expected_webhook = self.config.options.get(ECOWITT_WEBHOOK_ID, "")
         actual_webhook = webdata.match_info.get("webhook_id", "")
 
-        if not expected_webhook or actual_webhook != expected_webhook:
+        # Constant-time comparison to avoid leaking the webhook id via timing.
+        if not expected_webhook or not hmac.compare_digest(
+            actual_webhook.encode("utf-8"), expected_webhook.encode("utf-8")
+        ):
             _LOGGER.error("Ecowitt: invalid webhook ID")
             if health:
                 health.update_ingress_result(

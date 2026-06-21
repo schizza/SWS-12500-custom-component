@@ -8,12 +8,21 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data  # pyright: ignore[reportUnknownVariableType]
 from homeassistant.core import HomeAssistant
 
-from .const import API_ID, API_KEY, POCASI_CZ_API_ID, POCASI_CZ_API_KEY, WINDY_STATION_ID, WINDY_STATION_PW
+from .const import (
+    API_ID,
+    API_KEY,
+    ECOWITT_WEBHOOK_ID,
+    POCASI_CZ_API_ID,
+    POCASI_CZ_API_KEY,
+    WINDY_STATION_ID,
+    WINDY_STATION_PW,
+)
 from .data import SWSConfigEntry
 
 TO_REDACT = {
     API_ID,
     API_KEY,
+    ECOWITT_WEBHOOK_ID,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
     WINDY_STATION_ID,

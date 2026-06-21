@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 from aiohttp import ClientConnectionError
+from aiohttp.web_exceptions import HTTPUnauthorized
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -42,6 +43,7 @@ from custom_components.sws12500.const import (
 from custom_components.sws12500.data import SWSRuntimeData
 from custom_components.sws12500.health_coordinator import HealthCoordinator
 from custom_components.sws12500.routes import Routes
+from homeassistant.components.http import KEY_AUTHENTICATED
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -441,6 +443,20 @@ def test_record_dispatch_records_with_reason(hass, entry) -> None:
     assert coordinator.data["integration_status"] == "degraded"
 
 
+def test_record_dispatch_masks_ecowitt_webhook_id(hass, entry) -> None:
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    request = SimpleNamespace(path=ECOWITT_URL_PREFIX + "/supersecretid", method="POST")
+    coordinator.record_dispatch(request, route_enabled=True, reason=None)
+
+    ingress = coordinator.data["last_ingress"]
+    assert ingress["protocol"] == "ecowitt"
+    # The secret webhook id must never reach the (potentially exposed) snapshot.
+    assert ingress["path"] == ECOWITT_URL_PREFIX + "/***"
+    assert "supersecretid" not in ingress["path"]
+
+
 # ---------------------------------------------------------------------------
 # update_ingress_result
 # ---------------------------------------------------------------------------
@@ -520,19 +536,34 @@ def test_update_forwarding(hass, entry) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_health_status_endpoint(hass, entry, monkeypatch) -> None:
+async def test_health_status_endpoint_authenticated(hass, entry, monkeypatch) -> None:
     coordinator = HealthCoordinator(hass, entry)
     _attach_runtime_data(entry, coordinator)
 
     # Avoid network: stub the refresh that health_status awaits.
     monkeypatch.setattr(coordinator, "async_request_refresh", AsyncMock(return_value=None))
 
-    request = SimpleNamespace(path=HEALTH_URL, method="GET")
-    response = await coordinator.health_status(request)
+    # aiohttp Request is dict-like; health_status only reads KEY_AUTHENTICATED.
+    request = {KEY_AUTHENTICATED: True}
+    response = await coordinator.health_status(request)  # type: ignore[arg-type]
 
     assert isinstance(response, aiohttp.web.Response)
     assert response.status == 200
     coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_health_status_endpoint_rejects_unauthenticated(hass, entry, monkeypatch) -> None:
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    refresh = AsyncMock(return_value=None)
+    monkeypatch.setattr(coordinator, "async_request_refresh", refresh)
+
+    # No KEY_AUTHENTICATED flag -> unauthenticated -> 401, no refresh triggered.
+    with pytest.raises(HTTPUnauthorized):
+        await coordinator.health_status({})  # type: ignore[arg-type]
+
+    refresh.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
