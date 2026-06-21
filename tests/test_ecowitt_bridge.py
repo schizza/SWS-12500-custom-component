@@ -370,3 +370,18 @@ async def test_set_add_entities_flushes_pending_unmapped_sensors() -> None:
     # The previously-skipped unmapped sensors are created now.
     assert created
     assert all(isinstance(e, EcoWittNativeSensor) for e in created)
+
+
+def test_on_new_sensor_respects_cap() -> None:
+    """Native entity creation is capped to bound entity-registry growth."""
+    from custom_components.sws12500.ecowitt import MAX_NATIVE_ECOWITT_SENSORS
+
+    bridge = _make_bridge()
+    cb = MagicMock()
+    bridge.set_add_entities(cb)
+    # Pretend we already created the maximum number of native sensors.
+    bridge._know_native_keys = {f"k{i}" for i in range(MAX_NATIVE_ECOWITT_SENSORS)}
+
+    bridge._on_new_sensor(_make_sensor(key="pm25_ch1"))
+
+    cb.assert_not_called()

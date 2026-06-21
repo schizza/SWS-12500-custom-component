@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any
+from typing import Any, Final
 
 from aioecowitt import EcoWittListener, EcoWittSensor, EcoWittSensorTypes
 
@@ -32,6 +32,10 @@ _LOGGER = logging.getLogger(__name__)
 # Reverse mapping: internal key to ecowitt field name
 # we need to know which key is internally covered.
 _MAPPED_ECOWITT_KEYS: set[str] = set(REMAP_ECOWITT_COMPAT.keys())
+
+# Upper bound on auto-created native Ecowitt entities. Bounds entity-registry growth
+# from an (authenticated) sender that fabricates many distinct sensor keys.
+MAX_NATIVE_ECOWITT_SENSORS: Final = 64
 
 # aioecowitt sensor type to HA device class + unit
 # We cover most common types, additional will be covered later.
@@ -220,6 +224,14 @@ class EcowittBridge:
 
         if self._add_entities_cb is None:
             _LOGGER.debug("Ecowitt sensor %s discovered but platform not ready yet", sensor.key)
+            return
+
+        if len(self._know_native_keys) >= MAX_NATIVE_ECOWITT_SENSORS:
+            _LOGGER.warning(
+                "Reached the cap of %s native Ecowitt sensors; ignoring new key %s",
+                MAX_NATIVE_ECOWITT_SENSORS,
+                sensor.key,
+            )
             return
 
         self._know_native_keys.add(sensor.key)

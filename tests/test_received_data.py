@@ -509,3 +509,25 @@ async def test_register_path_switching_logic_is_exercised_via_routes(monkeypatch
     """Sanity: constants exist and are distinct (helps guard tests relying on them)."""
     assert DEFAULT_URL != WSLINK_URL
     assert DOMAIN == "sws12500"
+
+
+@pytest.mark.asyncio
+async def test_received_data_empty_configured_credentials_raises_incorrect_data(hass, monkeypatch):
+    """Empty configured API ID/KEY is treated as missing config (defense-in-depth)."""
+    entry = _make_entry(wslink=False, api_id="", api_key="key")
+    entry.runtime_data.health_coordinator = SimpleNamespace(update_ingress_result=MagicMock())
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+    with pytest.raises(IncorrectDataError):
+        await coordinator.received_data(_RequestStub(query={"ID": "id", "PASSWORD": "key"}))  # type: ignore[arg-type]
+    entry.runtime_data.health_coordinator.update_ingress_result.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_received_data_empty_incoming_credentials_raises_unauthorized(hass, monkeypatch):
+    """Present-but-empty incoming credentials are rejected before the digest compare."""
+    entry = _make_entry(wslink=False, api_id="id", api_key="key")
+    entry.runtime_data.health_coordinator = SimpleNamespace(update_ingress_result=MagicMock())
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+    with pytest.raises(HTTPUnauthorized):
+        await coordinator.received_data(_RequestStub(query={"ID": "", "PASSWORD": ""}))  # type: ignore[arg-type]
+    entry.runtime_data.health_coordinator.update_ingress_result.assert_called_once()

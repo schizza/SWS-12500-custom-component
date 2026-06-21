@@ -295,7 +295,9 @@ class WindyPush:
 
         except ClientError as ex:
             self.last_status = "client_error"
-            self.last_error = str(ex)
+            # Store only the exception class - last_error is surfaced via entity
+            # attributes; str(ex) could embed the request URL.
+            self.last_error = type(ex).__name__
             _LOGGER.critical(
                 "Invalid response from Windy: %s. Will try again later, max retries before disabling resend function: %s",
                 str(ex),

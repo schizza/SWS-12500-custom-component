@@ -157,7 +157,9 @@ class PocasiPush:
 
         except ClientError as ex:
             self.last_status = "client_error"
-            self.last_error = str(ex)
+            # Store only the exception class - last_error is surfaced via entity
+            # attributes; str(ex) could embed the request URL.
+            self.last_error = type(ex).__name__
             _LOGGER.critical("Invalid response from Pocasi Meteo: %s", str(ex))
             self.invalid_response_count += 1
             if self.invalid_response_count >= 3:

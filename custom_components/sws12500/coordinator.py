@@ -92,6 +92,68 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         except AttributeError:
             return None
 
+    def _validate_credentials(
+        self,
+        data: dict[str, Any],
+        webdata: aiohttp.web.Request,
+        *,
+        wslink: bool,
+        health: HealthCoordinator | None,
+    ) -> None:
+        """Validate station credentials for the legacy / WSLink endpoint.
+
+        Raises HTTPUnauthorized (missing/empty/wrong credentials) or IncorrectDataError
+        (integration not configured); returns None on success.
+        """
+        id_key, pw_key = ("wsid", "wspw") if wslink else ("ID", "PASSWORD")
+
+        if id_key not in data or pw_key not in data:
+            _LOGGER.error("Invalid request. No security data provided!")
+            if health:
+                health.update_ingress_result(webdata, accepted=False, authorized=False, reason="missing_credentials")
+            raise HTTPUnauthorized
+
+        id_data = data.get(id_key, "")
+        key_data = data.get(pw_key, "")
+
+        if (_id := checked(self.config.options.get(API_ID), str)) is None:
+            _LOGGER.error("We don't have API ID set! Update your config!")
+            if health:
+                health.update_ingress_result(webdata, accepted=False, authorized=None, reason="config_missing_api_id")
+            raise IncorrectDataError
+
+        if (_key := checked(self.config.options.get(API_KEY), str)) is None:
+            _LOGGER.error("We don't have API KEY set! Update your config!")
+            if health:
+                health.update_ingress_result(webdata, accepted=False, authorized=None, reason="config_missing_api_key")
+            raise IncorrectDataError
+
+        # Defense-in-depth: reject empty configured/incoming credentials so this handler
+        # is self-protecting regardless of how options were set.
+        if not _id or not _key:
+            _LOGGER.error("API ID/KEY is empty! Update your config!")
+            if health:
+                health.update_ingress_result(
+                    webdata, accepted=False, authorized=None, reason="config_missing_credentials"
+                )
+            raise IncorrectDataError
+
+        if not id_data or not key_data:
+            _LOGGER.error("Unauthorised access! Empty credentials.")
+            if health:
+                health.update_ingress_result(webdata, accepted=False, authorized=False, reason="unauthorized")
+            raise HTTPUnauthorized
+
+        # Constant-time comparison; both operands are always compared (no short-circuit)
+        # and encoded to bytes so non-ASCII credentials are handled safely.
+        id_ok = hmac.compare_digest(id_data.encode("utf-8"), _id.encode("utf-8"))
+        key_ok = hmac.compare_digest(key_data.encode("utf-8"), _key.encode("utf-8"))
+        if not (id_ok & key_ok):
+            _LOGGER.error("Unauthorised access!")
+            if health:
+                health.update_ingress_result(webdata, accepted=False, authorized=False, reason="unauthorized")
+            raise HTTPUnauthorized
+
     async def received_ecowitt_data(self, webdata: aiohttp.web.Request) -> aiohttp.web.Response:
         """Handle incoming Ecowitt webhook payload.
 
@@ -203,72 +265,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         health = self._health_coordinator()
 
-        if not _wslink and ("ID" not in data or "PASSWORD" not in data):
-            _LOGGER.error("Invalid request. No security data provided!")
-            if health:
-                health.update_ingress_result(
-                    webdata,
-                    accepted=False,
-                    authorized=False,
-                    reason="missing_credentials",
-                )
-            raise HTTPUnauthorized
-
-        if _wslink and ("wsid" not in data or "wspw" not in data):
-            _LOGGER.error("Invalid request. No security data provided!")
-            if health:
-                health.update_ingress_result(
-                    webdata,
-                    accepted=False,
-                    authorized=False,
-                    reason="missing_credentials",
-                )
-            raise HTTPUnauthorized
-
-        if _wslink:
-            id_data = data.get("wsid", "")
-            key_data = data.get("wspw", "")
-        else:
-            id_data = data.get("ID", "")
-            key_data = data.get("PASSWORD", "")
-
-        if (_id := checked(self.config.options.get(API_ID), str)) is None:
-            _LOGGER.error("We don't have API ID set! Update your config!")
-            if health:
-                health.update_ingress_result(
-                    webdata,
-                    accepted=False,
-                    authorized=None,
-                    reason="config_missing_api_id",
-                )
-            raise IncorrectDataError
-
-        if (_key := checked(self.config.options.get(API_KEY), str)) is None:
-            _LOGGER.error("We don't have API KEY set! Update your config!")
-            if health:
-                health.update_ingress_result(
-                    webdata,
-                    accepted=False,
-                    authorized=None,
-                    reason="config_missing_api_key",
-                )
-            raise IncorrectDataError
-
-        # Constant-time comparison to avoid leaking credential length/content via timing.
-        # Both operands are compared even if the first fails, so the branch order doesn't
-        # short-circuit. Encode to bytes so non-ASCII credentials are handled safely.
-        id_ok = hmac.compare_digest(id_data.encode("utf-8"), _id.encode("utf-8"))
-        key_ok = hmac.compare_digest(key_data.encode("utf-8"), _key.encode("utf-8"))
-        if not (id_ok & key_ok):
-            _LOGGER.error("Unauthorised access!")
-            if health:
-                health.update_ingress_result(
-                    webdata,
-                    accepted=False,
-                    authorized=False,
-                    reason="unauthorized",
-                )
-            raise HTTPUnauthorized
+        self._validate_credentials(data, webdata, wslink=_wslink, health=health)
 
         remaped_items: dict[str, str] = remap_wslink_items(data) if _wslink else remap_items(data)
 
