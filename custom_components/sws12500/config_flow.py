@@ -11,6 +11,7 @@ from yarl import URL
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import selector
 from homeassistant.helpers.network import get_url
 
 from .const import (
@@ -36,6 +37,9 @@ from .const import (
     WSLINK,
     WSLINK_ADDON_PORT,
 )
+
+# Masked text input for secret fields (API keys / station passwords).
+_PASSWORD_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
 
 class CannotConnect(HomeAssistantError):
@@ -80,7 +84,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.user_data_schema = {
             vol.Optional(API_ID, default=self.user_data.get(API_ID, "")): str,
-            vol.Optional(API_KEY, default=self.user_data.get(API_KEY, "")): str,
+            vol.Optional(API_KEY, default=self.user_data.get(API_KEY, "")): _PASSWORD_SELECTOR,
             vol.Optional(WSLINK, default=self.user_data.get(WSLINK, False)): bool,
             vol.Optional(DEV_DBG, default=self.user_data.get(DEV_DBG, False)): bool,
             vol.Optional(LEGACY_ENABLED, default=self.user_data.get(LEGACY_ENABLED, True)): bool,
@@ -104,7 +108,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             vol.Optional(
                 WINDY_STATION_PW,
                 default=self.windy_data.get(WINDY_STATION_PW, ""),
-            ): str,
+            ): _PASSWORD_SELECTOR,
             vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
@@ -122,7 +126,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.pocasi_cz_schema = {
             vol.Required(POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)): str,
-            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): str,
+            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): _PASSWORD_SELECTOR,
             vol.Required(
                 POCASI_CZ_SEND_INTERVAL,
                 default=self.pocasi_cz.get(POCASI_CZ_SEND_INTERVAL),
@@ -329,7 +333,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     pws_schema = {
         vol.Required(API_ID): str,
-        vol.Required(API_KEY): str,
+        vol.Required(API_KEY): _PASSWORD_SELECTOR,
         vol.Optional(WSLINK): bool,
         vol.Optional(DEV_DBG): bool,
     }
