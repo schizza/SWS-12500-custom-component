@@ -199,8 +199,8 @@ async def test_async_setup_entry_creates_runtime_data_and_forwards_platforms(
 async def test_async_setup_entry_fatal_when_register_path_returns_false(
     hass_with_http, monkeypatch
 ):
-    """Cover the fatal branch when `register_path` returns False -> PlatformNotReady."""
-    from homeassistant.exceptions import PlatformNotReady
+    """Cover the fatal branch when `register_path` returns False -> ConfigEntryNotReady."""
+    from homeassistant.exceptions import ConfigEntryNotReady
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -223,7 +223,7 @@ async def test_async_setup_entry_fatal_when_register_path_returns_false(
         AsyncMock(return_value=True),
     )
 
-    with pytest.raises(PlatformNotReady):
+    with pytest.raises(ConfigEntryNotReady):
         await async_setup_entry(hass_with_http, entry)
 
 

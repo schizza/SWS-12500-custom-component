@@ -9,14 +9,16 @@
     "http"
   ],
   "documentation": "https://github.com/schizza/SWS-12500-custom-component",
-  "homekit": {},
+  "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/schizza/SWS-12500-custom-component/issues",
+  "loggers": [
+    "aioecowitt"
+  ],
   "requirements": [
     "typecheck-runtime==0.2.0",
     "aioecowitt==2025.9.2"
   ],
-  "ssdp": [],
-  "version": "2.0.0-pre1",
-  "zeroconf": []
+  "single_config_entry": true,
+  "version": "2.0.0-pre1"
 }

@@ -36,7 +36,7 @@ from py_typecheck import checked, checked_or
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryNotReady, PlatformNotReady
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
@@ -178,7 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
     else:
         if not register_path(hass, coordinator, coordinator_health, entry):
             _LOGGER.error("Fatal: path not registered!")
-            raise PlatformNotReady
+            raise ConfigEntryNotReady("Webhook routes could not be registered")
 
         routes = hass.data[DOMAIN].get("routes")
         if routes is not None:

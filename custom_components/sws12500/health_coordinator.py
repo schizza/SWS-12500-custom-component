@@ -226,7 +226,11 @@ class HealthCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Refresh add-on health metadata from the WSLink proxy."""
+        """Refresh add-on health metadata from the WSLink proxy.
+
+        The proxy add-on can front any protocol (WU / WSLink / Ecowitt), so the probe
+        is not gated on a specific protocol option - it always runs.
+        """
         session = async_get_clientsession(self.hass, False)
         url = get_url(self.hass)
         ip = await async_get_source_ip(self.hass)
