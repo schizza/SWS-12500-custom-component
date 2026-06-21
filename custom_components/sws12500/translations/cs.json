@@ -192,6 +192,7 @@
         "state": {
           "online_wu": "Online PWS/WU",
           "online_wslink": "Online WSLink",
+          "online_ecowitt": "Online Ecowitt",
           "online_idle": "Čekám na data",
           "degraded": "Degradovaný",
           "error": "Nefunkční"
@@ -201,7 +202,8 @@
         "name": "Aktivní protokol",
         "state": {
           "wu": "PWS/WU",
-          "wslink": "WSLink API"
+          "wslink": "WSLink API",
+          "ecowitt": "Ecowitt"
         }
       },
       "wslink_addon_status": {
@@ -236,7 +238,8 @@
         "name": "Protokol posledního přístupu",
         "state": {
           "wu": "PWS/WU",
-          "wslink": "WSLink API"
+          "wslink": "WSLink API",
+          "ecowitt": "Ecowitt"
         }
       },
       "last_ingress_route_enabled": {

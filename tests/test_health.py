@@ -32,8 +32,10 @@ from custom_components.sws12500 import health_coordinator as hc, health_sensor a
 from custom_components.sws12500.const import (
     DEFAULT_URL,
     DOMAIN,
+    ECOWITT_ENABLED,
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
+    LEGACY_ENABLED,
     POCASI_CZ_ENABLED,
     WINDY_ENABLED,
     WSLINK,
@@ -122,9 +124,14 @@ def _patch_network(monkeypatch, session: _FakeSession, ip: str = "1.2.3.4") -> N
 # ---------------------------------------------------------------------------
 
 
-def test_protocol_name() -> None:
-    assert hc._protocol_name(True) == "wslink"
-    assert hc._protocol_name(False) == "wu"
+def test_configured_protocol() -> None:
+    # Legacy enabled (default) -> wu / wslink based on the WSLINK flag.
+    assert hc._configured_protocol(_make_entry()) == "wu"
+    assert hc._configured_protocol(_make_entry({WSLINK: True})) == "wslink"
+    # Ecowitt-only (legacy off, ecowitt on) -> ecowitt.
+    assert hc._configured_protocol(_make_entry({LEGACY_ENABLED: False, ECOWITT_ENABLED: True})) == "ecowitt"
+    # Nothing configured -> wu fallback.
+    assert hc._configured_protocol(_make_entry({LEGACY_ENABLED: False, ECOWITT_ENABLED: False})) == "wu"
 
 
 def test_protocol_from_path_all_branches() -> None:
@@ -166,6 +173,13 @@ def test_default_health_data_wu_default() -> None:
     data = hc._default_health_data(_make_entry())
     assert data["configured_protocol"] == "wu"
     assert data["integration_status"] == "online_wu"
+
+
+def test_default_health_data_ecowitt() -> None:
+    data = hc._default_health_data(_make_entry({LEGACY_ENABLED: False, ECOWITT_ENABLED: True}))
+    assert data["configured_protocol"] == "ecowitt"
+    assert data["active_protocol"] == "ecowitt"
+    assert data["integration_status"] == "online_ecowitt"
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +274,20 @@ def test_refresh_summary_online_idle(hass, entry) -> None:
 
     assert data["integration_status"] == "online_idle"
     assert data["active_protocol"] == "wu"
+
+
+def test_refresh_summary_online_ecowitt(hass, entry) -> None:
+    # Ecowitt ingress is a valid protocol: active_protocol must track it (not fall back
+    # to the legacy "wu"), and it must not be flagged as a WU/WSLink mismatch.
+    coordinator = HealthCoordinator(hass, entry)
+    data = hc._default_health_data(entry)
+    data["configured_protocol"] = "wu"
+    data["last_ingress"] = {"protocol": "ecowitt", "accepted": True, "reason": "accepted"}
+
+    coordinator._refresh_summary(data)
+
+    assert data["integration_status"] == "online_ecowitt"
+    assert data["active_protocol"] == "ecowitt"
 
 
 # ---------------------------------------------------------------------------

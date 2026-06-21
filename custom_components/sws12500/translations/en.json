@@ -191,6 +191,7 @@
                 "state": {
                     "online_wu": "Online PWS/WU",
                     "online_wslink": "Online WSLink",
+                    "online_ecowitt": "Online Ecowitt",
                     "online_idle": "Waiting for data",
                     "degraded": "Degraded",
                     "error": "Error"
@@ -200,7 +201,8 @@
                 "name": "Active protocol",
                 "state": {
                     "wu": "PWS/WU",
-                    "wslink": "WSLink API"
+                    "wslink": "WSLink API",
+                    "ecowitt": "Ecowitt"
                 }
             },
             "wslink_addon_status": {
@@ -235,7 +237,8 @@
                 "name": "Last access protocol",
                 "state": {
                     "wu": "PWS/WU",
-                    "wslink": "WSLink API"
+                    "wslink": "WSLink API",
+                    "ecowitt": "Ecowitt"
                 }
             },
             "last_ingress_route_enabled": {

@@ -37,8 +37,10 @@ from homeassistant.util import dt as dt_util
 from .const import (
     DEFAULT_URL,
     DOMAIN,
+    ECOWITT_ENABLED,
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
+    LEGACY_ENABLED,
     POCASI_CZ_ENABLED,
     WINDY_ENABLED,
     WSLINK,
@@ -53,9 +55,23 @@ from .windy_func import WindyPush
 _LOGGER = logging.getLogger(__name__)
 
 
-def _protocol_name(wslink_enabled: bool) -> str:
-    """Return the configured protocol name."""
-    return "wslink" if wslink_enabled else "wu"
+# Protocols that represent a real, accepted ingress (not health / unknown).
+_REAL_PROTOCOLS: frozenset[str] = frozenset({"wu", "wslink", "ecowitt"})
+_LEGACY_PROTOCOLS: frozenset[str] = frozenset({"wu", "wslink"})
+
+
+def _configured_protocol(config: SWSConfigEntry) -> str:
+    """Return the primary configured protocol (wu / wslink / ecowitt).
+
+    The legacy PWS/WSLink endpoint takes precedence when enabled; otherwise an
+    Ecowitt-only setup reports "ecowitt". (Legacy and Ecowitt can be enabled at the
+    same time; this just labels the primary protocol for the summary.)
+    """
+    if checked_or(config.options.get(LEGACY_ENABLED), bool, True):
+        return "wslink" if checked_or(config.options.get(WSLINK), bool, False) else "wu"
+    if checked_or(config.options.get(ECOWITT_ENABLED), bool, False):
+        return "ecowitt"
+    return "wu"
 
 
 def _protocol_from_path(path: str) -> str:
@@ -117,7 +133,7 @@ def _empty_forwarding_state(enabled: bool) -> dict[str, Any]:
 
 def _default_health_data(config: SWSConfigEntry) -> dict[str, Any]:
     """Build the default health/debug payload for this config entry."""
-    configured_protocol = _protocol_name(checked_or(config.options.get(WSLINK), bool, False))
+    configured_protocol = _configured_protocol(config)
     return {
         "integration_status": f"online_{configured_protocol}",
         "configured_protocol": configured_protocol,
@@ -211,18 +227,25 @@ class HealthCoordinator(DataUpdateCoordinator):
         accepted = bool(ingress.get("accepted"))
         reason = ingress.get("reason")
 
-        if (reason in {"route_disabled", "route_not_registered", "unauthorized"}) or (
-            last_protocol in {"wu", "wslink"} and last_protocol != configured_protocol
-        ):
+        # A WU vs WSLink mismatch means the station is misconfigured for the legacy
+        # endpoint. Ecowitt coexists with the legacy endpoint, so it never counts as a
+        # mismatch - it is a valid protocol whenever a payload arrives on its route.
+        legacy_mismatch = (
+            last_protocol in _LEGACY_PROTOCOLS
+            and configured_protocol in _LEGACY_PROTOCOLS
+            and last_protocol != configured_protocol
+        )
+
+        if (reason in {"route_disabled", "route_not_registered", "unauthorized"}) or legacy_mismatch:
             integration_status = "degraded"
-        elif accepted and last_protocol in {"wu", "wslink"}:
+        elif accepted and last_protocol in _REAL_PROTOCOLS:
             integration_status = f"online_{last_protocol}"
         else:
             integration_status = "online_idle"
 
         data["integration_status"] = integration_status
         data["active_protocol"] = (
-            last_protocol if accepted and last_protocol in {"wu", "wslink"} else configured_protocol
+            last_protocol if accepted and last_protocol in _REAL_PROTOCOLS else configured_protocol
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -281,7 +304,7 @@ class HealthCoordinator(DataUpdateCoordinator):
     def update_routing(self, routes: Routes | None) -> None:
         """Store the currently enabled routes for diagnostics."""
         data = deepcopy(self.data)
-        data["configured_protocol"] = _protocol_name(checked_or(self.config.options.get(WSLINK), bool, False))
+        data["configured_protocol"] = _configured_protocol(self.config)
         if routes is not None:
             data["routes"] = {
                 "wu_enabled": routes.path_enabled(DEFAULT_URL),
