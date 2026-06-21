@@ -188,11 +188,12 @@ def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str
     return missing_sensors if entityFound else None
 
 
-def wind_dir_to_text(deg: float) -> UnitOfDir | None:
+def wind_dir_to_text(deg: float | str | None) -> UnitOfDir | None:
     """Return wind direction in text representation.
 
-    A direction of 0 - or a missing/invalid value - is treated as "no reading"
-    (calm) and returns None, so a missing wind direction does not render as North.
+    Accepts the raw payload value (str), a float, or None. A direction of 0 - or
+    a missing/invalid value - is treated as "no reading" (calm) and returns None,
+    so a missing wind direction does not render as North.
 
     Returns UnitOfDir or None
     """
