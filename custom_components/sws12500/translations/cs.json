@@ -339,6 +339,30 @@
       "ch4_humidity": {
         "name": "Vlhkost sensoru 4"
       },
+      "ch5_temp": {
+        "name": "Teplota senzoru 5"
+      },
+      "ch5_humidity": {
+        "name": "Vlhkost sensoru 5"
+      },
+      "ch6_temp": {
+        "name": "Teplota senzoru 6"
+      },
+      "ch6_humidity": {
+        "name": "Vlhkost sensoru 6"
+      },
+      "ch7_temp": {
+        "name": "Teplota senzoru 7"
+      },
+      "ch7_humidity": {
+        "name": "Vlhkost sensoru 7"
+      },
+      "ch8_temp": {
+        "name": "Teplota senzoru 8"
+      },
+      "ch8_humidity": {
+        "name": "Vlhkost sensoru 8"
+      },
       "heat_index": {
         "name": "Tepelný index"
       },
@@ -415,6 +439,54 @@
       },
       "ch2_battery": {
         "name": "Stav nabití baterie kanálu 2",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch3_battery": {
+        "name": "Stav nabití baterie kanálu 3",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch4_battery": {
+        "name": "Stav nabití baterie kanálu 4",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch5_battery": {
+        "name": "Stav nabití baterie kanálu 5",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch6_battery": {
+        "name": "Stav nabití baterie kanálu 6",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch7_battery": {
+        "name": "Stav nabití baterie kanálu 7",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "unknown": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch8_battery": {
+        "name": "Stav nabití baterie kanálu 8",
         "state": {
           "low": "Nízká",
           "normal": "Normální",
