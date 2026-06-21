@@ -191,15 +191,19 @@ def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str
 def wind_dir_to_text(deg: float) -> UnitOfDir | None:
     """Return wind direction in text representation.
 
+    A direction of 0 - or a missing/invalid value - is treated as "no reading"
+    (calm) and returns None, so a missing wind direction does not render as North.
+
     Returns UnitOfDir or None
     """
 
     _deg = to_float(deg)
-    if _deg is not None:
-        _LOGGER.debug("wind_dir: %s", AZIMUT[int(abs((_deg - 11.25) % 360) / 22.5)])
-        return AZIMUT[int(abs((_deg - 11.25) % 360) / 22.5)]
+    if _deg is None or _deg == 0:
+        return None
 
-    return None
+    azimut = AZIMUT[int(abs((_deg - 11.25) % 360) / 22.5)]
+    _LOGGER.debug("wind_dir: %s", azimut)
+    return azimut
 
 
 def battery_level(battery: int | str | None) -> UnitOfBat:

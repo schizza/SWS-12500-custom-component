@@ -251,7 +251,8 @@ class EcoWittNativeSensor(SensorEntity):
         self._attr_translation_key = None  # we do not have translation_keys for native sensors
         self._attr_name = sensor.name  # default name, can be overridden by translation_key if we had one
 
-        # set HomeAssistant metadata from aioecowitt sensor type
+        # set HomeAssistant metadata from aioecowitt sensor type.
+        # Unknown types still get a usable entity (raw value, no device class/unit).
         ha_meta = STYPE_TO_HA.get(sensor.stype)
         if ha_meta:
             device_class, unit, state_class = ha_meta
@@ -259,15 +260,17 @@ class EcoWittNativeSensor(SensorEntity):
             self._attr_native_unit_of_measurement = unit
             self._attr_state_class = state_class
 
-            station = sensor.station
-            self._attr_device_info = DeviceInfo(
-                connections=set(),
-                name=f"Ecowitt {station.model}" if station else "Ecowitt station",
-                entry_type=DeviceEntryType.SERVICE,
-                identifiers={(DOMAIN, f"ecowitt_{station.key}" if station else "ecowitt")},
-                manufacturer="Ecowitt impl. from Schizza for SWS12500",
-                model=station.model if station else None,
-            )
+        # Always attach device info so the entity is grouped under the Ecowitt
+        # station device even when its sensor type has no HA mapping.
+        station = sensor.station
+        self._attr_device_info = DeviceInfo(
+            connections=set(),
+            name=f"Ecowitt {station.model}" if station else "Ecowitt station",
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN, f"ecowitt_{station.key}" if station else "ecowitt")},
+            manufacturer="Ecowitt impl. from Schizza for SWS12500",
+            model=station.model if station else None,
+        )
 
     @property
     def native_value(self) -> StateType | datetime:  # pyright: ignore[reportIncompatibleVariableOverride]

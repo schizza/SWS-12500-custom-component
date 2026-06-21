@@ -156,7 +156,7 @@ class PocasiPush:
             self.last_error = str(ex)
             _LOGGER.critical("Invalid response from Pocasi Meteo: %s", str(ex))
             self.invalid_response_count += 1
-            if self.invalid_response_count > 3:
+            if self.invalid_response_count >= 3:
                 _LOGGER.critical(POCASI_CZ_UNEXPECTED)
                 self.enabled = False
                 await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False)

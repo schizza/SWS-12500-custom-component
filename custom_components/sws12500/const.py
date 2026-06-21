@@ -262,14 +262,10 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t1uvi": UV,
     "t234c1tem": CH2_TEMP,
     "t234c1hum": CH2_HUMIDITY,
-    "t1cn": OUTSIDE_CONNECTION,
-    "t234c1cn": CH2_CONNECTION,
-    "t234c2cn": CH3_CONNECTION,
-    "t234c3cn": CH4_CONNECTION,
-    "t234c4cn": CH5_CONNECTION,
-    "t234c5cn": CH6_CONNECTION,
-    "t234c6cn": CH7_CONNECTION,
-    "t234c7cn": CH8_CONNECTION,
+    # NOTE: connection flags (t1cn / t234cXcn / t9cn) are intentionally NOT remapped.
+    # They are used only as gating inputs (see CONNECTION_GATED_SENSORS), which read the
+    # raw payload keys. Remapping them used to leak ghost "*_connection" keys (with no
+    # entity) into the coordinator data and into persisted SENSORS_TO_LOAD.
     "t1chill": CHILL_INDEX,
     "t1heat": HEAT_INDEX,
     "t1rainhr": HOURLY_RAIN,

@@ -132,7 +132,7 @@ SENSOR_TYPES_WEATHER_API: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
         key=WIND_AZIMUT,
         icon="mdi:sign-direction",
-        value_from_data_fn=lambda dir: wind_dir_to_text(dir.get(WIND_DIR, 0.0)),
+        value_from_data_fn=lambda dir: wind_dir_to_text(dir.get(WIND_DIR)),
         device_class=SensorDeviceClass.ENUM,
         options=[e.value for e in UnitOfDir],
         translation_key=WIND_AZIMUT,

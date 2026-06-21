@@ -104,7 +104,9 @@ class WindyPush:
         """Verify answer form Windy."""
 
         if self.log and response:
-            _LOGGER.info("Windy raw response: %s", response.text)
+            # response.text is a coroutine; we are in a sync method here, so log the
+            # status instead of awaiting/logging a bound method object.
+            _LOGGER.info("Windy raw response status: %s", response.status)
 
         if response.status == 200:
             raise WindySuccess
@@ -270,8 +272,10 @@ class WindyPush:
                 else:
                     self.last_status = "unexpected_response"
                     self.last_error = "Unexpected response from Windy."
+                    # Always count unexpected responses toward the disable threshold,
+                    # regardless of the logging setting.
+                    self.invalid_response_count += 1
                     if self.log:
-                        self.invalid_response_count += 1
                         _LOGGER.debug(
                             "Unexpected response from Windy. Max retries before disabling resend function: %s",
                             (WINDY_MAX_RETRIES - self.invalid_response_count),

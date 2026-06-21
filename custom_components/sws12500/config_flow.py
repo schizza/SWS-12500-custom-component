@@ -141,7 +141,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
 
         self.wslink_addon_port = {WSLINK_ADDON_PORT: self.config_entry.options.get(WSLINK_ADDON_PORT, 443)}
 
-    async def async_step_init(self, user_input: dict[str, Any] = {}):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage the options - show menu first."""
         _ = user_input
         return self.async_show_menu(
@@ -295,7 +295,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         await self._get_entry_data()
 
         if not (port := self.wslink_addon_port.get(WSLINK_ADDON_PORT)):
-            port = 433
+            port = 443
 
         wslink_port_schema = {
             vol.Required(WSLINK_ADDON_PORT, default=port): int,
