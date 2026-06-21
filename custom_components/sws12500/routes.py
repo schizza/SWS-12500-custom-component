@@ -77,7 +77,12 @@ class Routes:
         if key in self.routes:
             return self.routes[key]
 
-        resource = request.match_info.route.resource
+        # Fallback to the aiohttp resource canonical URL (for routes with a path
+        # parameter such as {webhook_id}). Resolve defensively: a request without
+        # match_info/route/resource simply has no canonical match.
+        match_info = getattr(request, "match_info", None)
+        route = getattr(match_info, "route", None)
+        resource = getattr(route, "resource", None)
         if resource is not None:
             canonical_key = f"{request.method}:{resource.canonical}"
             if canonical_key in self.routes:
@@ -101,6 +106,24 @@ class Routes:
                     route.url_path,
                     "enabled" if enabled else "disabled",
                 )
+                return
+
+    def rebind_handler(self, url_path: str, handler: Handler) -> None:
+        """Repoint an always-on sticky route to a new handler after a reload.
+
+        Sticky routes (e.g. health) stay enabled across reloads, but their stored
+        handler is a bound method tied to a specific coordinator instance. When the
+        integration reloads, a new coordinator is created, so the handler must be
+        repointed - otherwise the route keeps calling the old (stale) instance.
+
+        Unlike `set_ecowitt_enabled`, this never changes `enabled`; it only rebinds
+        currently enabled sticky routes for `url_path`.
+        """
+
+        for route in self.routes.values():
+            if route.url_path == url_path and route.sticky and route.enabled:
+                route.handler = handler
+                _LOGGER.debug("Rebound sticky route handler for %s", url_path)
                 return
 
     def set_ingress_observer(self, observer: IngressObserver | None) -> None:

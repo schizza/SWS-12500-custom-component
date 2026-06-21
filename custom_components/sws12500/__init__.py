@@ -167,6 +167,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
         routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL, enabled=_legacy)
         routes.set_ecowitt_enabled(_ecowitt_path, coordinator.received_ecowitt_data, _ecowitt_enabled)
+        # Rebind the sticky health route to the new coordinator so /station/health
+        # does not keep serving the previous (stale) HealthCoordinator after a reload.
+        routes.rebind_handler(HEALTH_URL, coordinator_health.health_status)
         routes.set_ingress_observer(coordinator_health.record_dispatch)
         coordinator_health.update_routing(routes)
         _LOGGER.debug("%s", routes.show_enabled())
