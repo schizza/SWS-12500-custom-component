@@ -24,7 +24,6 @@ from py_typecheck import checked_or
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -33,7 +32,6 @@ from . import health_sensor
 from .const import (
     CHILL_INDEX,
     DEV_DBG,
-    DOMAIN,
     HEAT_INDEX,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
@@ -43,7 +41,7 @@ from .const import (
     WIND_SPEED,
     WSLINK,
 )
-from .data import SWSConfigEntry
+from .data import SWSConfigEntry, build_device_info
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
@@ -225,12 +223,5 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
 
     @cached_property
     def device_info(self) -> DeviceInfo:
-        """Device info."""
-        return DeviceInfo(
-            connections=set(),
-            name="Weather Station SWS 12500",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN,)},  # type: ignore[arg-type]
-            manufacturer="Schizza",
-            model="Weather Station SWS 12500",
-        )
+        """Device info (single shared device for the whole integration)."""
+        return build_device_info(self.coordinator.config)

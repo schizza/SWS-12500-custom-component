@@ -198,6 +198,11 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         post_data = await webdata.post()
         data: dict[str, Any] = dict(post_data)
 
+        # Record the Ecowitt station model (used as the device model) before parsing,
+        # so native entities created during process_payload report it.
+        if model := checked(data.get("model"), str):
+            self.config.runtime_data.ecowitt_model = model
+
         mapped_data = await self.ecowitt_bridge.process_payload(data)
 
         if mapped_data:

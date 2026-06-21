@@ -11,9 +11,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from py_typecheck import checked_or
+
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceEntryType
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN, ECOWITT_ENABLED, WSLINK
 
 if TYPE_CHECKING:
     from homeassistant.components.binary_sensor import BinarySensorEntityDescription
@@ -51,6 +57,38 @@ class SWSRuntimeData:
     started_at: datetime = field(default_factory=dt_util.utcnow)
     last_seen: dict[str, datetime] = field(default_factory=dict)
 
+    # Ecowitt station model (e.g. "GW1000"), learned from the first Ecowitt payload.
+    ecowitt_model: str | None = None
+
 
 # Type alias for typed ConfigEntry
 type SWSConfigEntry = ConfigEntry[SWSRuntimeData]
+
+
+def _station_model(entry: SWSConfigEntry) -> str:
+    """Return the device model label reflecting the running station type.
+
+    Ecowitt (with the learned model when available), else WSLink, else PWS.
+    """
+    if checked_or(entry.options.get(ECOWITT_ENABLED), bool, False):
+        runtime = getattr(entry, "runtime_data", None)
+        model = getattr(runtime, "ecowitt_model", None) if runtime is not None else None
+        return f"Ecowitt {model}" if model else "Ecowitt"
+    if checked_or(entry.options.get(WSLINK), bool, False):
+        return "WSLink"
+    return "PWS"
+
+
+def build_device_info(entry: SWSConfigEntry) -> DeviceInfo:
+    """Single device shared by all entities (SWS, battery, health, native Ecowitt).
+
+    Keeps the existing ``{(DOMAIN,)}`` identifier so no device-registry migration is
+    needed; the model reflects the active station type.
+    """
+    return DeviceInfo(
+        identifiers={(DOMAIN,)},  # type: ignore[arg-type]
+        name="Weather Station SWS 12500",
+        entry_type=DeviceEntryType.SERVICE,
+        manufacturer="Schizza",
+        model=_station_model(entry),
+    )

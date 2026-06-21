@@ -25,6 +25,8 @@ class _CoordinatorStub:
 
     def __init__(self, data: dict[str, Any] | None = None) -> None:
         self.data: dict[str, Any] = data if data is not None else {}
+        # device_info reads coordinator.config for the shared device model.
+        self.config = SimpleNamespace(options={})
 
 
 def _make_entry(
@@ -213,7 +215,7 @@ def test_device_info():
     info = sensor.device_info
     assert info["name"] == "Weather Station SWS 12500"
     assert info["manufacturer"] == "Schizza"
-    assert info["model"] == "Weather Station SWS 12500"
+    assert info["model"] == "PWS"  # no ecowitt/wslink in stub options -> PWS
     assert info["identifiers"] == {(DOMAIN,)}
 
 

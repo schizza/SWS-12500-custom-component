@@ -675,8 +675,11 @@ def _description(key: str) -> hs.HealthSensorEntityDescription:
 
 
 def _stub_coordinator(data: dict[str, Any]) -> Any:
-    """CoordinatorEntity.__init__ only stores the coordinator; a stub suffices."""
-    return SimpleNamespace(data=data)
+    """CoordinatorEntity.__init__ only stores the coordinator; a stub suffices.
+
+    device_info reads coordinator.config for the shared device model.
+    """
+    return SimpleNamespace(data=data, config=SimpleNamespace(options={}))
 
 
 def test_sensor_native_value_without_value_fn() -> None:
@@ -745,7 +748,7 @@ def test_sensor_device_info() -> None:
     info = sensor.device_info
     assert info["name"] == "Weather Station SWS 12500"
     assert info["manufacturer"] == "Schizza"
-    assert info["model"] == "Weather Station SWS 12500"
+    assert info["model"] == "PWS"  # no ecowitt/wslink in stub options -> PWS
 
 
 def test_sensor_unique_id_and_category() -> None:

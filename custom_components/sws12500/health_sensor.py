@@ -12,14 +12,12 @@ from py_typecheck import checked, checked_or
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
-from .data import SWSConfigEntry
+from .data import SWSConfigEntry, build_device_info
 from .health_coordinator import HealthCoordinator, public_health_snapshot
 
 if TYPE_CHECKING:
@@ -265,12 +263,5 @@ class HealthDiagnosticSensor(  # pyright: ignore[reportIncompatibleVariableOverr
 
     @cached_property
     def device_info(self) -> DeviceInfo:
-        """Device info."""
-        return DeviceInfo(
-            connections=set(),
-            name="Weather Station SWS 12500",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN,)},  # type: ignore[arg-type]
-            manufacturer="Schizza",
-            model="Weather Station SWS 12500",
-        )
+        """Device info (single shared device for the whole integration)."""
+        return build_device_info(self.coordinator.config)

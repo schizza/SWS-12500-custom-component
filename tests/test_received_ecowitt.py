@@ -240,13 +240,16 @@ async def test_received_ecowitt_success_full_pipeline_with_health_autodiscovery_
     coordinator.async_set_updated_data = MagicMock()
 
     request = _EcowittRequestStub(
-        match_info={"webhook_id": "hook"}, post_data={"tempf": "68"}
+        match_info={"webhook_id": "hook"}, post_data={"tempf": "68", "model": "GW2000A"}
     )
     resp = await coordinator.received_ecowitt_data(request)  # type: ignore[arg-type]
 
     assert resp.status == 200
 
     coordinator.ecowitt_bridge.process_payload.assert_awaited_once()
+
+    # Station model is learned from the payload and stored for the shared device model.
+    assert entry.runtime_data.ecowitt_model == "GW2000A"
 
     # Autodiscovery side-effects.
     update_options.assert_awaited_once()

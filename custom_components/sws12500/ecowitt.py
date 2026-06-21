@@ -19,14 +19,12 @@ from aioecowitt import EcoWittListener, EcoWittSensor, EcoWittSensorTypes
 from aioecowitt.sensor import SENSOR_MAP
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from .const import DOMAIN, REMAP_ECOWITT_COMPAT
+from .const import REMAP_ECOWITT_COMPAT
+from .data import SWSConfigEntry, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -216,7 +214,7 @@ class EcowittBridge:
     and we are just using parsing/discovery logic.
     """
 
-    def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, config: SWSConfigEntry) -> None:
         """Initialize bridge."""
 
         self.hass = hass
@@ -308,7 +306,7 @@ class EcowittBridge:
             return
 
         self._know_native_keys.add(sensor.key)
-        entity = EcoWittNativeSensor(sensor)
+        entity = EcoWittNativeSensor(sensor, self.config)
         self._add_entities_cb([entity])
 
         _LOGGER.info("New native Ecowitt sensor %s (type=%s)", sensor.name, sensor.stype.name)
@@ -336,7 +334,7 @@ class EcoWittNativeSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, sensor: EcoWittSensor) -> None:
+    def __init__(self, sensor: EcoWittSensor, config: SWSConfigEntry) -> None:
         """Initialize native EcoWittSensor."""
 
         self._ecowitt_sensor = sensor
@@ -358,17 +356,9 @@ class EcoWittNativeSensor(SensorEntity):
             self._attr_native_unit_of_measurement = unit
             self._attr_state_class = state_class
 
-        # Always attach device info so the entity is grouped under the Ecowitt
-        # station device even when its sensor type has no HA mapping.
-        station = sensor.station
-        self._attr_device_info = DeviceInfo(
-            connections=set(),
-            name=f"Ecowitt {station.model}" if station else "Ecowitt station",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, f"ecowitt_{station.key}" if station else "ecowitt")},
-            manufacturer="Ecowitt impl. from Schizza for SWS12500",
-            model=station.model if station else None,
-        )
+        # Share the single integration device (see data.build_device_info); the station
+        # type is reflected in the device model rather than a separate Ecowitt device.
+        self._attr_device_info = build_device_info(config)
 
     @property
     def native_value(self) -> StateType | datetime:  # pyright: ignore[reportIncompatibleVariableOverride]

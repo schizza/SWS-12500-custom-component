@@ -11,11 +11,10 @@ from typing import Any
 from py_typecheck import checked_or
 
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
-from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .data import build_device_info
 
 
 class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -62,12 +61,5 @@ class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride
 
     @cached_property
     def device_info(self) -> DeviceInfo:
-        """Device info."""
-        return DeviceInfo(
-            connections=set(),
-            name="Weather Station SWS 12500",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN,)},  # type: ignore[arg-type]
-            manufacturer="Schizza",
-            model="Weather Station SWS 12500",
-        )
+        """Device info (single shared device for the whole integration)."""
+        return build_device_info(self.coordinator.config)

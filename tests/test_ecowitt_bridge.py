@@ -20,8 +20,23 @@ from aioecowitt import EcoWittSensor, EcoWittSensorTypes
 from aioecowitt.station import EcoWittStation
 import pytest
 
-from custom_components.sws12500.const import DOMAIN, REMAP_ECOWITT_COMPAT
+from custom_components.sws12500.const import DOMAIN, ECOWITT_ENABLED, REMAP_ECOWITT_COMPAT
 from custom_components.sws12500.ecowitt import STYPE_TO_HA, EcowittBridge, EcoWittNativeSensor
+
+# Default config stub for native entities: the integration shares a single device,
+# so EcoWittNativeSensor only needs the entry to resolve the device model. A bare
+# PWS config (no ecowitt/wslink flags) is enough for the non-device assertions.
+_PWS_CONFIG = SimpleNamespace(options={})
+# An ecowitt config that yields model "Ecowitt GW1000" for device-info assertions.
+_ECOWITT_CONFIG = SimpleNamespace(
+    options={ECOWITT_ENABLED: True},
+    runtime_data=SimpleNamespace(ecowitt_model="GW1000"),
+)
+
+
+def _native(sensor: Any, config: Any = _PWS_CONFIG) -> EcoWittNativeSensor:
+    """Build a native sensor with a default (PWS) config stub."""
+    return EcoWittNativeSensor(sensor, config)
 
 # A realistic Ecowitt POST payload. `model` is required by aioecowitt's
 # station extraction. Contains both internally mapped fields (tempf, humidity,
@@ -238,7 +253,7 @@ def test_native_sensor_init_with_mapped_stype() -> None:
     )
     sensor = _make_sensor(key="pm25_ch1", stype=EcoWittSensorTypes.PM25, station=station)
 
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor, _ECOWITT_CONFIG)
 
     assert entity._attr_unique_id == "ecowitt_pm25_ch1"
     assert entity._attr_name == "PM2.5 CH1"
@@ -249,12 +264,13 @@ def test_native_sensor_init_with_mapped_stype() -> None:
     assert entity._attr_native_unit_of_measurement == unit
     assert entity._attr_state_class == state_class
 
-    # Device info groups the entity under the station device.
+    # Native sensors join the single shared integration device; the running station
+    # type is reflected in the model, not in a separate Ecowitt device.
     info = entity._attr_device_info
-    assert info["name"] == "Ecowitt GW1000"
-    assert info["model"] == "GW1000"
-    assert (DOMAIN, "ecowitt_ABC123") in info["identifiers"]
-    assert info["manufacturer"] == "Ecowitt impl. from Schizza for SWS12500"
+    assert info["name"] == "Weather Station SWS 12500"
+    assert info["model"] == "Ecowitt GW1000"
+    assert info["identifiers"] == {(DOMAIN,)}
+    assert info["manufacturer"] == "Schizza"
 
 
 def test_native_sensor_init_with_unmapped_stype() -> None:
@@ -274,37 +290,40 @@ def test_native_sensor_init_with_unmapped_stype() -> None:
         value="1000",
     )
 
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor, _ECOWITT_CONFIG)
 
     # No HA metadata set for unknown types.
     assert getattr(entity, "_attr_device_class", None) is None
     assert getattr(entity, "_attr_native_unit_of_measurement", None) is None
     assert getattr(entity, "_attr_state_class", None) is None
 
-    # Device info is still present.
+    # Device info is still present and points at the shared device.
     info = entity._attr_device_info
-    assert info["name"] == "Ecowitt GW1000"
-    assert (DOMAIN, "ecowitt_ABC123") in info["identifiers"]
+    assert info["name"] == "Weather Station SWS 12500"
+    assert info["identifiers"] == {(DOMAIN,)}
 
 
-def test_native_sensor_init_without_station() -> None:
-    """A sensor with no station falls back to generic device info."""
+def test_native_sensor_device_model_follows_config_not_station() -> None:
+    """Device model comes from the entry config, independent of the sensor station.
+
+    A native sensor whose ``station`` is missing still lands on the shared device,
+    and the model reflects the configured station type (here a bare PWS config).
+    """
     sensor = _make_sensor(key="pm25_ch1", stype=EcoWittSensorTypes.PM25)
-    # Force the no-station branch.
     sensor.station = None  # type: ignore[assignment]
 
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)  # default PWS config
 
     info = entity._attr_device_info
-    assert info["name"] == "Ecowitt station"
-    assert info["model"] is None
-    assert (DOMAIN, "ecowitt") in info["identifiers"]
+    assert info["name"] == "Weather Station SWS 12500"
+    assert info["model"] == "PWS"
+    assert info["identifiers"] == {(DOMAIN,)}
 
 
 def test_native_value_returns_value() -> None:
     """native_value returns the underlying sensor value."""
     sensor = _make_sensor(value=42.0)
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)
     assert entity.native_value == 42.0
 
 
@@ -312,7 +331,7 @@ def test_native_value_returns_value() -> None:
 def test_native_value_none_or_empty(empty: Any) -> None:
     """native_value maps None and "" to None."""
     sensor = _make_sensor(value=empty)
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)
     assert entity.native_value is None
 
 
@@ -320,7 +339,7 @@ def test_native_value_none_or_empty(empty: Any) -> None:
 async def test_added_and_removed_callback_lifecycle() -> None:
     """async_added/async_will_remove register and unregister the update cb."""
     sensor = _make_sensor()
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)
 
     assert entity._handle_update not in sensor.update_cb
 
@@ -335,7 +354,7 @@ async def test_added_and_removed_callback_lifecycle() -> None:
 async def test_will_remove_when_callback_absent() -> None:
     """async_will_remove is safe when the callback was never registered."""
     sensor = _make_sensor()
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)
 
     # Not added; removal must not raise and must not touch the list.
     assert entity._handle_update not in sensor.update_cb
@@ -346,7 +365,7 @@ async def test_will_remove_when_callback_absent() -> None:
 def test_handle_update_writes_ha_state() -> None:
     """_handle_update forwards to async_write_ha_state."""
     sensor = _make_sensor()
-    entity = EcoWittNativeSensor(sensor)
+    entity = _native(sensor)
     entity.async_write_ha_state = MagicMock()  # type: ignore[method-assign]
 
     entity._handle_update()
@@ -416,14 +435,14 @@ def test_on_new_sensor_skips_already_created_twin() -> None:
 
 
 def test_native_sensor_translation_key_for_curated() -> None:
-    ent = EcoWittNativeSensor(
+    ent = _native(
         _make_sensor(key="baromabsin", name="Absolute Pressure", stype=EcoWittSensorTypes.PRESSURE_INHG)
     )
     assert ent._attr_translation_key == "ecowitt_absolute_pressure"
 
 
 def test_native_sensor_name_fallback_for_unknown() -> None:
-    ent = EcoWittNativeSensor(
+    ent = _native(
         _make_sensor(key="air_ch1", name="Air Gap 1", stype=EcoWittSensorTypes.INTERNAL)
     )
     assert ent._attr_name == "Air Gap 1"

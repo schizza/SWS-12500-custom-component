@@ -236,7 +236,7 @@ def test_device_info_contains_expected_identifiers_and_domain():
     # DeviceInfo is mapping-like; access defensively.
     assert info.get("name") == "Weather Station SWS 12500"
     assert info.get("manufacturer") == "Schizza"
-    assert info.get("model") == "Weather Station SWS 12500"
+    assert info.get("model") == "PWS"  # no ecowitt/wslink in stub options -> PWS
 
     identifiers = info.get("identifiers")
     assert isinstance(identifiers, set)
