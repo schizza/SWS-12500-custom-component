@@ -144,6 +144,7 @@ class HealthCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             logger=_LOGGER,
+            config_entry=config,
             name=f"{DOMAIN}_health",
             update_interval=timedelta(minutes=1),
         )

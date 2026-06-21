@@ -83,7 +83,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self.pocasi: PocasiPush = PocasiPush(hass, config)
         self.ecowitt_bridge: EcowittBridge = EcowittBridge(hass, config)
 
-        super().__init__(hass, _LOGGER, name=DOMAIN)
+        super().__init__(hass, _LOGGER, config_entry=config, name=DOMAIN)
 
     def _health_coordinator(self) -> HealthCoordinator | None:
         """Return the health coordinator for this config entry."""
@@ -260,32 +260,21 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         remaped_items: dict[str, str] = remap_wslink_items(data) if _wslink else remap_items(data)
 
         if sensors := check_disabled(remaped_items, self.config):
-            if (
-                translate_sensors := checked(
-                    [
-                        await translations(
-                            self.hass,
-                            DOMAIN,
-                            f"sensor.{t_key}",
-                            key="name",
-                            category="entity",
-                        )
-                        for t_key in sensors
-                        if await translations(
-                            self.hass,
-                            DOMAIN,
-                            f"sensor.{t_key}",
-                            key="name",
-                            category="entity",
-                        )
-                        is not None
-                    ],
-                    list[str],
+            # Resolve each sensor's display name once (the previous comprehension
+            # awaited translations() twice per key).
+            translated_sensors: list[str] = []
+            for t_key in sensors:
+                name = await translations(
+                    self.hass,
+                    DOMAIN,
+                    f"sensor.{t_key}",
+                    key="name",
+                    category="entity",
                 )
-            ) is not None:
-                human_readable: str = "\n".join(translate_sensors)
-            else:
-                human_readable = ""
+                if name is not None:
+                    translated_sensors.append(name)
+
+            human_readable = "\n".join(translated_sensors)
 
             await translated_notification(
                 self.hass,
