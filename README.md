@@ -287,12 +287,16 @@ for this integration to support WSLink on non-SSL installations of Home Assistan
 ### Configuration
 
 - Set your station up as [described above](#configure-your-station-in-ap-mode), but for
-  `HA port` use the port the add-on is listening on (4443 by default) — **not** the port
-  of your Home Assistant instance.
+  `HA port` use the port the add-on is listening on — **not** the port of your Home
+  Assistant instance.
+
+The add-on listens on port `443` by default. The example below uses `4443` to show what a
+remapped port looks like — you would pick a port like that only if you changed the add-on's
+port mapping, for instance because `443` is already taken on the host.
 
 ```plain
 Home Assistant is at 192.168.0.2:8123
-WSLink proxy add-on is listening on port 4443
+WSLink proxy add-on has been remapped to port 4443
 
 → set the station URL to: 192.168.0.2:4443
 ```
@@ -310,7 +314,7 @@ the port to reach it on:
 - In `Settings` -> `Devices & services` find SWS12500, click `Configure` and choose
   `WSLink add-on port`.
 - Set it to the same port the add-on listens on — the one you pointed the station at
-  above. The integration defaults to `443`, so if your add-on listens elsewhere (`4443`
-  in the example above), change it here.
+  above. This option defaults to `443`, which matches the add-on's own default, so you
+  only need to change it if you remapped the add-on's port (`4443` in the example above).
 
 This setting only affects the health probe; incoming station data is unaffected by it.
