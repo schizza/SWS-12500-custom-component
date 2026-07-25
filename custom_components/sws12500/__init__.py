@@ -3,16 +3,15 @@
 Architecture overview
 ---------------------
 This integration is *push-based*: the weather station calls our HTTP endpoint and we
-receive a query payload. We do not poll the station.
+receive an HTTP payload. We do not poll the station.
 
 Key building blocks:
 - `WeatherDataUpdateCoordinator` acts as an in-memory "data bus" for the latest payload.
   On each webhook request we call `async_set_updated_data(...)` and all `CoordinatorEntity`
   sensors get notified and update their states.
-- `hass.data[DOMAIN][entry_id]` is a per-entry *dict* that stores runtime state
-  (coordinator instance, options snapshot, and sensor platform callbacks). Keeping this
-  structure consistent is critical; mixing different value types under the same key can
-  break listener wiring and make the UI appear "frozen".
+- `entry.runtime_data` stores per-entry runtime state (coordinator instance, options
+  snapshot, and sensor platform callbacks). Shared aiohttp route registrations stay
+  under `hass.data[DOMAIN]["routes"]` because they must survive a config-entry reload.
 
 Auto-discovery
 --------------
@@ -99,9 +98,9 @@ def register_path(
 ) -> bool:
     """Register webhook paths.
 
-    We register both possible endpoints and use an internal dispatcher (`Routes`) to
-    enable exactly one of them. This lets us toggle WSLink mode without re-registering
-    routes on the aiohttp router.
+    We register the supported station endpoints and use an internal dispatcher
+    (`Routes`) to enable only the configured ingress path. This lets us toggle
+    protocols without re-registering routes on the aiohttp router.
     """
 
     hass.data.setdefault(DOMAIN, {})
