@@ -224,10 +224,14 @@ POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
 POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
 POCASI_CZ_SEND_INTERVAL = "POCASI_SEND_INTERVAL"
 POCASI_CZ_ENABLED = "pocasi_enabled_checkbox"
+# Misspelled key used by config entries created before version 2 (see `async_migrate_entry`).
+POCASI_CZ_ENABLED_LEGACY: Final = "pocasi_enabled_chcekbox"
 POCASI_CZ_LOGGER_ENABLED = "pocasi_logger_checkbox"
 POCASI_INVALID_KEY: Final = "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
 POCASI_CZ_SUCCESS: Final = "Successfully sent data to Pocasi Meteo"
-POCASI_CZ_UNEXPECTED: Final = "Pocasi Meteo responded unexpectedly 3 times in row. Resending is now disabled!"
+POCASI_CZ_UNEXPECTED: Final = (
+    f"Pocasi Meteo responded unexpectedly {POCASI_CZ_MAX_RETRIES} times in row. Resending is now disabled!"
+)
 
 WINDY_STATION_ID = "WINDY_STATION_ID"
 WINDY_STATION_PW = "WINDY_STATION_PWD"
@@ -238,7 +242,9 @@ WINDY_INVALID_KEY: Final = (
     "Windy API KEY is invalid. Send data to Windy is now disabled. Check your API KEY and try again."
 )
 WINDY_SUCCESS: Final = "Windy successfully sent data and data was successfully inserted by Windy API"
-WINDY_UNEXPECTED: Final = "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
+WINDY_UNEXPECTED: Final = (
+    f"Windy responded unexpectedly {WINDY_MAX_RETRIES} times in a row. Send to Windy is now disabled!"
+)
 
 
 

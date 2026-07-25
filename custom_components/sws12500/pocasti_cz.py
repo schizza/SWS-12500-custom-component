@@ -172,7 +172,7 @@ class PocasiPush:
                 self.last_error = f"Unexpected HTTP status {http_status} from Pocasi Meteo."
                 self.invalid_response_count += 1
                 _LOGGER.warning(
-                    "Unexpected HTTP status %s from Pocasi Meteo. Rentries before disabling resend: %s",
+                    "Unexpected HTTP status %s from Pocasi Meteo. Retries before disabling resend: %s",
                     http_status,
                     POCASI_CZ_MAX_RETRIES - self.invalid_response_count,
                 )

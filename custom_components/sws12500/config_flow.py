@@ -337,7 +337,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         vol.Optional(DEV_DBG): bool,
     }
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(self, user_input: Any = None):
         """Handle the initial step."""

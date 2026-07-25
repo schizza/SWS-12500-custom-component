@@ -163,8 +163,10 @@ class WindyPush:
 
         `enabled` reads the option back, so persisting it here is what actually turns
         forwarding off.
+
+        `last_status` is deliberately left to the caller so the diagnostics sensor keeps
+        the specific reason (`config_error`, `auth_error`, ...) instead of a generic one.
         """
-        self.last_status = "disabled"
         self.last_error = reason
 
         if not await update_options(self.hass, self.config, WINDY_ENABLED, False):
@@ -251,7 +253,7 @@ class WindyPush:
 
                     # log despite of settings
                     _LOGGER.error(
-                        "%s Max rentries before disable resend function: %s",
+                        "%s Max retries before disable resend function: %s",
                         WINDY_NOT_INSERTED,
                         (WINDY_MAX_RETRIES - self.invalid_response_count),
                     )
@@ -268,7 +270,7 @@ class WindyPush:
                     self.last_status = "duplicate"
                     self.last_error = "Duplicate payload detected by Windy server."
                     _LOGGER.critical(
-                        "Duplicate payload detected by Windy server. Will try again later. Max rentries before disabling resend function: %s",
+                        "Duplicate payload detected by Windy server. Will try again later. Max retries before disabling resend function: %s",
                         (WINDY_MAX_RETRIES - self.invalid_response_count),
                     )
                     self.invalid_response_count += 1
@@ -296,7 +298,7 @@ class WindyPush:
                     self.invalid_response_count += 1
                     if self.log:
                         _LOGGER.debug(
-                            "Unexpected response from Windy. Max rentries before disabling resend function: %s",
+                            "Unexpected response from Windy. Max retries before disabling resend function: %s",
                             (WINDY_MAX_RETRIES - self.invalid_response_count),
                         )
                 finally:
@@ -306,7 +308,7 @@ class WindyPush:
                             WINDY_MAX_RETRIES,
                         )
                         await self._disable_windy(
-                            reason="Unable to send data to Windy (3 times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
+                            reason=f"Unable to send data to Windy ({WINDY_MAX_RETRIES} times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
                         )
 
         except ClientError as ex:
@@ -315,14 +317,16 @@ class WindyPush:
             # attributes; str(ex) could embed the request URL.
             self.last_error = type(ex).__name__
             _LOGGER.critical(
-                "Invalid response from Windy: %s. Will try again later, max rentries before disabling resend function: %s",
+                "Invalid response from Windy: %s. Will try again later, max retries before disabling resend function: %s",
                 str(ex),
                 (WINDY_MAX_RETRIES - self.invalid_response_count),
             )
             self.invalid_response_count += 1
             if self.invalid_response_count >= WINDY_MAX_RETRIES:
                 _LOGGER.critical(WINDY_UNEXPECTED)
-                await self._disable_windy(reason="Invalid response from Windy 3 times. Disabling resending option.")
+                await self._disable_windy(
+                    reason=f"Invalid response from Windy {WINDY_MAX_RETRIES} times. Disabling resending option."
+                )
         self.last_update = dt_util.utcnow()
         self.next_update = self.last_update + timed(minutes=5)
 

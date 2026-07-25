@@ -232,6 +232,8 @@ async def test_push_data_to_windy_missing_station_id_returns_false(monkeypatch, 
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is False
     assert session.calls == []
+    # Disabling must not overwrite the specific reason the diagnostics sensor reports.
+    assert wp.last_status == "config_error"
 
 
 @pytest.mark.asyncio
@@ -259,6 +261,7 @@ async def test_push_data_to_windy_missing_station_pw_returns_false(monkeypatch, 
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is False
     assert session.calls == []
+    assert wp.last_status == "config_error"
 
 
 @pytest.mark.asyncio
@@ -288,6 +291,7 @@ async def test_push_data_to_windy_invalid_api_key_disables_windy(monkeypatch, ha
     ok = await wp.push_data_to_windy({"a": "b"})
     assert ok is True
     update_options.assert_awaited_once_with(hass, entry, WINDY_ENABLED, False)
+    assert wp.last_status == "auth_error"
 
 
 @pytest.mark.asyncio

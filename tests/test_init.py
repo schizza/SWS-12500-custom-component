@@ -20,8 +20,19 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sws12500 import WeatherDataUpdateCoordinator, async_setup_entry
-from custom_components.sws12500.const import DOMAIN
+from custom_components.sws12500 import (
+    CONFIG_ENTRY_VERSION,
+    WeatherDataUpdateCoordinator,
+    async_migrate_entry,
+    async_setup_entry,
+)
+from custom_components.sws12500.config_flow import ConfigFlowHandler
+from custom_components.sws12500.const import (
+    DOMAIN,
+    POCASI_CZ_ENABLED,
+    POCASI_CZ_ENABLED_LEGACY,
+    WINDY_ENABLED,
+)
 from custom_components.sws12500.data import SWSRuntimeData
 from homeassistant.util import dt as dt_util
 
@@ -149,3 +160,83 @@ async def test_check_stale_callback_runs_update(
 
     captured["cb"](dt_util.utcnow())
     stale.assert_called_once_with(hass, config_entry)
+
+
+def test_config_flow_version_matches_migration_target() -> None:
+    """The flow version and the migration target must not drift apart."""
+    assert ConfigFlowHandler.VERSION == CONFIG_ENTRY_VERSION
+
+
+async def test_migrate_moves_legacy_pocasi_key(hass) -> None:
+    """A v1 entry carrying the misspelled key migrates to v2 keeping the value."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={POCASI_CZ_ENABLED_LEGACY: True, WINDY_ENABLED: True},
+        version=1,
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry) is True
+
+    assert entry.version == 2
+    assert entry.options[POCASI_CZ_ENABLED] is True
+    assert POCASI_CZ_ENABLED_LEGACY not in entry.options
+    # Unrelated options survive untouched.
+    assert entry.options[WINDY_ENABLED] is True
+
+
+async def test_migrate_without_pocasi_option(hass) -> None:
+    """An entry that never had the Pocasi option migrates cleanly."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={WINDY_ENABLED: False}, version=1)
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry) is True
+
+    assert entry.version == 2
+    assert POCASI_CZ_ENABLED not in entry.options
+    assert entry.options[WINDY_ENABLED] is False
+
+
+async def test_migrate_does_not_clobber_correct_key(hass) -> None:
+    """When both keys are present, the already-correct one wins."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={POCASI_CZ_ENABLED_LEGACY: False, POCASI_CZ_ENABLED: True},
+        version=1,
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry) is True
+
+    assert entry.options[POCASI_CZ_ENABLED] is True
+    assert POCASI_CZ_ENABLED_LEGACY not in entry.options
+
+
+async def test_migrate_is_idempotent(hass) -> None:
+    """Running the migration twice leaves the entry unchanged."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={}, options={POCASI_CZ_ENABLED_LEGACY: True}, version=1
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry) is True
+    first = dict(entry.options)
+
+    assert await async_migrate_entry(hass, entry) is True
+
+    assert entry.version == 2
+    assert dict(entry.options) == first
+    assert entry.options[POCASI_CZ_ENABLED] is True
+
+
+async def test_migrate_refuses_future_version(hass) -> None:
+    """An entry written by a newer version is not downgraded."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={}, options={}, version=CONFIG_ENTRY_VERSION + 1
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry) is False
+    assert entry.version == CONFIG_ENTRY_VERSION + 1

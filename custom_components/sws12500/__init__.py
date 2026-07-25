@@ -46,6 +46,7 @@ from .const import (
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
     POCASI_CZ_ENABLED,
+    POCASI_CZ_ENABLED_LEGACY,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
     WSLINK,
@@ -60,6 +61,34 @@ from .staleness import update_stale_sensors_issue
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+
+# Keep in sync with `ConfigFlowHandler.VERSION`.
+CONFIG_ENTRY_VERSION: int = 2
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
+    """Migrate an old config entry.
+
+    Version 2 renames the Pocasi Meteo enable flag from the misspelled
+    `pocasi_enabled_chcekbox` to `pocasi_enabled_checkbox`. Without moving the persisted
+    value, forwarding would silently switch off for every existing install.
+    """
+
+    if entry.version > CONFIG_ENTRY_VERSION:
+        # Downgrades are not supported - the entry was written by a newer version.
+        return False
+
+    if entry.version < 2:
+        options = dict(entry.options)
+        if POCASI_CZ_ENABLED_LEGACY in options:
+            legacy_value = options.pop(POCASI_CZ_ENABLED_LEGACY)
+            # Never clobber an already-correct key (both may exist after a partial upgrade).
+            options.setdefault(POCASI_CZ_ENABLED, legacy_value)
+            _LOGGER.debug("Migrated Pocasi Meteo enable flag to %s.", POCASI_CZ_ENABLED)
+
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
+
+    return True
 
 
 def register_path(
