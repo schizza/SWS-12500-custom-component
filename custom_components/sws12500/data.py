@@ -19,7 +19,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, ECOWITT_ENABLED, WSLINK
+from .conflicts import effective_protocols
+from .const import DOMAIN, WSLINK
 
 if TYPE_CHECKING:
     from homeassistant.components.binary_sensor import BinarySensorEntityDescription
@@ -69,12 +70,17 @@ def _station_model(entry: SWSConfigEntry) -> str:
     """Return the device model label reflecting the running station type.
 
     Ecowitt (with the learned model when available), else WSLink, else PWS.
+
+    Uses the *effective* protocols so a stale both-enabled config reports the endpoint
+    that is actually wired up, rather than one that is being ignored.
     """
-    if checked_or(entry.options.get(ECOWITT_ENABLED), bool, False):
+    legacy, ecowitt = effective_protocols(entry)
+
+    if ecowitt:
         runtime = getattr(entry, "runtime_data", None)
         model = getattr(runtime, "ecowitt_model", None) if runtime is not None else None
         return f"Ecowitt {model}" if model else "Ecowitt"
-    if checked_or(entry.options.get(WSLINK), bool, False):
+    if legacy and checked_or(entry.options.get(WSLINK), bool, False):
         return "WSLink"
     return "PWS"
 

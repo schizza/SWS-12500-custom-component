@@ -14,6 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 from homeassistant.helpers.network import get_url
 
+from .conflicts import ERROR_MUTUALLY_EXCLUSIVE
 from .const import (
     API_ID,
     API_KEY,
@@ -171,7 +172,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             )
 
         if user_input.get(LEGACY_ENABLED):
-            if user_input[API_ID] in INVALID_CREDENTIALS or user_input.get(API_ID, "") == "":
+            # Both endpoints remap onto the same internal sensor keys, so enabling the
+            # legacy one while Ecowitt is active would corrupt those entities.
+            if self.ecowitt.get(ECOWITT_ENABLED):
+                errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
+            elif user_input[API_ID] in INVALID_CREDENTIALS or user_input.get(API_ID, "") == "":
                 errors[API_ID] = "valid_credentials_api"
             elif user_input[API_KEY] in INVALID_CREDENTIALS or user_input.get(API_KEY, "") == "":
                 errors[API_KEY] = "valid_credentials_key"
@@ -261,35 +266,38 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         if not (webhook := self.ecowitt.get(ECOWITT_WEBHOOK_ID)):
             webhook = secrets.token_hex(8)
 
-        if user_input is None:
-            url: URL = URL(get_url(self.hass))
+        if user_input is not None:
+            # Both endpoints remap onto the same internal sensor keys, so enabling
+            # Ecowitt while the legacy endpoint is active would corrupt those entities.
+            if user_input.get(ECOWITT_ENABLED) and self.user_data.get(LEGACY_ENABLED):
+                errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
+            else:
+                return self.async_create_entry(title=DOMAIN, data=self.retain_data(user_input))
 
-            host = url.host or "UNKNOWN"
+        url: URL = URL(get_url(self.hass))
+        host = url.host or "UNKNOWN"
 
-            ecowitt_schema = {
-                vol.Required(
-                    ECOWITT_WEBHOOK_ID,
-                    default=webhook,
-                ): str,
-                vol.Optional(
-                    ECOWITT_ENABLED,
-                    default=self.ecowitt.get(ECOWITT_ENABLED, False),
-                ): bool,
-            }
+        ecowitt_schema = {
+            vol.Required(
+                ECOWITT_WEBHOOK_ID,
+                default=webhook,
+            ): str,
+            vol.Optional(
+                ECOWITT_ENABLED,
+                default=self.ecowitt.get(ECOWITT_ENABLED, False),
+            ): bool,
+        }
 
-            return self.async_show_form(
-                step_id="ecowitt",
-                data_schema=vol.Schema(ecowitt_schema),
-                description_placeholders={
-                    "url": host,
-                    "port": str(url.port),
-                    "webhook_id": webhook,
-                },
-                errors=errors,
-            )
-
-        user_input = self.retain_data(user_input)
-        return self.async_create_entry(title=DOMAIN, data=user_input)
+        return self.async_show_form(
+            step_id="ecowitt",
+            data_schema=vol.Schema(ecowitt_schema),
+            description_placeholders={
+                "url": host,
+                "port": str(url.port),
+                "webhook_id": webhook,
+            },
+            errors=errors,
+        )
 
     async def async_step_wslink_port_setup(self, user_input: Any = None) -> ConfigFlowResult:
         """WSLink Addon port setup."""

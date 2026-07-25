@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.sws12500.const import DOMAIN, ECOWITT_ENABLED, WSLINK
+from custom_components.sws12500.const import DOMAIN, ECOWITT_ENABLED, LEGACY_ENABLED, WSLINK
 from custom_components.sws12500.data import (
     SWSRuntimeData,
     _station_model,
@@ -75,11 +75,11 @@ def test_station_model_ecowitt_without_learned_model():
 
     Covers both the missing-runtime_data and the model-is-None paths.
     """
-    no_runtime = SimpleNamespace(options={ECOWITT_ENABLED: True})
+    no_runtime = SimpleNamespace(options={ECOWITT_ENABLED: True, LEGACY_ENABLED: False})
     assert _station_model(no_runtime) == "Ecowitt"  # type: ignore[arg-type]
 
     runtime_no_model = SimpleNamespace(
-        options={ECOWITT_ENABLED: True},
+        options={ECOWITT_ENABLED: True, LEGACY_ENABLED: False},
         runtime_data=SimpleNamespace(ecowitt_model=None),
     )
     assert _station_model(runtime_no_model) == "Ecowitt"  # type: ignore[arg-type]
@@ -88,19 +88,23 @@ def test_station_model_ecowitt_without_learned_model():
 def test_station_model_ecowitt_with_learned_model():
     """Ecowitt enabled with a learned model -> "Ecowitt <model>"."""
     entry = SimpleNamespace(
-        options={ECOWITT_ENABLED: True},
+        options={ECOWITT_ENABLED: True, LEGACY_ENABLED: False},
         runtime_data=SimpleNamespace(ecowitt_model="GW1000"),
     )
     assert _station_model(entry) == "Ecowitt GW1000"  # type: ignore[arg-type]
 
 
-def test_station_model_ecowitt_takes_precedence_over_wslink():
-    """When both flags are set the ecowitt model wins."""
+def test_station_model_legacy_wins_over_ecowitt_on_conflict():
+    """A stale both-enabled config reports the endpoint that is actually wired up.
+
+    `effective_protocols` resolves the conflict in favour of legacy, so the device model
+    must not advertise an Ecowitt station whose data is being ignored.
+    """
     entry = SimpleNamespace(
-        options={ECOWITT_ENABLED: True, WSLINK: True},
+        options={ECOWITT_ENABLED: True, LEGACY_ENABLED: True, WSLINK: True},
         runtime_data=SimpleNamespace(ecowitt_model="WS3900"),
     )
-    assert _station_model(entry) == "Ecowitt WS3900"  # type: ignore[arg-type]
+    assert _station_model(entry) == "WSLink"  # type: ignore[arg-type]
 
 
 def test_build_device_info_shared_identity():

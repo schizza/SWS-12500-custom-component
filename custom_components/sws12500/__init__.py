@@ -39,13 +39,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_interval
 
+from .conflicts import effective_protocols, update_protocol_conflict_issue
 from .const import (
     DEFAULT_URL,
     DOMAIN,
-    ECOWITT_ENABLED,
     ECOWITT_URL_PREFIX,
     HEALTH_URL,
-    LEGACY_ENABLED,
     POCASI_CZ_ENABLED,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
@@ -81,8 +80,8 @@ def register_path(
         raise ConfigEntryNotReady
 
     _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
-    _ecowitt_enabled: bool = checked_or(config.options.get(ECOWITT_ENABLED), bool, False)
-    _legacy: bool = checked_or(config.options.get(LEGACY_ENABLED), bool, True)
+    # Legacy and Ecowitt share one entity namespace, so only one may be wired up.
+    _legacy, _ecowitt_enabled = effective_protocols(config)
 
     # Load registred routes
     routes: Routes | None = hass_data.get("routes", None)
@@ -157,8 +156,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
         last_options=dict(entry.options),
     )
     _wslink = checked_or(entry.options.get(WSLINK), bool, False)
-    _legacy = checked_or(entry.options.get(LEGACY_ENABLED), bool, True)
-    _ecowitt_enabled = checked_or(entry.options.get(ECOWITT_ENABLED), bool, False)
+    # Legacy and Ecowitt share one entity namespace, so only one may be wired up.
+    _legacy, _ecowitt_enabled = effective_protocols(entry)
     _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
     _LOGGER.debug("WS Link is %s", "enabled" if _wslink else "disabled")
@@ -197,6 +196,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
     update_legacy_battery_issue(hass, entry)
+    update_protocol_conflict_issue(hass, entry)
 
     return True
 

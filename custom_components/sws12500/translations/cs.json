@@ -3,7 +3,8 @@
     "error": {
       "valid_credentials_api": "Vyplňte platné API ID.",
       "valid_credentials_key": "Vyplňte platný API KEY.",
-      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!"
+      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "protocols_mutually_exclusive": "Starý endpoint (PWS/WSLink) a Ecowitt nelze zapnout současně – plní stejné entity senzorů, což by pomíchalo jednotky a mazalo naměřené hodnoty. Nejdřív jeden z nich vypni."
     },
     "step": {
       "user": {
@@ -54,7 +55,8 @@
       "windy_key_required": "Pro aktivaci je vyžadováno Windy ID i heslo stanice.",
       "pocasi_id_required": "Je vyžadován Počasí ID, pokud chcete aktivovat přeposílání dat na Počasí Meteo CZ",
       "pocasi_key_required": "Klíč k účtu Počasí Meteo je povinný.",
-      "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund."
+      "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund.",
+      "protocols_mutually_exclusive": "Starý endpoint (PWS/WSLink) a Ecowitt nelze zapnout současně – plní stejné entity senzorů, což by pomíchalo jednotky a mazalo naměřené hodnoty. Nejdřív jeden z nich vypni."
     },
     "step": {
       "init": {
@@ -551,6 +553,10 @@
     "stale_sensors_detected": {
       "title": "Detekovány nečinné sensory",
       "description": "Tyto senzory jsou nastavené, ale nereportují data: {sensors}. V HA budou viditelné jako Nedostupné. Pokud už nejsou přítomné, můžeš je odstranit přes Nastavení –> Zařízení a Služby –> SWS 12500."
+    },
+    "protocol_conflict": {
+      "title": "Zapnuté dva neslučitelné protokoly",
+      "description": "Současně je zapnutý starý endpoint (PWS/WSLink) i Ecowitt. Oba plní stejné entity senzorů, takže jejich souběh míchá měrné jednotky a hodnoty mezi aktualizacemi mizí. Používá se starý endpoint a data z Ecowittu se ignorují, dokud si nevybereš jeden: jdi do Nastavení -> Zařízení a služby -> SWS 12500 -> Konfigurovat a vypni buď starý endpoint, nebo Ecowitt."
     }
   },
   "notify": {
