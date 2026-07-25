@@ -42,6 +42,15 @@ from .const import (
 _PASSWORD_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
 
+def _is_empty(value: Any) -> bool:
+    return not isinstance(value, str) or value == ""
+
+
+def _validate_ecowitt_webhook(user_input: dict[str, Any], errors: dict[str, str]) -> None:
+    if user_input.get(ECOWITT_ENABLED) and _is_empty(user_input.get(ECOWITT_WEBHOOK_ID, "")):
+        errors[ECOWITT_WEBHOOK_ID] = "ecowitt_webhook_required"
+
+
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
@@ -160,9 +169,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             # legacy one while Ecowitt is active would corrupt those entities.
             if self.ecowitt.get(ECOWITT_ENABLED):
                 errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
-            elif user_input[API_ID] in INVALID_CREDENTIALS or user_input.get(API_ID, "") == "":
+            elif user_input[API_ID] in INVALID_CREDENTIALS or _is_empty(user_input.get(API_ID, "")):
                 errors[API_ID] = "valid_credentials_api"
-            elif user_input[API_KEY] in INVALID_CREDENTIALS or user_input.get(API_KEY, "") == "":
+            elif user_input[API_KEY] in INVALID_CREDENTIALS or _is_empty(user_input.get(API_KEY, "")):
                 errors[API_KEY] = "valid_credentials_key"
             elif user_input[API_KEY] == user_input[API_ID]:
                 errors["base"] = "valid_credentials_match"
@@ -251,11 +260,12 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             webhook = secrets.token_hex(8)
 
         if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
             # Both endpoints remap onto the same internal sensor keys, so enabling
             # Ecowitt while the legacy endpoint is active would corrupt those entities.
             if user_input.get(ECOWITT_ENABLED) and self.user_data.get(LEGACY_ENABLED):
                 errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
-            else:
+            if not errors:
                 return self.async_create_entry(title=DOMAIN, data=self.retain_data(user_input))
 
         url: URL = URL(get_url(self.hass))
@@ -358,9 +368,9 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return self.async_show_form(step_id="pws", data_schema=vol.Schema(self.pws_schema), errors=errors)
 
-        if user_input[API_ID] in INVALID_CREDENTIALS:
+        if user_input[API_ID] in INVALID_CREDENTIALS or _is_empty(user_input.get(API_ID, "")):
             errors[API_ID] = "valid_credentials_api"
-        elif user_input[API_KEY] in INVALID_CREDENTIALS:
+        elif user_input[API_KEY] in INVALID_CREDENTIALS or _is_empty(user_input.get(API_KEY, "")):
             errors[API_KEY] = "valid_credentials_key"
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
@@ -381,34 +391,40 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
         """Ecowitt stations setup."""
 
-        if user_input is None:
-            webhook = secrets.token_hex(8)
-            url: URL = URL(get_url(self.hass))
-            host = url.host or "UNKNOWN"
+        errors: dict[str, str] = {}
 
-            ecowitt_schema = {
-                vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
-                vol.Optional(ECOWITT_ENABLED, default=True): bool,
-            }
+        if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
+            if not errors:
+                options: dict[str, Any] = {
+                    **user_input,
+                    LEGACY_ENABLED: False,
+                    WSLINK: False,
+                    API_ID: "",
+                    API_KEY: "",
+                }
 
-            return self.async_show_form(
-                step_id="ecowitt",
-                data_schema=vol.Schema(ecowitt_schema),
-                description_placeholders={
-                    "url": host,
-                    "port": str(url.port),
-                    "webhook_id": webhook,
-                },
-            )
-        options: dict[str, Any] = {
-            **user_input,
-            LEGACY_ENABLED: False,
-            WSLINK: False,
-            API_ID: "",
-            API_KEY: "",
+                return self.async_create_entry(title=DOMAIN, data=options, options=options)
+
+        webhook = user_input.get(ECOWITT_WEBHOOK_ID, "") if user_input is not None else secrets.token_hex(8)
+        url: URL = URL(get_url(self.hass))
+        host = url.host or "UNKNOWN"
+
+        ecowitt_schema = {
+            vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
+            vol.Optional(ECOWITT_ENABLED, default=True): bool,
         }
 
-        return self.async_create_entry(title=DOMAIN, data=options, options=options)
+        return self.async_show_form(
+            step_id="ecowitt",
+            data_schema=vol.Schema(ecowitt_schema),
+            description_placeholders={
+                "url": host,
+                "port": str(url.port),
+                "webhook_id": webhook,
+            },
+            errors=errors,
+        )
 
     @staticmethod
     @callback

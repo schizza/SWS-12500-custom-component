@@ -4,6 +4,7 @@
       "valid_credentials_api": "Provide valid API ID.",
       "valid_credentials_key": "Provide valid API KEY.",
       "valid_credentials_match": "API ID and API KEY should not be the same.",
+      "ecowitt_webhook_required": "Provide a webhook ID before enabling Ecowitt data.",
       "protocols_mutually_exclusive": "The legacy (PWS/WSLink) and Ecowitt endpoints cannot be enabled at the same time - they feed the same sensor entities, which would mix up units and blank readings. Disable one of them first."
     },
     "step": {
@@ -50,6 +51,7 @@
       "valid_credentials_api": "Provide valid API ID.",
       "valid_credentials_key": "Provide valid API KEY.",
       "valid_credentials_match": "API ID and API KEY should not be the same.",
+      "ecowitt_webhook_required": "Provide a webhook ID before enabling Ecowitt data.",
       "windy_id_required": "Windy API ID is required if you want to enable this function.",
       "windy_pw_required": "Windy API password is required if you want to enable this function.",
       "windy_key_required": "Windy station ID and password are required if you want to enable this function.",

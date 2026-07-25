@@ -157,6 +157,35 @@ async def test_config_flow_user_invalid_credentials_match(
     assert result2["errors"]["base"] == "valid_credentials_match"
 
 
+@pytest.mark.parametrize(
+    ("user_input", "field", "error"),
+    [
+        ({API_ID: "", API_KEY: "ok_key", WSLINK: False, DEV_DBG: False}, API_ID, "valid_credentials_api"),
+        ({API_ID: "ok_id", API_KEY: "", WSLINK: False, DEV_DBG: False}, API_KEY, "valid_credentials_key"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_config_flow_user_rejects_empty_pws_credentials(
+    hass,
+    enable_custom_integrations,
+    user_input,
+    field,
+    error,
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+
+    result2 = await hass.config_entries.flow.async_configure(form["flow_id"], user_input=user_input)
+
+    assert result2["type"] == "form"
+    assert result2["step_id"] == "pws"
+    assert result2["errors"][field] == error
+
+
 @pytest.mark.asyncio
 async def test_options_flow_init_menu(hass, enable_custom_integrations) -> None:
     """Options flow shows menu with expected steps."""
@@ -399,6 +428,16 @@ async def test_options_flow_ecowitt_uses_get_url_placeholders_and_webhook_defaul
         assert placeholders["port"] == "8123"
         assert placeholders["webhook_id"]  # generated
 
+        bad = await hass.config_entries.options.async_configure(
+            init["flow_id"],
+            user_input={
+                ECOWITT_WEBHOOK_ID: "",
+                ECOWITT_ENABLED: True,
+            },
+        )
+        assert bad["type"] == "form"
+        assert bad["errors"][ECOWITT_WEBHOOK_ID] == "ecowitt_webhook_required"
+
         done = await hass.config_entries.options.async_configure(
             init["flow_id"],
             user_input={
@@ -453,6 +492,16 @@ async def test_config_flow_ecowitt_initial_setup(hass, enable_custom_integration
         placeholders = form.get("description_placeholders") or {}
         assert placeholders["url"] == "example.local"
         assert placeholders["webhook_id"]
+
+        bad = await hass.config_entries.flow.async_configure(
+            form["flow_id"],
+            user_input={
+                ECOWITT_WEBHOOK_ID: "",
+                ECOWITT_ENABLED: True,
+            },
+        )
+        assert bad["type"] == "form"
+        assert bad["errors"][ECOWITT_WEBHOOK_ID] == "ecowitt_webhook_required"
 
         done = await hass.config_entries.flow.async_configure(
             form["flow_id"],
