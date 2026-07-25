@@ -10,7 +10,6 @@ from yarl import URL
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 from homeassistant.helpers.network import get_url
 
@@ -43,14 +42,6 @@ from .const import (
 _PASSWORD_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
 
-class CannotConnect(HomeAssistantError):
-    """We can not connect. - not used in push mechanism."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Invalid auth exception."""
-
-
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
@@ -63,7 +54,6 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.windy_data_schema = {}
         self.user_data: dict[str, Any] = {}
         self.user_data_schema = {}
-        self.sensors: dict[str, Any] = {}
         self.migrate_schema = {}
         self.pocasi_cz: dict[str, Any] = {}
         self.pocasi_cz_schema = {}
@@ -89,12 +79,6 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             vol.Optional(WSLINK, default=self.user_data.get(WSLINK, False)): bool,
             vol.Optional(DEV_DBG, default=self.user_data.get(DEV_DBG, False)): bool,
             vol.Optional(LEGACY_ENABLED, default=self.user_data.get(LEGACY_ENABLED, True)): bool,
-        }
-
-        self.sensors = {
-            SENSORS_TO_LOAD: (
-                entry_data.get(SENSORS_TO_LOAD) if isinstance(entry_data.get(SENSORS_TO_LOAD), list) else []
-            )
         }
 
         self.windy_data = {
@@ -157,7 +141,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         """Manage basic options - PWS/WSLink credentials and legacy endpoint toggle.
 
         API ID/KEY are required only when legacy (PWS/WSLINK) endpoint is enabled.
-        For an Ecowitt-only setup, the user can turn the legacy endpoint off and leave credantials empty.
+        For an Ecowitt-only setup, the user can turn the legacy endpoint off and leave credentials empty.
 
         """
         errors: dict[str, str] = {}
@@ -322,16 +306,24 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
     def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Retain user_data."""
+        """Merge the submitted step over every other section's current values.
+
+        `SENSORS_TO_LOAD` is re-read here rather than taken from the `_get_entry_data`
+        snapshot: auto-discovery appends to it from the webhook handler, so a dialog
+        left open while the station reports a new field would otherwise roll that
+        discovery back on submit.
+        """
+
+        discovered = self.config_entry.options.get(SENSORS_TO_LOAD)
 
         return {
             **self.user_data,
             **self.windy_data,
             **self.pocasi_cz,
-            **self.sensors,
             **self.ecowitt,
             **self.wslink_addon_port,
             **dict(data),
+            SENSORS_TO_LOAD: discovered if isinstance(discovered, list) else [],
         }
 
 

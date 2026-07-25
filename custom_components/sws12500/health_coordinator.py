@@ -366,7 +366,7 @@ class HealthCoordinator(DataUpdateCoordinator):
         - whether the request was rejected before processing
         """
 
-        # We do not want to proccess health requests
+        # We do not want to process health requests
         if request.path == HEALTH_URL:
             return
 

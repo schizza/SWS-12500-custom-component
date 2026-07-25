@@ -16,7 +16,12 @@ import logging
 from typing import Any, Final
 
 from aioecowitt import EcoWittListener, EcoWittSensor, EcoWittSensorTypes
-from aioecowitt.sensor import SENSOR_MAP
+
+try:
+    # Internal to aioecowitt; see `_build_unit_twins` for why this is tolerated.
+    from aioecowitt.sensor import SENSOR_MAP
+except ImportError:  # pragma: no cover - defensive, module moved upstream
+    SENSOR_MAP = {}
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant, callback
@@ -42,10 +47,25 @@ def _build_unit_twins() -> dict[str, frozenset[str]]:
 
     aioecowitt exposes both metric and imperial sensors for many readings (e.g.
     `tempc`/`tempf`, `rainratemm`/`rainratein`), recognisable by a shared display name.
+
+    `SENSOR_MAP` is aioecowitt-internal (not part of its public API), so an upstream
+    rename must not take the whole integration down with an ImportError/AttributeError
+    at module import. Degrading to "no twins known" only costs us the duplicate-unit
+    dedup in `_on_new_sensor`.
     """
+    try:
+        sensor_map = SENSOR_MAP.items()
+    except AttributeError:  # pragma: no cover - defensive, shape changed upstream
+        _LOGGER.warning("aioecowitt SENSOR_MAP is not a mapping; unit-variant dedup disabled")
+        return {}
+
     by_name: dict[str, set[str]] = {}
-    for key, meta in SENSOR_MAP.items():
-        by_name.setdefault(meta.name, set()).add(key)
+    for key, meta in sensor_map:
+        name = getattr(meta, "name", None)
+        if name is None:  # pragma: no cover - defensive
+            continue
+        by_name.setdefault(name, set()).add(key)
+
     twins: dict[str, frozenset[str]] = {}
     for keys in by_name.values():
         if len(keys) > 1:
@@ -210,7 +230,7 @@ class EcowittBridge:
     """Bridge between HA webhook and aioecowitt parsing.
 
     We do not run EcoWittListener.start() - this would start separate HTTP server.
-    Instead we are calling listener.process_data() manualy from our webhook handler
+    Instead we are calling listener.process_data() manually from our webhook handler
     and we are just using parsing/discovery logic.
     """
 
@@ -249,8 +269,8 @@ class EcowittBridge:
         """Process raw Ecowitt POST payload.
 
         Returns:
-            Dict of internal sensor keys -> values (fro mapped senors).
-            Unmapped sensors are handeled via _on_new_sensor callback.
+            Dict of internal sensor keys -> values (for mapped sensors).
+            Unmapped sensors are handled via _on_new_sensor callback.
 
         """
 
@@ -269,7 +289,7 @@ class EcowittBridge:
     def _on_new_sensor(self, sensor: EcoWittSensor) -> None:
         """Call me by aioecowitt when a new sensor is discovered.
 
-        If the senosor does not have internal mapping,
+        If the sensor does not have internal mapping,
         create native Ecowitt entity.
         """
 
@@ -313,14 +333,15 @@ class EcowittBridge:
 
     @property
     def unmapped_sensor(self) -> dict[str, EcoWittSensor]:
-        """Return al sensors that don't have an internal mapping."""
+        """Return all sensors that don't have an internal mapping."""
 
         return {key: sensor for key, sensor in self._listener.sensors.items() if sensor.key not in _MAPPED_ECOWITT_KEYS}
 
     @property
     def all_sensors(self) -> dict[str, EcoWittSensor]:
-        """Return all discovered sensors."""
+        """Return every sensor aioecowitt has parsed so far."""
         return self._listener.sensors
+
 
 
 class EcoWittNativeSensor(SensorEntity):

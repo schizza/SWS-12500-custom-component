@@ -170,7 +170,6 @@ def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str
 
     log = checked_or(config_entry.options.get(DEV_DBG), bool, False)
 
-    entityFound: bool = False
     _loaded_sensors: list[str] = loaded_sensors(config_entry)
     missing_sensors: list[str] = []
 
@@ -180,11 +179,10 @@ def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str
 
         if item not in _loaded_sensors:
             missing_sensors.append(item)
-            entityFound = True
             if log:
                 _LOGGER.info("Add sensor (%s) to loading queue", item)
 
-    return missing_sensors if entityFound else None
+    return missing_sensors or None
 
 
 def wind_dir_to_text(deg: float | str | None) -> UnitOfDir | None:
@@ -235,18 +233,6 @@ def battery_level(battery: int | str | None) -> UnitOfBat:
     return level_map.get(vi, UnitOfBat.UNKNOWN)
 
 
-def battery_level_to_icon(battery: UnitOfBat) -> str:
-    """Return battery level in icon representation.
-
-    Returns str
-    """
-
-    icons = {
-        UnitOfBat.LOW: "mdi:battery-low",
-        UnitOfBat.NORMAL: "mdi:battery",
-    }
-
-    return icons.get(battery, "mdi:battery-unknown")
 
 
 def fahrenheit_to_celsius(fahrenheit: float) -> float:
@@ -382,17 +368,27 @@ def chill_index(data: dict[str, str | float | int], convert: bool = False) -> fl
     )
 
 
-def voc_level_to_text(value: str | None) -> VOCLevel | None:
-    """Map 1-5 VOC level to text state."""
-    if value in (None, ""):
+def voc_level_to_text(value: Any) -> VOCLevel | None:
+    """Map the 1-5 VOC level to a text state.
+
+    Goes through `to_int` like every other value_fn: a bare `int()` raises on a garbage
+    payload value, which `WeatherSensor.native_value` then logs with a full traceback on
+    every push.
+    """
+    level = to_int(value)
+    if level is None:
         return None
-    return VOC_LEVEL_MAP.get(int(value))
+    return VOC_LEVEL_MAP.get(level)
 
 
-def battery_5step_to_pct(value: str) -> int | None:
-    """Convert 0-5 battery steps to percentage."""
+def battery_5step_to_pct(value: Any) -> int | None:
+    """Convert the 0-5 battery step to a percentage.
 
-    if value in (None, ""):
+    Out-of-range steps are clamped so the reading stays valid for a battery
+    device class (see `voc_level_to_text` for why `to_int` is used).
+    """
+    step = to_int(value)
+    if step is None:
         return None
 
-    return round(int(value) / 5 * 100)
+    return round(min(max(step, 0), 5) / 5 * 100)

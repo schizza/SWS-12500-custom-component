@@ -19,8 +19,8 @@ from custom_components.sws12500.const import (
 )
 from custom_components.sws12500.utils import (
     anonymize,
+    battery_5step_to_pct,
     battery_level,
-    battery_level_to_icon,
     celsius_to_fahrenheit,
     check_disabled,
     chill_index,
@@ -32,6 +32,7 @@ from custom_components.sws12500.utils import (
     translated_notification,
     translations,
     update_options,
+    voc_level_to_text,
     wind_dir_to_text,
 )
 
@@ -253,11 +254,6 @@ def test_battery_level_handles_none_empty_invalid_and_known_values():
     assert battery_level("2") == UnitOfBat.UNKNOWN
 
 
-def test_battery_level_to_icon_maps_all_and_unknown():
-    assert battery_level_to_icon(UnitOfBat.LOW) == "mdi:battery-low"
-    assert battery_level_to_icon(UnitOfBat.NORMAL) == "mdi:battery"
-    assert battery_level_to_icon(UnitOfBat.UNKNOWN) == "mdi:battery-unknown"
-
 
 def test_temperature_conversions_round_trip():
     # Use a value that is exactly representable in binary-ish floats
@@ -362,3 +358,36 @@ def test_chill_index_returns_temp_when_not_cold_or_not_windy():
 def test_chill_index_convert_from_celsius_path():
     out = chill_index({OUTSIDE_TEMP: "5", WIND_SPEED: "10"}, convert=True)
     assert out is not None
+
+
+# ---------------------------------------------------------------------------
+# Converters must degrade to None, not raise
+#
+# `WeatherSensor.native_value` catches value_fn exceptions and logs them with
+# `_LOGGER.exception`, so a bare int() on a garbage payload value produced a full
+# traceback on *every* push rather than a quiet `unknown` state.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["", None, "n/a", "--", "1.5.2", [], {}])
+def test_voc_level_to_text_rejects_garbage(bad):
+    assert voc_level_to_text(bad) is None
+
+
+@pytest.mark.parametrize("bad", ["", None, "n/a", "--", object()])
+def test_battery_5step_to_pct_rejects_garbage(bad):
+    assert battery_5step_to_pct(bad) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(0, 0), ("0", 0), (1, 20), ("3", 60), (5, 100), ("5.0", 100)],
+)
+def test_battery_5step_to_pct_maps_the_scale(value, expected):
+    assert battery_5step_to_pct(value) == expected
+
+
+@pytest.mark.parametrize(("value", "expected"), [(-3, 0), (9, 100)])
+def test_battery_5step_to_pct_clamps_out_of_range(value, expected):
+    """Out-of-range steps stay a valid battery percentage."""
+    assert battery_5step_to_pct(value) == expected

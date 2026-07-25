@@ -80,6 +80,21 @@ def _make_entry(
     return entry
 
 
+
+def _write_through_update_options(entry: Any) -> AsyncMock:
+    """Mock `update_options` that really mutates the entry, like the real helper.
+
+    `PocasiPush.enabled` reads the option back, so a mock that only records the call
+    would leave `enabled` reporting the pre-disable value.
+    """
+
+    async def _apply(_hass, _entry, key, value):
+        entry.options[key] = value
+        return True
+
+    return AsyncMock(side_effect=_apply)
+
+
 @pytest.fixture
 def hass():
     # Minimal hass-like object; we patch client session retrieval.
@@ -206,7 +221,7 @@ async def test_push_data_to_server_auth_error_disables_feature(monkeypatch, hass
     )
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
 
-    update_options = AsyncMock(return_value=True)
+    update_options = _write_through_update_options(entry)
     monkeypatch.setattr(
         "custom_components.sws12500.pocasti_cz.update_options", update_options
     )
@@ -265,7 +280,7 @@ async def test_push_data_to_server_server_error_disables_after_max_retries(monke
     )
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
 
-    update_options = AsyncMock(return_value=True)
+    update_options = _write_through_update_options(entry)
     monkeypatch.setattr(
         "custom_components.sws12500.pocasti_cz.update_options", update_options
     )
@@ -292,7 +307,7 @@ async def test_push_data_to_server_client_error_increments_and_disables_after_th
     entry = _make_entry()
     pp = PocasiPush(hass, entry)
 
-    update_options = AsyncMock(return_value=True)
+    update_options = _write_through_update_options(entry)
     monkeypatch.setattr(
         "custom_components.sws12500.pocasti_cz.update_options", update_options
     )
@@ -369,6 +384,57 @@ async def test_disable_pocasi_logs_when_option_write_fails(monkeypatch, hass):
 
     await pp._disable_pocasi("because")
 
-    assert pp.enabled is False
+    # `enabled` mirrors the persisted option: if the write failed, forwarding is still
+    # on as far as the config is concerned, and the failure is logged instead.
+    assert pp.enabled is True
     assert pp.last_error == "because"
     dbg.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# Live `enabled` and empty-credential rejection
+# ---------------------------------------------------------------------------
+
+
+def test_enabled_reads_options_live(hass):
+    """Toggling the option is visible immediately - no reload, no cached copy.
+
+    `update_listener` deliberately skips the reload when only this flag changes, so a
+    value cached in __init__ would leave the diagnostics sensor permanently stale.
+    """
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+    assert pp.enabled is True
+
+    entry.options[POCASI_CZ_ENABLED] = False
+    assert pp.enabled is False
+
+    entry.options[POCASI_CZ_ENABLED] = True
+    assert pp.enabled is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("api_id", "api_key"),
+    [("", "key"), ("id", ""), ("", "")],
+    ids=["empty-id", "empty-key", "both-empty"],
+)
+async def test_empty_credentials_never_reach_the_network(monkeypatch, hass, api_id, api_key):
+    """An empty string is still a `str`, so it must be rejected explicitly.
+
+    Otherwise a blank configuration sends a request that can only ever be refused.
+    """
+    entry = _make_entry(api_id=api_id, api_key=api_key)
+    pp = PocasiPush(hass, entry)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+
+    session = _FakeSession(response=_FakeResponse("OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert session.calls == []
+    assert pp.last_status == "config_error"

@@ -67,8 +67,7 @@
           "windy": "Nastavení pro přeposílání dat na Windy",
           "pocasi": "Nastavení pro přeposlání dat na Počasí Meteo CZ",
           "ecowitt": "Nastavení pro stanice Ecowitt",
-          "wslink_port_setup": "Nastavení portu WSLink Addonu",
-          "migration": "Migrace statistiky senzoru"
+          "wslink_port_setup": "Nastavení portu WSLink Addonu"
         }
       },
       "basic": {
@@ -142,18 +141,6 @@
         },
         "data_description": {
           "WSLINK_ADDON_PORT": "Zadejte port, tak jak jej máte nastavený ve WSLink Addonu."
-        }
-      },
-      "migration": {
-        "title": "Migrace statistiky senzoru.",
-        "description": "Pro správnou funkci dlouhodobé statistiky je nutné provést migraci jednotky senzoru v dlouhodobé statistice. Původní jednotka dlouhodobé statistiky pro denní úhrn srážek byla v mm/d, nicméně stanice zasílá pouze data v mm bez časového rozlišení.\n\n Senzor, který má být migrován je pro denní úhrn srážek. Pokud je v seznamu již správná hodnota u senzoru pro denní úhrn (mm), pak je již migrace hotová.\n\n Výsledek migrace pro senzor: {migration_status}, přepvedeno celkem {migration_count} řádků.",
-        "data": {
-          "sensor_to_migrate": "Senzor pro migraci",
-          "trigger_action": "Spustit migraci"
-        },
-        "data_description": {
-          "sensor_to_migrate": "Vyberte správný senzor pri migraci statistiky. \n Hodnoty senzoru budou zachovány, nepřepočítají se, pouze se změní jednotka v dlouhodobé statistice. ",
-          "trigger_action": "Po zaškrtnutí se spustí migrace statistiky senzoru."
         }
       }
     }
@@ -476,7 +463,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "indoor_battery": {
@@ -492,7 +479,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch3_battery": {
@@ -500,7 +487,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch4_battery": {
@@ -508,7 +495,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch5_battery": {
@@ -516,7 +503,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch6_battery": {
@@ -524,7 +511,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch7_battery": {
@@ -532,7 +519,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch8_battery": {
@@ -540,7 +527,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       }
     }

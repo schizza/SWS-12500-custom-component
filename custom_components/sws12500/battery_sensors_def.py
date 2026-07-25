@@ -1,7 +1,7 @@
 """Battery sensors templates.
 
-We create a sensor tempate here.
-Actualy loaded senors are gated in coordinator.
+We create a sensor template here.
+Actually loaded sensors are gated in coordinator.
 """
 
 from __future__ import annotations

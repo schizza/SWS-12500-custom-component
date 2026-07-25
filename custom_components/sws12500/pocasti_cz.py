@@ -7,7 +7,7 @@ import logging
 from typing import Any, Literal
 
 from aiohttp import ClientError
-from py_typecheck.core import checked
+from py_typecheck.core import checked_or
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -43,7 +43,6 @@ class PocasiPush:
         """Init."""
         self.hass = hass
         self.config = config
-        self.enabled: bool = self.config.options.get(POCASI_CZ_ENABLED, False)
         self.last_status: str = "disabled" if not self.enabled else "idle"
         self.last_error: str | None = None
         self.last_attempt_at: str | None = None
@@ -54,6 +53,16 @@ class PocasiPush:
 
         self.log = self.config.options.get(POCASI_CZ_LOGGER_ENABLED)
         self.invalid_response_count = 0
+
+    @property
+    def enabled(self) -> bool:
+        """Whether forwarding is currently on, read live from the options.
+
+        Toggling this option does not reload the entry (see `update_listener`), so a
+        cached copy would leave the diagnostics sensor reporting a stale value until
+        the next push - or forever, since a disabled forwarder is never called again.
+        """
+        return checked_or(self.config.options.get(POCASI_CZ_ENABLED), bool, False)
 
     def verify_response(self, status: int, body: str) -> PocasiResult:
         """Classify a send by its HTTP status.
@@ -76,7 +85,6 @@ class PocasiPush:
     async def _disable_pocasi(self, reason: str) -> None:
         """Turn resending off and persist it, so it survives a restart."""
 
-        self.enabled = False
         self.last_error = reason
 
         if not await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False):
@@ -86,17 +94,18 @@ class PocasiPush:
         """Pushes weather data to server."""
 
         _data = data.copy()
-        self.enabled = self.config.options.get(POCASI_CZ_ENABLED, False)
         self.last_attempt_at = dt_util.utcnow().isoformat()
         self.last_error = None
 
-        if (_api_id := checked(self.config.options.get(POCASI_CZ_API_ID), str)) is None:
+        # An empty string is still a `str`, so `checked` alone would let unconfigured
+        # credentials through and send a request that can only ever be rejected.
+        if not (_api_id := checked_or(self.config.options.get(POCASI_CZ_API_ID), str, "")):
             _LOGGER.error("No API ID is provided for Pocasi Meteo. Check your configuration.")
             self.last_status = "config_error"
             self.last_error = "Missing API ID."
             return
 
-        if (_api_key := checked(self.config.options.get(POCASI_CZ_API_KEY), str)) is None:
+        if not (_api_key := checked_or(self.config.options.get(POCASI_CZ_API_KEY), str, "")):
             _LOGGER.error("No API Key is provided for Pocasi Meteo. Check your configuration.")
             self.last_status = "config_error"
             self.last_error = "Missing API key."
@@ -112,7 +121,7 @@ class PocasiPush:
         if self.next_update > dt_util.utcnow():
             self.last_status = "rate_limited_local"
             _LOGGER.debug(
-                "Triggered update interval limit of %s seconds. Next possilbe update is set to: %s",
+                "Triggered update interval limit of %s seconds. Next possible update is set to: %s",
                 self._interval,
                 self.next_update,
             )
@@ -163,7 +172,7 @@ class PocasiPush:
                 self.last_error = f"Unexpected HTTP status {http_status} from Pocasi Meteo."
                 self.invalid_response_count += 1
                 _LOGGER.warning(
-                    "Unexpected HTTP status %s from Pocasi Meteo. Retries before disabling resend: %s",
+                    "Unexpected HTTP status %s from Pocasi Meteo. Rentries before disabling resend: %s",
                     http_status,
                     POCASI_CZ_MAX_RETRIES - self.invalid_response_count,
                 )

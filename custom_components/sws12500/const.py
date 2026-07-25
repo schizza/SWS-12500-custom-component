@@ -112,9 +112,9 @@ PURGE_DATA: Final = [
     "dailyrainin",
 ]
 
-"""NOTE: These are sensors that should be available with PWS protocol acording to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:
+"""NOTE: These are sensors that should be available with PWS protocol according to https://support.weather.com/s/article/PWS-Upload-Protocol?language=en_US:
 
-I have no option to test, if it will work correctly. So their implementatnion will be in future releases.
+I have no option to test, if it will work correctly. So their implementation will be in future releases.
 
 leafwetness  - [%]
 + for sensor 2 use leafwetness2
@@ -189,9 +189,7 @@ WSLINK_ADDON_PORT: Final = "WSLINK_ADDON_PORT"
 ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
 ECOWITT_ENABLED: Final = "ecowitt_enabled"
-ECOWITT_URL: Final = "/weather/ecowitt"
 ECOWITT_URL_PREFIX: Final = "/weatherhub"
-ECOWITT_META_KEYS: Final = {"passkey", "stationtype", "model", "freq"}
 
 REMAP_ECOWITT_COMPAT: dict[str, str] = {
     "tempf": OUTSIDE_TEMP,
@@ -225,11 +223,11 @@ REMAP_ECOWITT_COMPAT: dict[str, str] = {
 POCASI_CZ_API_KEY = "POCASI_CZ_API_KEY"
 POCASI_CZ_API_ID = "POCASI_CZ_API_ID"
 POCASI_CZ_SEND_INTERVAL = "POCASI_SEND_INTERVAL"
-POCASI_CZ_ENABLED = "pocasi_enabled_chcekbox"
+POCASI_CZ_ENABLED = "pocasi_enabled_checkbox"
 POCASI_CZ_LOGGER_ENABLED = "pocasi_logger_checkbox"
 POCASI_INVALID_KEY: Final = "Pocasi Meteo refused to accept data. Invalid ID/Key combination?"
 POCASI_CZ_SUCCESS: Final = "Successfully sent data to Pocasi Meteo"
-POCASI_CZ_UNEXPECTED: Final = "Pocasti Meteo responded unexpectedly 3 times in row. Resendig is now disabled!"
+POCASI_CZ_UNEXPECTED: Final = "Pocasi Meteo responded unexpectedly 3 times in row. Resending is now disabled!"
 
 WINDY_STATION_ID = "WINDY_STATION_ID"
 WINDY_STATION_PW = "WINDY_STATION_PWD"
@@ -242,13 +240,6 @@ WINDY_INVALID_KEY: Final = (
 WINDY_SUCCESS: Final = "Windy successfully sent data and data was successfully inserted by Windy API"
 WINDY_UNEXPECTED: Final = "Windy responded unexpectedly 3 times in a row. Send to Windy is now disabled!"
 
-
-PURGE_DATA_POCAS: Final = [
-    "ID",
-    "PASSWORD",
-    "action",
-    "rtfreq",
-]
 
 
 REMAP_WSLINK_ITEMS: dict[str, str] = {
@@ -308,10 +299,10 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 #
 # 'inbat'  indoor battery level (1 normal, 0 low)
 # 't1bat': outdoor battery level (1 normal, 0 low)
-# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLin
+# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLink
 #
 # In the following there are sensors that should be available by WSLink.
-# We need to compare them to PWS API to make sure, we have the same intarnal
+# We need to compare them to PWS API to make sure, we have the same internal
 # representation of same sensors.
 
 ### TODO: These are sensors, that should be supported in WSLink API according to their API documentation:
@@ -360,38 +351,12 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 # &t10cn= CO2 sensor connection (Connected=1, No connect=0) integer
 # &t11co= CO concentration integer ppm
 # &t11bat= CO sensor battery level (0~5) remark: 5 is full integer
-# &t11cn= CO sensor connection (Connected=1, No connect=0) integero
+# &t11cn= CO sensor connection (Connected=1, No connect=0) integer
 #
 
 
-DISABLED_BY_DEFAULT: Final = [
-    CH2_TEMP,
-    CH2_HUMIDITY,
-    CH2_BATTERY,
-    CH3_TEMP,
-    CH3_HUMIDITY,
-    CH3_BATTERY,
-    CH4_TEMP,
-    CH4_HUMIDITY,
-    CH4_BATTERY,
-    CH5_TEMP,
-    CH5_HUMIDITY,
-    CH5_BATTERY,
-    CH6_TEMP,
-    CH6_HUMIDITY,
-    CH6_BATTERY,
-    CH7_TEMP,
-    CH7_HUMIDITY,
-    CH7_BATTERY,
-    CH8_TEMP,
-    CH8_HUMIDITY,
-    CH8_BATTERY,
-    OUTSIDE_BATTERY,
-    WBGT_TEMP,
-]
-
-# Station reports batteries as 0/1 (low/normal) for most of sensors.
-# Batteries reported  as 0-5 level are stored in `BATTERY_NON_BINARY` tuple
+# Station reports batteries as 0/1 (low/normal). Sensors reporting a 0-5 level
+# (e.g. T9_BATTERY) are plain sensors, not binary ones.
 BATTERY_LIST: Final[tuple[str, ...]] = (
     OUTSIDE_BATTERY,
     INDOOR_BATTERY,
@@ -404,7 +369,6 @@ BATTERY_LIST: Final[tuple[str, ...]] = (
     CH8_BATTERY,
 )
 
-BATTERY_NON_BINARY: Final[tuple[str, ...]] = (T9_BATTERY,)
 
 CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {
     # Multi-channel temp/humidity probes (CH2 - CH8)
@@ -487,9 +451,3 @@ class UnitOfBat(StrEnum):
     NORMAL = "normal"
     UNKNOWN = "drained"
 
-
-BATTERY_LEVEL: list[UnitOfBat] = [
-    UnitOfBat.LOW,
-    UnitOfBat.NORMAL,
-    UnitOfBat.UNKNOWN,
-]

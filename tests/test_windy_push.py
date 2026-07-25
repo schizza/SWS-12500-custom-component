@@ -225,7 +225,7 @@ async def test_push_data_to_windy_missing_station_id_returns_false(monkeypatch, 
         "custom_components.sws12500.windy_func.update_options", update_options
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 
@@ -252,7 +252,7 @@ async def test_push_data_to_windy_missing_station_pw_returns_false(monkeypatch, 
         "custom_components.sws12500.windy_func.update_options", update_options
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 
@@ -281,7 +281,7 @@ async def test_push_data_to_windy_invalid_api_key_disables_windy(monkeypatch, ha
         "custom_components.sws12500.windy_func.update_options", update_options
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 
@@ -314,7 +314,7 @@ async def test_push_data_to_windy_invalid_api_key_update_options_failure_logs_de
     dbg = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.debug", dbg)
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 
@@ -416,7 +416,7 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
     crit = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.critical", crit)
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 
@@ -462,7 +462,7 @@ async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
     dbg = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.debug", dbg)
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
 

@@ -93,7 +93,7 @@ class Routes:
     def set_ecowitt_enabled(self, url_path: str, handler: Handler, enabled: bool) -> None:
         """Enable or disable the Ecowitt sticky route.
 
-        switch_route() does not involves sticky routes, so we need another
+        switch_route() does not involve sticky routes, so we need another
         method for Ecowitt state at reload.
         """
 
@@ -229,5 +229,5 @@ async def unregistered(request: Request) -> Response:
     a clear error message when the station pushes to the wrong endpoint.
     """
     _ = request
-    _LOGGER.debug("Received data to unregistred or disabled webhook.")
-    return Response(text="Unregistred webhook. Check your settings.", status=400)
+    _LOGGER.debug("Received data to unregistered or disabled webhook.")
+    return Response(text="Unregistered webhook. Check your settings.", status=400)

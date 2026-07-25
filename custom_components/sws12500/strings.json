@@ -142,18 +142,6 @@
         "data_description": {
           "WSLINK_ADDON_PORT": "The external TCP port the WSLink proxy add-on listens on (default 443)."
         }
-      },
-      "migration": {
-        "title": "Statistic migration.",
-        "description": "For the correct functioning of long-term statistics, it is necessary to migrate the sensor unit in the long-term statistics. The original unit of long-term statistics for daily precipitation was in mm/d, however, the station only sends data in mm without time differentiation.\n\n The sensor to be migrated is for daily precipitation. If the correct value is already in the list for the daily precipitation sensor (mm), then the migration is already complete.\n\n Migration result for the sensor: {migration_status}, a total of {migration_count} rows converted.",
-        "data": {
-          "sensor_to_migrate": "Sensor to migrate",
-          "trigger_action": "Trigger migration"
-        },
-        "data_description": {
-          "sensor_to_migrate": "Select the correct sensor for statistics migration.\nThe sensor values will be preserved, they will not be recalculated, only the unit in the long-term statistics will be changed.",
-          "trigger_action": "Trigger the sensor statistics migration after checking."
-        }
       }
     }
   },
@@ -475,7 +463,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch2_battery": {
@@ -483,7 +471,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch3_battery": {
@@ -491,7 +479,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch4_battery": {
@@ -499,7 +487,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch5_battery": {
@@ -507,7 +495,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch6_battery": {
@@ -515,7 +503,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch7_battery": {
@@ -523,7 +511,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "ch8_battery": {
@@ -531,7 +519,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       },
       "indoor_battery": {
@@ -539,7 +527,7 @@
         "state": {
           "normal": "OK",
           "low": "Low",
-          "unknown": "Unknown / drained out"
+          "drained": "Unknown / drained out"
         }
       }
     }

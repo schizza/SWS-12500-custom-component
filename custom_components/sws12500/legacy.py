@@ -1,8 +1,8 @@
 """Legacy battery sensor deprecation.
 
 The integration used to expose battery state as regular SensorEntity instance
-(unique_id == bettery key), they have been migrated to BinarySensorEntity (uniqui_id == `key`_binary). Old entity-registry entries from
-pre-migration installs orphan. This module raises a Repairs issue so user can celan them up.
+(unique_id == battery key), they have been migrated to BinarySensorEntity (unique_id == `key`_binary). Old entity-registry entries from
+pre-migration installs orphan. This module raises a Repairs issue so user can clean them up.
 """
 
 from __future__ import annotations
@@ -33,17 +33,17 @@ LEGACY_BATTERY_KEYS: Final[frozenset[str]] = frozenset(
 
 
 def _legacy_battery_issue_id(entry: SWSConfigEntry) -> str:
-    """Return Repairs issue id fpr this config entry."""
+    """Return Repairs issue id for this config entry."""
     return f"legacy_battery_sensor_deprecation_{entry.entry_id}"
 
 
 @callback
-def _orphan_legacy_battery_etries(hass: HomeAssistant, entry: SWSConfigEntry) -> list[str]:
+def _orphan_legacy_battery_entries(hass: HomeAssistant, entry: SWSConfigEntry) -> list[str]:
     """Return entity_ids of legacy battery sensors still present in entity registry.
 
     Old non-binary battery entities have:
-    - domian == "sensor"
-    - unique_id matches a LEGACY_BATTERY_KESY entry (without `_binary` suffix)
+    - domain == "sensor"
+    - unique_id matches a LEGACY_BATTERY_KEYS entry (without `_binary` suffix)
     """
     ent_reg = er.async_get(hass)
     return [
@@ -55,10 +55,10 @@ def _orphan_legacy_battery_etries(hass: HomeAssistant, entry: SWSConfigEntry) ->
 
 @callback
 def update_legacy_battery_issue(hass: HomeAssistant, entry: SWSConfigEntry) -> None:
-    """Create or clear a Repairs issue for orphan legacy battery snesors."""
+    """Create or clear a Repairs issue for orphan legacy battery sensors."""
 
     issue_id = _legacy_battery_issue_id(entry=entry)
-    orphans = _orphan_legacy_battery_etries(hass, entry)
+    orphans = _orphan_legacy_battery_entries(hass, entry)
 
     if orphans:
         ir.async_create_issue(

@@ -182,7 +182,7 @@ async def test_received_ecowitt_success_full_pipeline_with_health_autodiscovery_
     - process_payload returns a mapped dict
     - check_disabled returns new keys -> autodiscovery (update_options,
       add_new_binary_sensors, add_new_sensors)
-    - async_set_updated_data + last_seen + update_stale_sensors_issue
+    - async_set_updated_data + last_seen
     - health.update_ingress_result(accepted) + windy + pocasi forwarding
     - health.update_forwarding
     - dev log via anonymize
@@ -223,11 +223,6 @@ async def test_received_ecowitt_success_full_pipeline_with_health_autodiscovery_
         "custom_components.sws12500.coordinator.add_new_binary_sensors",
         add_new_binary_sensors,
     )
-    update_stale = MagicMock()
-    monkeypatch.setattr(
-        "custom_components.sws12500.coordinator.update_stale_sensors_issue",
-        update_stale,
-    )
 
     coordinator.windy.push_data_to_windy = AsyncMock()
     coordinator.pocasi.push_data_to_server = AsyncMock()
@@ -261,7 +256,6 @@ async def test_received_ecowitt_success_full_pipeline_with_health_autodiscovery_
 
     # Coordinator data + staleness + last_seen.
     coordinator.async_set_updated_data.assert_called_once_with(mapped)
-    update_stale.assert_called_once()
     assert "outside_temp" in entry.runtime_data.last_seen
 
     # Forwarding: windy receives the raw data dict + False, pocasi receives "WU".
@@ -314,11 +308,6 @@ async def test_received_ecowitt_success_no_health_no_autodiscovery_no_forwarding
         "custom_components.sws12500.coordinator.check_disabled",
         lambda _mapped, _config: [],
     )
-    update_stale = MagicMock()
-    monkeypatch.setattr(
-        "custom_components.sws12500.coordinator.update_stale_sensors_issue",
-        update_stale,
-    )
 
     coordinator.windy.push_data_to_windy = AsyncMock()
     coordinator.pocasi.push_data_to_server = AsyncMock()
@@ -329,7 +318,6 @@ async def test_received_ecowitt_success_no_health_no_autodiscovery_no_forwarding
 
     assert resp.status == 200
     coordinator.async_set_updated_data.assert_called_once_with(mapped)
-    update_stale.assert_called_once()
     coordinator.windy.push_data_to_windy.assert_not_awaited()
     coordinator.pocasi.push_data_to_server.assert_not_awaited()
 
@@ -361,9 +349,6 @@ async def test_received_ecowitt_autodiscovery_extends_with_loaded_sensors(hass, 
     monkeypatch.setattr(
         "custom_components.sws12500.coordinator.add_new_binary_sensors", MagicMock()
     )
-    monkeypatch.setattr(
-        "custom_components.sws12500.coordinator.update_stale_sensors_issue", MagicMock()
-    )
     coordinator.async_set_updated_data = MagicMock()
 
     request = _EcowittRequestStub(match_info={"webhook_id": "hook"})
@@ -392,9 +377,6 @@ async def test_health_coordinator_attribute_error_returns_none(hass, monkeypatch
         "custom_components.sws12500.coordinator.check_disabled",
         lambda _mapped, _config: [],
     )
-    monkeypatch.setattr(
-        "custom_components.sws12500.coordinator.update_stale_sensors_issue", MagicMock()
-    )
     coordinator.async_set_updated_data = MagicMock()
 
     request = _EcowittRequestStub(match_info={"webhook_id": "hook"})
@@ -410,11 +392,6 @@ async def test_received_ecowitt_empty_mapped_skips_update_block(hass, monkeypatc
 
     coordinator.ecowitt_bridge.process_payload = AsyncMock(return_value={})
 
-    update_stale = MagicMock()
-    monkeypatch.setattr(
-        "custom_components.sws12500.coordinator.update_stale_sensors_issue",
-        update_stale,
-    )
     coordinator.async_set_updated_data = MagicMock()
 
     request = _EcowittRequestStub(match_info={"webhook_id": "hook"})
@@ -422,7 +399,6 @@ async def test_received_ecowitt_empty_mapped_skips_update_block(hass, monkeypatc
 
     assert resp.status == 200
     coordinator.async_set_updated_data.assert_not_called()
-    update_stale.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

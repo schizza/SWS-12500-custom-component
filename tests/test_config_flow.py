@@ -20,6 +20,7 @@ from custom_components.sws12500.const import (
     POCASI_CZ_LOGGER_ENABLED,
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_SEND_MINIMUM,
+    SENSORS_TO_LOAD,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
     WINDY_STATION_ID,
@@ -463,3 +464,49 @@ async def test_config_flow_ecowitt_initial_setup(hass, enable_custom_integration
         assert done["type"] == "create_entry"
         assert done["data"][ECOWITT_ENABLED] is True
         assert done["data"][LEGACY_ENABLED] is False
+
+
+@pytest.mark.asyncio
+async def test_options_flow_does_not_roll_back_concurrent_autodiscovery(
+    hass,
+    enable_custom_integrations,
+) -> None:
+    """Auto-discovery that lands while the dialog is open must survive the submit.
+
+    The options flow snapshots the entry when a step opens, but the webhook handler
+    appends to SENSORS_TO_LOAD independently. Writing back the snapshot would silently
+    drop any sensor discovered in between.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={
+            API_ID: "station",
+            API_KEY: "secret",
+            LEGACY_ENABLED: True,
+            SENSORS_TO_LOAD: ["outside_temp"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(init["flow_id"], user_input={"next_step_id": "basic"})
+
+    # The station starts reporting a new field while the form is on screen.
+    hass.config_entries.async_update_entry(
+        entry,
+        options={**entry.options, SENSORS_TO_LOAD: ["outside_temp", "wind_gust"]},
+    )
+
+    done = await hass.config_entries.options.async_configure(
+        init["flow_id"],
+        user_input={
+            API_ID: "station",
+            API_KEY: "secret",
+            WSLINK: False,
+            LEGACY_ENABLED: True,
+        },
+    )
+
+    assert done["type"] == "create_entry"
+    assert done["data"][SENSORS_TO_LOAD] == ["outside_temp", "wind_gust"]

@@ -107,7 +107,7 @@ async def test_push_duplicate_third_strike_disables(monkeypatch, hass):
         "custom_components.sws12500.windy_func.update_options", update_options
     )
     monkeypatch.setattr(
-        "custom_components.sws12500.windy_func.persistent_notification.create",
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
         MagicMock(),
     )
     monkeypatch.setattr(

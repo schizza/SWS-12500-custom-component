@@ -46,7 +46,6 @@ from .ecowitt import EcowittBridge
 from .health_coordinator import HealthCoordinator
 from .pocasti_cz import PocasiPush
 from .sensor import add_new_sensors
-from .staleness import update_stale_sensors_issue
 from .utils import (
     anonymize,
     check_disabled,
@@ -218,7 +217,6 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
             now = dt_util.utcnow()
             for key in mapped_data:
                 self.config.runtime_data.last_seen[key] = now
-            update_stale_sensors_issue(self.hass, self.config)
 
         if health:
             health.update_ingress_result(
@@ -313,7 +311,6 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         now = dt_util.utcnow()
         for key in remaped_items:
             self.config.runtime_data.last_seen[key] = now
-        update_stale_sensors_issue(self.hass, self.config)
 
         if health:
             health.update_ingress_result(

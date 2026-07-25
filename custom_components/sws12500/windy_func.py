@@ -7,7 +7,7 @@ import logging
 
 from aiohttp.client import ClientResponse
 from aiohttp.client_exceptions import ClientError
-from py_typecheck import checked
+from py_typecheck import checked_or
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
@@ -81,7 +81,6 @@ class WindyPush:
         """Init."""
         self.hass = hass
         self.config = config
-        self.enabled: bool = self.config.options.get(WINDY_ENABLED, False)
         self.last_status: str = "disabled" if not self.enabled else "idle"
         self.last_error: str | None = None
         self.last_attempt_at: str | None = None
@@ -94,9 +93,19 @@ class WindyPush:
 
         self.log: bool = self.config.options.get(WINDY_LOGGER_ENABLED, False)
 
-        # Lets chcek if Windy server is responding right.
-        # Otherwise, try 3 times and then disable resending.
+        # Lets check if Windy server is responding right.
+        # Otherwise, try WINDY_MAX_RETRIES times and then disable resending.
         self.invalid_response_count: int = 0
+
+    @property
+    def enabled(self) -> bool:
+        """Whether forwarding is currently on, read live from the options.
+
+        Toggling this option does not reload the entry (see `update_listener`), so a
+        cached copy would leave the diagnostics sensor reporting a stale value until
+        the next push - or forever, since a disabled forwarder is never called again.
+        """
+        return checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
 
     # Refactored responses verification.
     #
@@ -150,15 +159,18 @@ class WindyPush:
         return indata
 
     async def _disable_windy(self, reason: str) -> None:
-        """Disable Windy resending."""
-        self.enabled = False
+        """Disable Windy resending.
+
+        `enabled` reads the option back, so persisting it here is what actually turns
+        forwarding off.
+        """
         self.last_status = "disabled"
         self.last_error = reason
 
         if not await update_options(self.hass, self.config, WINDY_ENABLED, False):
             _LOGGER.debug("Failed to set Windy options to false.")
 
-        persistent_notification.create(self.hass, reason, "Windy resending disabled.")
+        persistent_notification.async_create(self.hass, reason, "Windy resending disabled.")
 
     async def push_data_to_windy(self, data: dict[str, str], wslink: bool = False) -> bool:
         """Pushes weather data do Windy stations.
@@ -170,19 +182,20 @@ class WindyPush:
         """
 
         # First check if we have valid credentials, before any data manipulation.
-        self.enabled = self.config.options.get(WINDY_ENABLED, False)
         self.last_attempt_at = dt_util.utcnow().isoformat()
         self.last_error = None
 
-        if (windy_station_id := checked(self.config.options.get(WINDY_STATION_ID), str)) is None:
-            _LOGGER.error("Windy API key is not provided! Check your configuration.")
+        # An empty string is still a `str`, so `checked` alone would let unconfigured
+        # credentials through and send a request that can only ever be rejected.
+        if not (windy_station_id := checked_or(self.config.options.get(WINDY_STATION_ID), str, "")):
+            _LOGGER.error("Windy station ID is not provided! Check your configuration.")
             self.last_status = "config_error"
             await self._disable_windy(
-                "Windy API key is not provided. Resending is disabled for now. Reconfigure your integration."
+                "Windy station ID is not provided. Resending is disabled for now. Reconfigure your integration."
             )
             return False
 
-        if (windy_station_pw := checked(self.config.options.get(WINDY_STATION_PW), str)) is None:
+        if not (windy_station_pw := checked_or(self.config.options.get(WINDY_STATION_PW), str, "")):
             _LOGGER.error("Windy station password is missing! Check your configuration.")
             self.last_status = "config_error"
             await self._disable_windy(
@@ -238,7 +251,7 @@ class WindyPush:
 
                     # log despite of settings
                     _LOGGER.error(
-                        "%s Max retries before disable resend function: %s",
+                        "%s Max rentries before disable resend function: %s",
                         WINDY_NOT_INSERTED,
                         (WINDY_MAX_RETRIES - self.invalid_response_count),
                     )
@@ -255,7 +268,7 @@ class WindyPush:
                     self.last_status = "duplicate"
                     self.last_error = "Duplicate payload detected by Windy server."
                     _LOGGER.critical(
-                        "Duplicate payload detected by Windy server. Will try again later. Max retries before disabling resend function: %s",
+                        "Duplicate payload detected by Windy server. Will try again later. Max rentries before disabling resend function: %s",
                         (WINDY_MAX_RETRIES - self.invalid_response_count),
                     )
                     self.invalid_response_count += 1
@@ -283,12 +296,15 @@ class WindyPush:
                     self.invalid_response_count += 1
                     if self.log:
                         _LOGGER.debug(
-                            "Unexpected response from Windy. Max retries before disabling resend function: %s",
+                            "Unexpected response from Windy. Max rentries before disabling resend function: %s",
                             (WINDY_MAX_RETRIES - self.invalid_response_count),
                         )
                 finally:
-                    if self.invalid_response_count >= 3:
-                        _LOGGER.critical("Invalid response from Windy 3 times. Disabling resend option.")
+                    if self.invalid_response_count >= WINDY_MAX_RETRIES:
+                        _LOGGER.critical(
+                            "Invalid response from Windy %s times. Disabling resend option.",
+                            WINDY_MAX_RETRIES,
+                        )
                         await self._disable_windy(
                             reason="Unable to send data to Windy (3 times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
                         )
@@ -299,7 +315,7 @@ class WindyPush:
             # attributes; str(ex) could embed the request URL.
             self.last_error = type(ex).__name__
             _LOGGER.critical(
-                "Invalid response from Windy: %s. Will try again later, max retries before disabling resend function: %s",
+                "Invalid response from Windy: %s. Will try again later, max rentries before disabling resend function: %s",
                 str(ex),
                 (WINDY_MAX_RETRIES - self.invalid_response_count),
             )

@@ -4,7 +4,7 @@ Covers what was added for the WSLink ``t9hcho`` / ``t9voclv`` / ``t9bat`` /
 ``t9cn`` parameters:
 
 - the new constants (``REMAP_WSLINK_ITEMS``, ``CONNECTION_GATED_SENSORS``,
-  ``BATTERY_NON_BINARY``, ``VOCLevel`` / ``VOC_LEVEL_MAP``)
+  ``VOCLevel`` / ``VOC_LEVEL_MAP``)
 - the ``utils.voc_level_to_text`` and ``utils.battery_5step_to_pct`` helpers
 - the connection gating in ``utils.remap_wslink_items``
 - the new ``SENSOR_TYPES_WSLINK`` entity descriptions
@@ -20,7 +20,6 @@ import pytest
 
 from custom_components.sws12500.const import (
     BATTERY_LIST,
-    BATTERY_NON_BINARY,
     CONNECTION_GATED_SENSORS,
     HCHO,
     OUTSIDE_TEMP,
@@ -76,7 +75,6 @@ def test_connection_gated_sensors_definition() -> None:
 
 
 def test_t9_battery_is_non_binary_only() -> None:
-    assert BATTERY_NON_BINARY == (T9_BATTERY,)
     # the 0-5 / percentage battery must not be treated as a binary low/normal one
     assert T9_BATTERY not in BATTERY_LIST
 
