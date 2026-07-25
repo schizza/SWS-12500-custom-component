@@ -3,10 +3,10 @@
 Why this dispatcher exists
 --------------------------
 Home Assistant registers aiohttp routes on startup. Re-registering or removing routes at runtime
-is awkward and error-prone (and can raise if routes already exist). This integration supports two
-different push endpoints (legacy WU-style vs WSLink). To allow switching between them without
-touching the aiohttp router, we register both routes once and use this in-process dispatcher to
-decide which one is currently enabled.
+is awkward and error-prone (and can raise if routes already exist). This integration supports
+multiple station push endpoints. To allow switching between them without touching the aiohttp
+router, we register routes once and use this in-process dispatcher to decide which one is
+currently enabled.
 
 Important note:
 - Each route stores a *bound method* handler (e.g. `coordinator.received_data`). That means the

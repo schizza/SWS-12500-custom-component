@@ -71,8 +71,8 @@ def _configured_protocol(config: SWSConfigEntry) -> str:
     """Return the primary configured protocol (wu / wslink / ecowitt).
 
     The legacy PWS/WSLink endpoint takes precedence when enabled; otherwise an
-    Ecowitt-only setup reports "ecowitt". (Legacy and Ecowitt can be enabled at the
-    same time; this just labels the primary protocol for the summary.)
+    Ecowitt-only setup reports "ecowitt". If an old or externally edited config
+    has both flags enabled, legacy still wins because that is the effective route.
     """
     if checked_or(config.options.get(LEGACY_ENABLED), bool, True):
         return "wslink" if checked_or(config.options.get(WSLINK), bool, False) else "wu"
@@ -235,8 +235,8 @@ class HealthCoordinator(DataUpdateCoordinator):
         reason = ingress.get("reason")
 
         # A WU vs WSLink mismatch means the station is misconfigured for the legacy
-        # endpoint. Ecowitt coexists with the legacy endpoint, so it never counts as a
-        # mismatch - it is a valid protocol whenever a payload arrives on its route.
+        # endpoint. Ecowitt has its own route and is considered valid only when an
+        # accepted Ecowitt payload arrives there.
         legacy_mismatch = (
             last_protocol in _LEGACY_PROTOCOLS
             and configured_protocol in _LEGACY_PROTOCOLS

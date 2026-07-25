@@ -5,7 +5,7 @@ These tests rely on `pytest-homeassistant-custom-component` to provide:
 - `MockConfigEntry` helper for config entries
 
 They validate that the integration can set up a config entry and that the
-coordinator is created and stored in `hass.data`.
+coordinator is stored on `entry.runtime_data`.
 
 Note:
 This integration registers aiohttp routes via `hass.http.app.router`. In this
@@ -46,7 +46,7 @@ def config_entry() -> MockConfigEntry:
 async def test_async_setup_entry_creates_runtime_state(
     hass, config_entry: MockConfigEntry, monkeypatch
 ):
-    """Setting up a config entry should succeed and populate hass.data."""
+    """Setting up a config entry should succeed and populate runtime state."""
     config_entry.add_to_hass(hass)
 
     # `async_setup_entry` calls `register_path`, which needs `hass.http`.
