@@ -4,6 +4,7 @@
       "valid_credentials_api": "Vyplňte platné API ID.",
       "valid_credentials_key": "Vyplňte platný API KEY.",
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "ecowitt_webhook_required": "Před zapnutím dat Ecowitt zadejte webhook ID.",
       "protocols_mutually_exclusive": "Starý endpoint (PWS/WSLink) a Ecowitt nelze zapnout současně – plní stejné entity senzorů, což by pomíchalo jednotky a mazalo naměřené hodnoty. Nejdřív jeden z nich vypni."
     },
     "step": {
@@ -50,6 +51,7 @@
       "valid_credentials_api": "Vyplňte platné API ID",
       "valid_credentials_key": "Vyplňte platný API KEY",
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "ecowitt_webhook_required": "Před zapnutím dat Ecowitt zadejte webhook ID.",
       "windy_id_required": "Je vyžadováno Windy ID, pokud chcete aktivovat přeposílání dat na Windy",
       "windy_pw_required": "Je vyžadován Windy KEY, pokud chcete aktivovat přeposílání dat na Windy",
       "windy_key_required": "Pro aktivaci je vyžadováno Windy ID i heslo stanice.",

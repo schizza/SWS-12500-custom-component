@@ -63,6 +63,16 @@ class Routes:
         """Initialize dispatcher storage."""
         self.routes: dict[str, RouteInfo] = {}
         self._ingress_observer: IngressObserver | None = None
+        self.active: bool = True
+
+    def activate(self) -> None:
+        """Allow registered routes to dispatch to their configured handlers."""
+        self.active = True
+
+    def deactivate(self) -> None:
+        """Stop registered routes from dispatching to config-entry handlers."""
+        self.active = False
+        self._ingress_observer = None
 
     def _resolve_route(self, request: Request) -> RouteInfo | None:
         """Find the matching RouteInfo for a request.
@@ -141,6 +151,12 @@ class Routes:
                 self._ingress_observer(request, False, "route_not_registered")
             return await unregistered(request)
 
+        if not self.active:
+            _LOGGER.debug("Route (%s):%s received while integration is not loaded.", request.method, request.path)
+            if self._ingress_observer is not None:
+                self._ingress_observer(request, False, "integration_unloaded")
+            return Response(text="Integration is not loaded.", status=503)
+
         if self._ingress_observer is not None:
             self._ingress_observer(
                 request,
@@ -196,6 +212,9 @@ class Routes:
     def show_enabled(self) -> str:
         """Return a human-readable description of the currently enabled route."""
 
+        if not self.active:
+            return "No routes are enabled."
+
         enabled_routes = {
             f"Dispatcher enabled for ({route.route.method}):{route.url_path}, with handler: {route.handler}"
             for route in self.routes.values()
@@ -207,7 +226,7 @@ class Routes:
 
     def path_enabled(self, url_path: str) -> bool:
         """Return whether any route registered for `url_path` is enabled."""
-        return any(route.enabled for route in self.routes.values() if route.url_path == url_path)
+        return self.active and any(route.enabled for route in self.routes.values() if route.url_path == url_path)
 
     def snapshot(self) -> dict[str, Any]:
         """Return a compact routing snapshot for diagnostics."""
@@ -215,7 +234,7 @@ class Routes:
             key: {
                 "path": route.url_path,
                 "method": route.route.method,
-                "enabled": route.enabled,
+                "enabled": self.active and route.enabled,
                 "sticky": route.sticky,
             }
             for key, route in self.routes.items()

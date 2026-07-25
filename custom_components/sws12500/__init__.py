@@ -160,6 +160,7 @@ def register_path(
             sticky=True,
         )
     else:
+        routes.activate()
         routes.set_ingress_observer(coordinator_h.record_dispatch)
         _LOGGER.info("We have already registered routes: %s", routes.show_enabled())
     return True
@@ -195,6 +196,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
 
     if routes is not None:
         _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
+        routes.activate()
         routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL, enabled=_legacy)
         routes.set_ecowitt_enabled(_ecowitt_path, coordinator.received_ecowitt_data, _ecowitt_enabled)
         # Rebind the sticky health route to the new coordinator so /station/health
@@ -270,4 +272,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool
     aiohttp routes stay registered and the dispatcher is re-wired on the next setup.
     """
 
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if unload_ok:
+        domain_data = hass.data.get(DOMAIN)
+        routes = domain_data.get("routes") if isinstance(domain_data, dict) else None
+        if isinstance(routes, Routes):
+            routes.deactivate()
+        setattr(entry, "runtime_data", None)
+
+    return unload_ok

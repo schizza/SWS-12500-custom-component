@@ -67,6 +67,17 @@ def _ha_url_placeholders(hass: HomeAssistant) -> tuple[str, str]:
     return url.host or "UNKNOWN", str(url.port)
 
 
+def _validate_ecowitt_webhook(user_input: dict[str, Any], errors: dict[str, str]) -> None:
+    """Reject enabling Ecowitt without a webhook id.
+
+    The id is the endpoint's only credential, so an empty one would leave
+    `/weatherhub/<id>` unauthenticated (`received_ecowitt_data` rejects it outright).
+    """
+    webhook = user_input.get(ECOWITT_WEBHOOK_ID, "")
+    if user_input.get(ECOWITT_ENABLED) and (not isinstance(webhook, str) or not webhook.strip()):
+        errors[ECOWITT_WEBHOOK_ID] = "ecowitt_webhook_required"
+
+
 class ConfigOptionsFlowHandler(OptionsFlow):
     """Handle WeatherStation ConfigFlow."""
 
@@ -276,11 +287,12 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             webhook = secrets.token_hex(8)
 
         if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
             # Both endpoints remap onto the same internal sensor keys, so enabling
             # Ecowitt while the legacy endpoint is active would corrupt those entities.
             if user_input.get(ECOWITT_ENABLED) and self.user_data.get(LEGACY_ENABLED):
                 errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
-            else:
+            if not errors:
                 return self.async_create_entry(title=DOMAIN, data=self.retain_data(user_input))
 
         host, port = _ha_url_placeholders(self.hass)
@@ -405,33 +417,39 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
         """Ecowitt stations setup."""
 
-        if user_input is None:
-            webhook = secrets.token_hex(8)
-            host, port = _ha_url_placeholders(self.hass)
+        errors: dict[str, str] = {}
 
-            ecowitt_schema = {
-                vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
-                vol.Optional(ECOWITT_ENABLED, default=True): bool,
-            }
+        if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
+            if not errors:
+                options: dict[str, Any] = {
+                    **user_input,
+                    LEGACY_ENABLED: False,
+                    WSLINK: False,
+                    API_ID: "",
+                    API_KEY: "",
+                }
 
-            return self.async_show_form(
-                step_id="ecowitt",
-                data_schema=vol.Schema(ecowitt_schema),
-                description_placeholders={
-                    "url": host,
-                    "port": port,
-                    "webhook_id": webhook,
-                },
-            )
-        options: dict[str, Any] = {
-            **user_input,
-            LEGACY_ENABLED: False,
-            WSLINK: False,
-            API_ID: "",
-            API_KEY: "",
+                return self.async_create_entry(title=DOMAIN, data=options, options=options)
+
+        webhook = user_input.get(ECOWITT_WEBHOOK_ID, "") if user_input is not None else secrets.token_hex(8)
+        host, port = _ha_url_placeholders(self.hass)
+
+        ecowitt_schema = {
+            vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
+            vol.Optional(ECOWITT_ENABLED, default=True): bool,
         }
 
-        return self.async_create_entry(title=DOMAIN, data=options, options=options)
+        return self.async_show_form(
+            step_id="ecowitt",
+            data_schema=vol.Schema(ecowitt_schema),
+            description_placeholders={
+                "url": host,
+                "port": port,
+                "webhook_id": webhook,
+            },
+            errors=errors,
+        )
 
     @staticmethod
     @callback

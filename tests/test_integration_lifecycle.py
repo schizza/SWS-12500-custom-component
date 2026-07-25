@@ -370,6 +370,35 @@ async def test_async_unload_entry_returns_true_on_success(hass_with_http):
 
 
 @pytest.mark.asyncio
+async def test_async_unload_entry_deactivates_shared_routes(hass_with_http):
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
+    entry.add_to_hass(hass_with_http)
+
+    coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
+    register_path(hass_with_http, coordinator, coordinator_health, entry)
+    entry.runtime_data = SWSRuntimeData(
+        coordinator=coordinator,
+        health_coordinator=coordinator_health,
+        last_options=dict(entry.options),
+    )
+
+    routes = hass_with_http.data[DOMAIN]["routes"]
+    assert routes.path_enabled(DEFAULT_URL) is True
+
+    hass_with_http.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+
+    ok = await async_unload_entry(hass_with_http, entry)
+
+    assert ok is True
+    assert routes.path_enabled(DEFAULT_URL) is False
+    assert getattr(entry, "runtime_data", None) is None
+
+    response = await routes.dispatch(SimpleNamespace(method="GET", path=DEFAULT_URL))
+    assert response.status == 503
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry_returns_false_on_failure(hass_with_http):
     entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
     entry.add_to_hass(hass_with_http)
