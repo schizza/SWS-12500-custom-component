@@ -361,33 +361,27 @@ async def test_options_flow_ecowitt_uses_get_url_placeholders_and_webhook_defaul
     )
     entry.add_to_hass(hass)
 
-    init = await hass.config_entries.options.async_init(entry.entry_id)
-    assert init["type"] == "menu"
+    # A URL without a host degrades to the "UNKNOWN" placeholder rather than raising.
+    # (`yarl.URL.host` is a read-only cached property, so the fallback has to build a
+    # new value instead of assigning to it.) This runs in its own flow because showing
+    # the form advances past the menu.
+    hostless_init = await hass.config_entries.options.async_init(entry.entry_id)
+    assert hostless_init["type"] == "menu"
 
-    # NOTE:
-    # The integration currently attempts to mutate `yarl.URL.host` when it is missing:
-    #
-    #     url: URL = URL(get_url(self.hass))
-    #     if not url.host:
-    #         url.host = "UNKNOWN"
-    #
-    # With current yarl versions, `URL.host` is a cached, read-only property, so this
-    # raises `AttributeError: cached property is read-only`.
-    #
-    # We assert that behavior explicitly to keep coverage deterministic and document the
-    # runtime incompatibility. If the integration code is updated to handle missing hosts
-    # without mutation (e.g. using `url.raw_host` or building placeholders without setting
-    # attributes), this assertion should be updated accordingly.
     with patch(
         "custom_components.sws12500.config_flow.get_url",
         return_value="http://",
     ):
-        with pytest.raises(AttributeError):
-            await hass.config_entries.options.async_configure(
-                init["flow_id"], user_input={"next_step_id": "ecowitt"}
-            )
+        hostless = await hass.config_entries.options.async_configure(
+            hostless_init["flow_id"], user_input={"next_step_id": "ecowitt"}
+        )
+        assert hostless["type"] == "form"
+        assert (hostless.get("description_placeholders") or {})["url"] == "UNKNOWN"
 
-    # Second call uses a normal URL and completes the flow.
+    # A normal URL fills real placeholders and completes the flow.
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    assert init["type"] == "menu"
+
     with patch(
         "custom_components.sws12500.config_flow.get_url",
         return_value="http://example.local:8123",

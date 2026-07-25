@@ -177,6 +177,7 @@ WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
+POCASI_CZ_MAX_RETRIES: Final = 3  # failed sends in a row before resending is disabled
 
 
 WSLINK: Final = "wslink"

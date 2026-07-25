@@ -15,19 +15,21 @@ from custom_components.sws12500.const import (
     POCASI_CZ_API_KEY,
     POCASI_CZ_ENABLED,
     POCASI_CZ_LOGGER_ENABLED,
+    POCASI_CZ_MAX_RETRIES,
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_UNEXPECTED,
     POCASI_CZ_URL,
     POCASI_INVALID_KEY,
     WSLINK_URL,
 )
-from custom_components.sws12500.pocasti_cz import PocasiApiKeyError, PocasiPush, PocasiSuccess
+from custom_components.sws12500.pocasti_cz import PocasiPush
 from homeassistant.util import dt as dt_util
 
 
 @dataclass(slots=True)
 class _FakeResponse:
     text_value: str
+    status: int = 200
 
     async def text(self) -> str:
         return self.text_value
@@ -182,30 +184,27 @@ async def test_push_data_to_server_calls_verify_response(monkeypatch, hass):
     )
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
 
-    verify = MagicMock(return_value=None)
+    verify = MagicMock(return_value="ok")
     monkeypatch.setattr(pp, "verify_response", verify)
 
     await pp.push_data_to_server({"x": 1}, "WU")
-    verify.assert_called_once_with("OK")
+    verify.assert_called_once_with(200, "OK")
 
 
 @pytest.mark.asyncio
-async def test_push_data_to_server_api_key_error_disables_feature(monkeypatch, hass):
+@pytest.mark.parametrize("status", [401, 403])
+async def test_push_data_to_server_auth_error_disables_feature(monkeypatch, hass, status):
+    """A 401/403 disables resending immediately - credentials will not self-heal."""
     entry = _make_entry()
     pp = PocasiPush(hass, entry)
     pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
 
-    session = _FakeSession(response=_FakeResponse("OK"))
+    session = _FakeSession(response=_FakeResponse("", status=status))
     monkeypatch.setattr(
         "custom_components.sws12500.pocasti_cz.async_get_clientsession",
         lambda _h: session,
     )
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
-
-    def _raise(_status: str):
-        raise PocasiApiKeyError
-
-    monkeypatch.setattr(pp, "verify_response", _raise)
 
     update_options = AsyncMock(return_value=True)
     monkeypatch.setattr(
@@ -223,6 +222,8 @@ async def test_push_data_to_server_api_key_error_disables_feature(monkeypatch, h
         POCASI_INVALID_KEY in str(c.args[0]) for c in crit.call_args_list if c.args
     )
     update_options.assert_awaited_once_with(hass, entry, POCASI_CZ_ENABLED, False)
+    assert pp.enabled is False
+    assert pp.last_status == "auth_error"
 
 
 @pytest.mark.asyncio
@@ -230,24 +231,58 @@ async def test_push_data_to_server_success_logs_when_logger_enabled(monkeypatch,
     entry = _make_entry(logger=True)
     pp = PocasiPush(hass, entry)
     pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+    # A previous failure must be cleared by a successful send.
+    pp.invalid_response_count = 2
 
-    session = _FakeSession(response=_FakeResponse("OK"))
+    session = _FakeSession(response=_FakeResponse("OK", status=200))
     monkeypatch.setattr(
         "custom_components.sws12500.pocasti_cz.async_get_clientsession",
         lambda _h: session,
     )
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
 
-    def _raise_success(_status: str):
-        raise PocasiSuccess
-
-    monkeypatch.setattr(pp, "verify_response", _raise_success)
-
     info = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz._LOGGER.info", info)
 
     await pp.push_data_to_server({"x": 1}, "WU")
+
     info.assert_called()
+    assert pp.last_status == "ok"
+    assert pp.last_error is None
+    assert pp.invalid_response_count == 0
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_server_server_error_disables_after_max_retries(monkeypatch, hass):
+    """HTTP 500 is no longer silently reported as success; it counts toward the limit."""
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+
+    session = _FakeSession(response=_FakeResponse("", status=500))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+    monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
+
+    update_options = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.update_options", update_options
+    )
+
+    for _ in range(POCASI_CZ_MAX_RETRIES - 1):
+        pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+        await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.last_status == "unexpected_response"
+    assert pp.enabled is True
+    update_options.assert_not_awaited()
+
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+    await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.enabled is False
+    update_options.assert_awaited_once_with(hass, entry, POCASI_CZ_ENABLED, False)
 
 
 @pytest.mark.asyncio
@@ -295,5 +330,45 @@ def test_verify_response_logs_debug_when_logger_enabled(monkeypatch, hass):
     dbg = MagicMock()
     monkeypatch.setattr("custom_components.sws12500.pocasti_cz._LOGGER.debug", dbg)
 
-    assert pp.verify_response("anything") is None
+    assert pp.verify_response(200, "anything") == "ok"
+    dbg.assert_called()
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (200, "ok"),
+        (204, "ok"),
+        (299, "ok"),
+        (401, "auth_error"),
+        (403, "auth_error"),
+        (400, "unexpected_response"),
+        (404, "unexpected_response"),
+        (500, "unexpected_response"),
+        (503, "unexpected_response"),
+    ],
+)
+def test_verify_response_status_mapping(hass, status, expected):
+    """Every send outcome is derived from the HTTP status, not from the (empty) body."""
+    pp = PocasiPush(hass, _make_entry())
+    assert pp.verify_response(status, "") == expected
+
+
+@pytest.mark.asyncio
+async def test_disable_pocasi_logs_when_option_write_fails(monkeypatch, hass):
+    """A failed option write is logged but still leaves resending off in memory."""
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.update_options",
+        AsyncMock(return_value=False),
+    )
+    dbg = MagicMock()
+    monkeypatch.setattr("custom_components.sws12500.pocasti_cz._LOGGER.debug", dbg)
+
+    await pp._disable_pocasi("because")
+
+    assert pp.enabled is False
+    assert pp.last_error == "because"
     dbg.assert_called()
