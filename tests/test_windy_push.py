@@ -450,6 +450,43 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
 
 
 @pytest.mark.asyncio
+async def test_push_data_to_windy_timeout_is_handled_like_client_error(
+    monkeypatch, hass
+):
+    """A network timeout must not escape into the webhook handler.
+
+    `TimeoutError` is not a subclass of `ClientError`, so it used to propagate out
+    of `push_data_to_windy`, through the awaiting coordinator, and answer the
+    station with HTTP 500 - even though the measured data was already stored.
+    """
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.update_options", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr("custom_components.sws12500.windy_func._LOGGER.critical", MagicMock())
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.async_create",
+        MagicMock(),
+    )
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    ok = await wp.push_data_to_windy({"a": "b"})
+
+    assert ok is True
+    assert wp.last_status == "client_error"
+    assert wp.last_error == "TimeoutError"
+    assert wp.invalid_response_count == 1
+
+
+@pytest.mark.asyncio
 async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
     monkeypatch, hass
 ):

@@ -81,11 +81,33 @@ def test_level_descriptions_generated_from_battery_non_binary() -> None:
 
 
 def test_level_batteries_are_not_also_plain_sensors() -> None:
-    """A 0-5 battery must appear exactly once in each platform's description set."""
+    """A 0-5 battery must not be hand-defined on top of its generated description.
+
+    `BATTERY_LEVEL_SENSORS` is spliced into `SENSOR_TYPES_WSLINK`, so one occurrence
+    there is the generated one and is expected; `SENSOR_TYPES_WEATHER_API` does not
+    splice them in, so zero is expected there. "At most once" is therefore the
+    invariant that holds for both - a second entry is a duplicate entity.
+
+    Complete *absence* of a description is caught by
+    `test_level_descriptions_generated_from_battery_non_binary`, which pins the
+    generated set to `BATTERY_NON_BINARY` exactly.
+    """
     for sensor_types in (SENSOR_TYPES_WSLINK, SENSOR_TYPES_WEATHER_API):
         keys = [desc.key for desc in sensor_types]
         for key in BATTERY_NON_BINARY:
             assert keys.count(key) <= 1, f"{key} defined more than once"
+
+
+def test_level_batteries_reach_the_sensor_platform() -> None:
+    """Every 0-5 battery must actually be spliced into the WSLink platform set.
+
+    The generated tuple existing is not enough - if the `*BATTERY_LEVEL_SENSORS`
+    splice were dropped, the classification tests would still pass while the
+    percentage entities silently disappeared.
+    """
+    keys = [desc.key for desc in SENSOR_TYPES_WSLINK]
+    for key in BATTERY_NON_BINARY:
+        assert key in keys, f"{key} is classified as a 0-5 battery but has no sensor description"
 
 
 def test_binary_batteries_are_not_plain_sensors_too() -> None:

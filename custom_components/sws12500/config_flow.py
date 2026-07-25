@@ -9,9 +9,9 @@ import voluptuous as vol
 from yarl import URL
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
-from homeassistant.helpers.network import get_url
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .conflicts import ERROR_MUTUALLY_EXCLUSIVE
 from .const import (
@@ -40,6 +40,31 @@ from .const import (
 
 # Masked text input for secret fields (API keys / station passwords).
 _PASSWORD_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
+
+
+def _is_invalid_credential(value: Any) -> bool:
+    """Return True when a PWS/WSLink credential is unusable.
+
+    Blank (or whitespace-only) values are as useless as the placeholder strings in
+    `INVALID_CREDENTIALS`: `_validate_credentials` rejects every incoming packet if
+    either option is empty, so the entry would be created but never receive data.
+    """
+    return not isinstance(value, str) or not value.strip() or value in INVALID_CREDENTIALS
+
+
+def _ha_url_placeholders(hass: HomeAssistant) -> tuple[str, str]:
+    """Return (host, port) of the Home Assistant URL for the Ecowitt instructions.
+
+    `get_url` raises `NoURLAvailableError` when HA cannot resolve any of its own
+    URLs. These values are shown as setup instructions only, so fall back to a
+    placeholder instead of letting the config flow abort.
+    """
+    try:
+        url: URL = URL(get_url(hass))
+    except NoURLAvailableError:
+        return "UNKNOWN", "UNKNOWN"
+
+    return url.host or "UNKNOWN", str(url.port)
 
 
 class ConfigOptionsFlowHandler(OptionsFlow):
@@ -160,9 +185,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             # legacy one while Ecowitt is active would corrupt those entities.
             if self.ecowitt.get(ECOWITT_ENABLED):
                 errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
-            elif user_input[API_ID] in INVALID_CREDENTIALS or user_input.get(API_ID, "") == "":
+            elif _is_invalid_credential(user_input.get(API_ID)):
                 errors[API_ID] = "valid_credentials_api"
-            elif user_input[API_KEY] in INVALID_CREDENTIALS or user_input.get(API_KEY, "") == "":
+            elif _is_invalid_credential(user_input.get(API_KEY)):
                 errors[API_KEY] = "valid_credentials_key"
             elif user_input[API_KEY] == user_input[API_ID]:
                 errors["base"] = "valid_credentials_match"
@@ -258,8 +283,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             else:
                 return self.async_create_entry(title=DOMAIN, data=self.retain_data(user_input))
 
-        url: URL = URL(get_url(self.hass))
-        host = url.host or "UNKNOWN"
+        host, port = _ha_url_placeholders(self.hass)
 
         ecowitt_schema = {
             vol.Required(
@@ -277,7 +301,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             data_schema=vol.Schema(ecowitt_schema),
             description_placeholders={
                 "url": host,
-                "port": str(url.port),
+                "port": port,
                 "webhook_id": webhook,
             },
             errors=errors,
@@ -358,9 +382,9 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return self.async_show_form(step_id="pws", data_schema=vol.Schema(self.pws_schema), errors=errors)
 
-        if user_input[API_ID] in INVALID_CREDENTIALS:
+        if _is_invalid_credential(user_input.get(API_ID)):
             errors[API_ID] = "valid_credentials_api"
-        elif user_input[API_KEY] in INVALID_CREDENTIALS:
+        elif _is_invalid_credential(user_input.get(API_KEY)):
             errors[API_KEY] = "valid_credentials_key"
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
@@ -383,8 +407,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         if user_input is None:
             webhook = secrets.token_hex(8)
-            url: URL = URL(get_url(self.hass))
-            host = url.host or "UNKNOWN"
+            host, port = _ha_url_placeholders(self.hass)
 
             ecowitt_schema = {
                 vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
@@ -396,7 +419,7 @@ class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema(ecowitt_schema),
                 description_placeholders={
                     "url": host,
-                    "port": str(url.port),
+                    "port": port,
                     "webhook_id": webhook,
                 },
             )

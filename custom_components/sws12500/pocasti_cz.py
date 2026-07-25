@@ -180,7 +180,10 @@ class PocasiPush:
                     _LOGGER.critical(POCASI_CZ_UNEXPECTED)
                     await self._disable_pocasi(POCASI_CZ_UNEXPECTED)
 
-        except ClientError as ex:
+        # TimeoutError is not a ClientError: an `async_timeout`/`asyncio` timeout would
+        # otherwise escape into the webhook handler and answer the station with HTTP 500,
+        # even though the measured data was already stored.
+        except (ClientError, TimeoutError) as ex:
             self.last_status = "client_error"
             # Store only the exception class - last_error is surfaced via entity
             # attributes; str(ex) could embed the request URL.

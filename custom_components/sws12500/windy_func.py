@@ -311,7 +311,10 @@ class WindyPush:
                             reason=f"Unable to send data to Windy ({WINDY_MAX_RETRIES} times). Disabling resend option for now. Please check your Windy configuration and enable this feature afterwards."
                         )
 
-        except ClientError as ex:
+        # TimeoutError is not a ClientError: an `async_timeout`/`asyncio` timeout would
+        # otherwise escape into the webhook handler and answer the station with HTTP 500,
+        # even though the measured data was already stored.
+        except (ClientError, TimeoutError) as ex:
             self.last_status = "client_error"
             # Store only the exception class - last_error is surfaced via entity
             # attributes; str(ex) could embed the request URL.

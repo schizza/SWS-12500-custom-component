@@ -29,6 +29,7 @@ from custom_components.sws12500.const import (
     WSLINK_ADDON_PORT,
 )
 from homeassistant import config_entries
+from homeassistant.helpers.network import NoURLAvailableError
 
 
 @pytest.mark.asyncio
@@ -125,6 +126,81 @@ async def test_config_flow_user_invalid_credentials_api_key(
     assert result2["type"] == "form"
     assert result2["step_id"] == "pws"
     assert result2["errors"][API_KEY] == "valid_credentials_key"
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+@pytest.mark.parametrize("field", [API_ID, API_KEY])
+@pytest.mark.asyncio
+async def test_config_flow_user_rejects_blank_credentials(
+    hass, enable_custom_integrations, field, blank
+) -> None:
+    """Blank PWS credentials must not create an entry.
+
+    `INVALID_CREDENTIALS` holds placeholder strings only, so an empty (or
+    whitespace-only) value used to pass validation. The entry was created but
+    `_validate_credentials` then rejected every incoming packet, leaving the
+    integration permanently without data.
+    """
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"next_step_id": "pws"}
+    )
+    assert form["step_id"] == "pws"
+
+    user_input = {
+        API_ID: "ok_id",
+        API_KEY: "ok_key",
+        WSLINK: False,
+        DEV_DBG: False,
+    }
+    user_input[field] = blank
+
+    result2 = await hass.config_entries.flow.async_configure(
+        form["flow_id"], user_input=user_input
+    )
+    assert result2["type"] == "form"
+    assert result2["step_id"] == "pws"
+    expected = "valid_credentials_api" if field is API_ID else "valid_credentials_key"
+    assert result2["errors"][field] == expected
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+@pytest.mark.parametrize("field", [API_ID, API_KEY])
+@pytest.mark.asyncio
+async def test_options_flow_basic_rejects_blank_credentials(
+    hass, enable_custom_integrations, field, blank
+) -> None:
+    """Same blank-credential rule applies when the legacy endpoint is re-enabled."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={LEGACY_ENABLED: False, ECOWITT_ENABLED: False},
+    )
+    entry.add_to_hass(hass)
+
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    form = await hass.config_entries.options.async_configure(
+        init["flow_id"], user_input={"next_step_id": "basic"}
+    )
+    assert form["step_id"] == "basic"
+
+    user_input = {
+        API_ID: "ok_id",
+        API_KEY: "ok_key",
+        WSLINK: False,
+        DEV_DBG: False,
+        LEGACY_ENABLED: True,
+    }
+    user_input[field] = blank
+
+    result = await hass.config_entries.options.async_configure(
+        init["flow_id"], user_input=user_input
+    )
+    assert result["type"] == "form"
+    expected = "valid_credentials_api" if field is API_ID else "valid_credentials_key"
+    assert result["errors"][field] == expected
 
 
 @pytest.mark.asyncio
@@ -408,6 +484,70 @@ async def test_options_flow_ecowitt_uses_get_url_placeholders_and_webhook_defaul
         )
         assert done["type"] == "create_entry"
         assert done["data"][ECOWITT_ENABLED] is True
+
+
+@pytest.mark.asyncio
+async def test_options_flow_ecowitt_survives_no_url_available(
+    hass, enable_custom_integrations
+) -> None:
+    """`get_url` raising must not abort the Ecowitt options step.
+
+    The host/port are shown as setup instructions only. HA can fail to resolve any
+    of its own URLs (no internal/external URL configured), and letting that escape
+    made the Ecowitt setup unreachable.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={ECOWITT_WEBHOOK_ID: "", ECOWITT_ENABLED: False, LEGACY_ENABLED: False},
+    )
+    entry.add_to_hass(hass)
+
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    with patch(
+        "custom_components.sws12500.config_flow.get_url",
+        side_effect=NoURLAvailableError,
+    ):
+        form = await hass.config_entries.options.async_configure(
+            init["flow_id"], user_input={"next_step_id": "ecowitt"}
+        )
+    assert form["type"] == "form"
+    placeholders = form.get("description_placeholders") or {}
+    assert placeholders["url"] == "UNKNOWN"
+    assert placeholders["port"] == "UNKNOWN"
+    assert placeholders["webhook_id"]
+
+
+@pytest.mark.asyncio
+async def test_config_flow_ecowitt_survives_no_url_available(
+    hass, enable_custom_integrations
+) -> None:
+    """The initial Ecowitt step stays usable when HA cannot resolve its own URL."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    with patch(
+        "custom_components.sws12500.config_flow.get_url",
+        side_effect=NoURLAvailableError,
+    ):
+        form = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={"next_step_id": "ecowitt"}
+        )
+    assert form["type"] == "form"
+    placeholders = form.get("description_placeholders") or {}
+    assert placeholders["url"] == "UNKNOWN"
+    assert placeholders["port"] == "UNKNOWN"
+
+    # The step is still completable without a resolvable URL.
+    done = await hass.config_entries.flow.async_configure(
+        form["flow_id"],
+        user_input={
+            ECOWITT_WEBHOOK_ID: placeholders["webhook_id"],
+            ECOWITT_ENABLED: True,
+        },
+    )
+    assert done["type"] == "create_entry"
+    assert done["data"][ECOWITT_ENABLED] is True
 
 
 @pytest.mark.asyncio

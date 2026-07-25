@@ -338,6 +338,40 @@ async def test_push_data_to_server_client_error_increments_and_disables_after_th
     )
 
 
+@pytest.mark.asyncio
+async def test_push_data_to_server_timeout_is_handled_like_client_error(
+    monkeypatch, hass
+):
+    """A network timeout must not escape into the webhook handler.
+
+    `TimeoutError` is not a subclass of `ClientError`, so it used to propagate out
+    of `push_data_to_server`, through the awaiting coordinator, and answer the
+    station with HTTP 500 - even though the measured data was already stored.
+    """
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.update_options",
+        _write_through_update_options(entry),
+    )
+    monkeypatch.setattr("custom_components.sws12500.pocasti_cz._LOGGER.critical", MagicMock())
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+    await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.last_status == "client_error"
+    assert pp.last_error == "TimeoutError"
+    assert pp.invalid_response_count == 1
+    assert pp.enabled is True
+
+
 def test_verify_response_logs_debug_when_logger_enabled(monkeypatch, hass):
     entry = _make_entry(logger=True)
     pp = PocasiPush(hass, entry)
