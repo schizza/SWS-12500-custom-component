@@ -361,8 +361,16 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 #
 
 
-# Station reports batteries as 0/1 (low/normal). Sensors reporting a 0-5 level
-# (e.g. T9_BATTERY) are plain sensors, not binary ones.
+# How the station reports each battery decides which entity it becomes. The two tuples
+# below are the single source of truth for that split - `battery_sensors_def` generates
+# both entity description sets from them, so a key cannot end up with two entities.
+#
+# They must stay disjoint, and every `*_BATTERY` constant must appear in exactly one of
+# them; `tests/test_battery_classification.py` enforces both. That matters because the
+# WSLink API has more of each kind still to be implemented (see the TODO block above):
+# `t5lsbat` / `t6c1-7bat` are 0/1, while `t8bat` / `t10bat` / `t11bat` are 0-5.
+
+# Reported as 0/1 (low/normal) -> BinarySensorDeviceClass.BATTERY.
 BATTERY_LIST: Final[tuple[str, ...]] = (
     OUTSIDE_BATTERY,
     INDOOR_BATTERY,
@@ -374,6 +382,9 @@ BATTERY_LIST: Final[tuple[str, ...]] = (
     CH7_BATTERY,
     CH8_BATTERY,
 )
+
+# Reported as a 0-5 level, 5 being full -> percentage SensorDeviceClass.BATTERY.
+BATTERY_NON_BINARY: Final[tuple[str, ...]] = (T9_BATTERY,)
 
 
 CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {

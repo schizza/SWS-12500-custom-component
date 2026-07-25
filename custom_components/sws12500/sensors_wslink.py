@@ -16,6 +16,7 @@ from homeassistant.const import (
     UnitOfVolumetricFlux,
 )
 
+from .battery_sensors_def import BATTERY_LEVEL_SENSORS
 from .const import (
     BARO_PRESSURE,
     CH2_BATTERY,
@@ -54,7 +55,6 @@ from .const import (
     OUTSIDE_TEMP,
     RAIN,
     SOLAR_RADIATION,
-    T9_BATTERY,
     UV,
     VOC,
     WBGT_TEMP,
@@ -69,7 +69,7 @@ from .const import (
     VOCLevel,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_5step_to_pct, battery_level, to_float, to_int, voc_level_to_text, wind_dir_to_text
+from .utils import battery_level, to_float, to_int, voc_level_to_text, wind_dir_to_text
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -542,13 +542,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:air-filter",
         value_fn=voc_level_to_text,
     ),
-    WeatherSensorEntityDescription(
-        key=T9_BATTERY,
-        translation_key=T9_BATTERY,
-        device_class=SensorDeviceClass.BATTERY,
-        native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=0,
-        value_fn=battery_5step_to_pct,
-    ),
+    # 0-5 level batteries are generated from BATTERY_NON_BINARY so the classification
+    # lives in exactly one place (see battery_sensors_def).
+    *BATTERY_LEVEL_SENSORS,
 )
