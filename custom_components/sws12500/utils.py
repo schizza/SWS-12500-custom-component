@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any
+from typing import Any, Final
 
 from py_typecheck.core import checked_or
 
@@ -26,8 +26,10 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    CHILL_INDEX,
     CONNECTION_GATED_SENSORS,
     DEV_DBG,
+    HEAT_INDEX,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
     REMAP_ITEMS,
@@ -392,3 +394,56 @@ def battery_5step_to_pct(value: Any) -> int | None:
         return None
 
     return round(min(max(step, 0), 5) / 5 * 100)
+
+
+# The NWS wind-chill formula is defined for mph; WSLink reports wind in m/s.
+_MS_TO_MPH: Final = 2.236936
+
+
+def wslink_heat_index(data: dict[str, Any]) -> float | None:
+    """Heat index for a WSLink payload, in Celsius.
+
+    Prefers the station's own `t1heat` reading. Not every WSLink station sends one,
+    and without a fallback the entity - which `_auto_enable_derived_sensors` creates
+    as soon as temperature and humidity arrive - stays Unavailable forever.
+
+    `heat_index` takes Celsius via `convert=True` but always returns Fahrenheit, so
+    the result is converted back to match this entity's native Celsius unit.
+    """
+    if (reported := to_float(data.get(HEAT_INDEX))) is not None:
+        return reported
+
+    # Guard here rather than letting heat_index log an error per push: a payload
+    # without these fields is normal, not a fault.
+    if to_float(data.get(OUTSIDE_TEMP)) is None or to_float(data.get(OUTSIDE_HUMIDITY)) is None:
+        return None
+
+    value_f = heat_index(data, convert=True)
+    return None if value_f is None else round(fahrenheit_to_celsius(value_f), 2)
+
+
+def wslink_chill_index(data: dict[str, Any]) -> float | None:
+    """Wind chill for a WSLink payload, in Celsius.
+
+    Prefers the station's own `t1chill` reading; see `wslink_heat_index` for why a
+    fallback is needed.
+
+    `chill_index` converts the temperature but *not* the wind speed, and its formula
+    expects mph, so the m/s reading is converted here before the Fahrenheit result is
+    turned back into Celsius.
+    """
+    if (reported := to_float(data.get(CHILL_INDEX))) is not None:
+        return reported
+
+    temp_c = to_float(data.get(OUTSIDE_TEMP))
+    wind_ms = to_float(data.get(WIND_SPEED))
+    if temp_c is None or wind_ms is None:
+        return None
+
+    value_f = chill_index(
+        {
+            OUTSIDE_TEMP: celsius_to_fahrenheit(temp_c),
+            WIND_SPEED: wind_ms * _MS_TO_MPH,
+        }
+    )
+    return None if value_f is None else round(fahrenheit_to_celsius(value_f), 2)

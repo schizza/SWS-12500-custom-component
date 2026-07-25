@@ -69,7 +69,15 @@ from .const import (
     VOCLevel,
 )
 from .sensors_common import WeatherSensorEntityDescription
-from .utils import battery_level, to_float, to_int, voc_level_to_text, wind_dir_to_text
+from .utils import (
+    battery_level,
+    to_float,
+    to_int,
+    voc_level_to_text,
+    wind_dir_to_text,
+    wslink_chill_index,
+    wslink_heat_index,
+)
 
 SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
     WeatherSensorEntityDescription(
@@ -457,6 +465,9 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         replacement_entity_key=CH8_BATTERY,
         entity_registry_enabled_default=False,
     ),
+    # `value_from_data_fn` takes precedence in `WeatherSensor.native_value`, so these
+    # use the station's own t1heat/t1chill when present and compute them otherwise -
+    # stations that do not report them used to leave both entities Unavailable forever.
     WeatherSensorEntityDescription(
         key=HEAT_INDEX,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -466,7 +477,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-sunny",
         translation_key=HEAT_INDEX,
-        value_fn=to_float,
+        value_from_data_fn=wslink_heat_index,
     ),
     WeatherSensorEntityDescription(
         key=CHILL_INDEX,
@@ -477,7 +488,7 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         suggested_display_precision=2,
         icon="mdi:weather-sunny",
         translation_key=CHILL_INDEX,
-        value_fn=to_float,
+        value_from_data_fn=wslink_chill_index,
     ),
     WeatherSensorEntityDescription(
         key=OUTSIDE_BATTERY,
