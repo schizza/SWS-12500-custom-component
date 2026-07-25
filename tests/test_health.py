@@ -30,6 +30,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sws12500 import health_coordinator as hc, health_sensor as hs
 from custom_components.sws12500.const import (
+    API_ID,
+    API_KEY,
     DEFAULT_URL,
     DOMAIN,
     ECOWITT_ENABLED,
@@ -46,10 +48,21 @@ from custom_components.sws12500.data import SWSRuntimeData
 from custom_components.sws12500.health_coordinator import HealthCoordinator
 from custom_components.sws12500.routes import Routes
 from homeassistant.components.http import KEY_AUTHENTICATED
+from homeassistant.config_entries import ConfigEntryState
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
+
+class _ProbeRouterStub:
+    """Minimal aiohttp router stub for the end-to-end setup test."""
+
+    def add_get(self, path: str, handler: Any, **_kwargs: Any) -> Any:
+        return SimpleNamespace(method="GET")
+
+    def add_post(self, path: str, handler: Any, **_kwargs: Any) -> Any:
+        return SimpleNamespace(method="POST")
 
 
 def _make_entry(options: dict[str, Any] | None = None) -> MockConfigEntry:
@@ -523,9 +536,7 @@ def test_update_ingress_result_explicit_reason(hass, entry) -> None:
     _attach_runtime_data(entry, coordinator)
 
     request = SimpleNamespace(path=DEFAULT_URL, method="GET")
-    coordinator.update_ingress_result(
-        request, accepted=False, authorized=None, reason="unauthorized"
-    )
+    coordinator.update_ingress_result(request, accepted=False, authorized=None, reason="unauthorized")
 
     assert coordinator.data["last_ingress"]["reason"] == "unauthorized"
     assert coordinator.data["integration_status"] == "degraded"
@@ -540,12 +551,8 @@ def test_update_forwarding(hass, entry) -> None:
     coordinator = HealthCoordinator(hass, entry)
     _attach_runtime_data(entry, coordinator)
 
-    windy = SimpleNamespace(
-        enabled=True, last_status="ok", last_error=None, last_attempt_at="2026-06-20T10:00:00"
-    )
-    pocasi = SimpleNamespace(
-        enabled=False, last_status="disabled", last_error="oops", last_attempt_at=None
-    )
+    windy = SimpleNamespace(enabled=True, last_status="ok", last_error=None, last_attempt_at="2026-06-20T10:00:00")
+    pocasi = SimpleNamespace(enabled=False, last_status="disabled", last_error="oops", last_attempt_at=None)
 
     coordinator.update_forwarding(windy, pocasi)
 
@@ -756,3 +763,135 @@ def test_sensor_unique_id_and_category() -> None:
     sensor = hs.HealthDiagnosticSensor(coordinator, _description("active_protocol"))
     assert sensor.unique_id == "active_protocol_health"
     assert sensor.entity_category == hs.EntityCategory.DIAGNOSTIC
+
+
+# ---------------------------------------------------------------------------
+# Regression: the optional add-on probe must never fail the config entry
+#
+# `async_config_entry_first_refresh` converts *any* exception escaping
+# `_async_update_data` into `ConfigEntryNotReady`. Since the WSLink proxy add-on is
+# optional, an unreachable/misbehaving add-on used to take the whole integration -
+# including the station webhook - down with it.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(TimeoutError(), id="asyncio-timeout"),
+        pytest.param(ClientConnectionError("refused"), id="connection-refused"),
+        pytest.param(aiohttp.ClientResponseError(None, (), status=500), id="client-response-error"),
+        pytest.param(aiohttp.ClientError("generic"), id="generic-client-error"),
+        pytest.param(OSError("raw socket"), id="raw-oserror"),
+    ],
+)
+async def test_probe_failure_never_raises(hass, monkeypatch, failure) -> None:
+    """Any expected probe failure is recorded as offline, not raised."""
+    entry = _make_entry({WSLINK_ADDON_PORT: 8443})
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    _patch_network(monkeypatch, _FakeSession({"/healthz": failure}))
+
+    data = await coordinator._async_update_data()
+
+    assert data["addon"]["online"] is False
+    assert data["addon"]["raw_status"] is None
+    # Metadata resolved before the failing request is still reported.
+    assert data["addon"]["health_url"] == "https://1.2.3.4:8443/healthz"
+    assert data["addon"]["home_assistant_source_ip"] == "1.2.3.4"
+
+
+async def test_probe_unexpected_error_never_raises(hass, monkeypatch, caplog) -> None:
+    """Even an unforeseen error is contained (and logged) rather than propagated."""
+    entry = _make_entry()
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    _patch_network(monkeypatch, _FakeSession({"/healthz": RuntimeError("boom")}))
+
+    data = await coordinator._async_update_data()
+
+    assert data["addon"]["online"] is False
+    assert "Unexpected error while probing" in caplog.text
+
+
+async def test_probe_survives_missing_ha_url(hass, monkeypatch) -> None:
+    """`get_url` raising NoURLAvailableError must not skip the reachability probe."""
+    entry = _make_entry()
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    session = _FakeSession({"/healthz": _FakeResponse(200), "/status/internal": _FakeResponse(404)})
+    _patch_network(monkeypatch, session)
+
+    def _no_url(_hass):
+        raise hc.NoURLAvailableError
+
+    monkeypatch.setattr(hc, "get_url", _no_url)
+
+    data = await coordinator._async_update_data()
+
+    # The add-on was still probed successfully despite HA not knowing its own URL.
+    assert data["addon"]["online"] is True
+
+
+async def test_probe_non_dict_status_body(hass, monkeypatch) -> None:
+    """A non-dict /status/internal body must not blow up metadata parsing."""
+    entry = _make_entry()
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    session = _FakeSession(
+        {
+            "/healthz": _FakeResponse(200),
+            "/status/internal": _FakeResponse(200, json_data=["not", "a", "dict"]),
+        }
+    )
+    _patch_network(monkeypatch, session)
+
+    data = await coordinator._async_update_data()
+
+    assert data["addon"]["online"] is True
+    assert data["addon"]["raw_status"] is None
+    assert data["addon"]["name"] is None
+
+
+async def test_setup_succeeds_when_addon_probe_fails(hass, enable_custom_integrations, monkeypatch) -> None:
+    """End to end: a dead add-on must not put the config entry into SETUP_RETRY."""
+    hass.http = SimpleNamespace(app=SimpleNamespace(router=_ProbeRouterStub()))
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
+    entry.add_to_hass(hass)
+
+    async def _timeout(_self, _addon):
+        raise TimeoutError
+
+    monkeypatch.setattr(HealthCoordinator, "_probe_addon", _timeout)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.runtime_data.health_coordinator.data["addon"]["online"] is False
+
+
+async def test_probe_healthz_non_200_skips_info_call(hass, monkeypatch) -> None:
+    """Add-on reachable but unhealthy: report offline and skip the info endpoint."""
+    entry = _make_entry()
+    coordinator = HealthCoordinator(hass, entry)
+    _attach_runtime_data(entry, coordinator)
+
+    session = _FakeSession(
+        {
+            "/healthz": _FakeResponse(503),
+            "/status/internal": _FakeResponse(200, json_data={"addon": "should-not-be-read"}),
+        }
+    )
+    _patch_network(monkeypatch, session)
+
+    data = await coordinator._async_update_data()
+
+    assert data["addon"]["online"] is False
+    assert data["addon"]["raw_status"] is None
+    assert data["addon"]["name"] is None

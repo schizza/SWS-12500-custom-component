@@ -98,6 +98,10 @@ DEFAULT_URL = "/weatherstation/updateweatherstation.php"
 PURGE_DATA: Final = [
     "ID",
     "PASSWORD",
+    "wsid",
+    "wspw",
+    "passkey",
+    "PASSKEY",
     "action",
     "rtfreq",
     "realtime",

@@ -264,8 +264,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         if user_input is None:
             url: URL = URL(get_url(self.hass))
 
-            if not url.host:
-                url.host = "UNKNOWN"
+            host = url.host or "UNKNOWN"
 
             ecowitt_schema = {
                 vol.Required(
@@ -282,7 +281,7 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 step_id="ecowitt",
                 data_schema=vol.Schema(ecowitt_schema),
                 description_placeholders={
-                    "url": url.host,
+                    "url": host,
                     "port": str(url.port),
                     "webhook_id": webhook,
                 },

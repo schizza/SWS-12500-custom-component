@@ -18,10 +18,9 @@ from asyncio import timeout
 from copy import deepcopy
 from datetime import timedelta
 import logging
-from typing import Any
+from typing import Any, Final
 
 import aiohttp
-from aiohttp import ClientConnectionError
 import aiohttp.web
 from aiohttp.web_exceptions import HTTPUnauthorized
 from py_typecheck import checked, checked_or
@@ -30,7 +29,7 @@ from homeassistant.components.http import KEY_AUTHENTICATED
 from homeassistant.components.network import async_get_source_ip
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.network import get_url
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -58,6 +57,14 @@ _LOGGER = logging.getLogger(__name__)
 # Protocols that represent a real, accepted ingress (not health / unknown).
 _REAL_PROTOCOLS: frozenset[str] = frozenset({"wu", "wslink", "ecowitt"})
 _LEGACY_PROTOCOLS: frozenset[str] = frozenset({"wu", "wslink"})
+
+# Expected ways the optional add-on probe can fail. All of them simply mean
+# "add-on not reachable" and are logged at debug level (see `_async_update_data`).
+#   - TimeoutError      : `asyncio.timeout` expiry, e.g. a firewall dropping packets
+#   - aiohttp.ClientError: connection refused, TLS failures, bad response, ...
+#   - OSError           : raw socket errors not wrapped by aiohttp
+#   - NoURLAvailableError: HA cannot resolve its own URL
+_PROBE_ERRORS: Final = (TimeoutError, aiohttp.ClientError, OSError, NoURLAvailableError)
 
 
 def _configured_protocol(config: SWSConfigEntry) -> str:
@@ -248,55 +255,90 @@ class HealthCoordinator(DataUpdateCoordinator):
             last_protocol if accepted and last_protocol in _REAL_PROTOCOLS else configured_protocol
         )
 
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Refresh add-on health metadata from the WSLink proxy.
+    async def _probe_addon(self, addon: dict[str, Any]) -> None:
+        """Fill `addon` with live WSLink proxy metadata.
 
-        The proxy add-on can front any protocol (WU / WSLink / Ecowitt), so the probe
-        is not gated on a specific protocol option - it always runs.
+        May raise: turning a failed probe into `online: False` is the caller's job.
+        Fields are written as they are resolved, so a failure part-way through still
+        leaves the snapshot with everything learned up to that point.
         """
         session = async_get_clientsession(self.hass, False)
-        url = get_url(self.hass)
-        ip = await async_get_source_ip(self.hass)
 
+        ip = await async_get_source_ip(self.hass)
         port = checked_or(self.config.options.get(WSLINK_ADDON_PORT), int, 443)
 
         health_url = f"https://{ip}:{port}/healthz"
         info_url = f"https://{ip}:{port}/status/internal"
 
-        data = deepcopy(self.data)
-        addon = data["addon"]
         addon["health_url"] = health_url
         addon["info_url"] = info_url
-        addon["home_assistant_url"] = url
         addon["home_assistant_source_ip"] = str(ip)
-        addon["online"] = False
 
+        # Informational only, and independently fallible (`NoURLAvailableError`),
+        # so it must not prevent the reachability probe below from running.
         try:
-            async with timeout(5), session.get(health_url) as response:
-                addon["online"] = checked(response.status, int) == 200
-        except ClientConnectionError:
-            addon["online"] = False
+            addon["home_assistant_url"] = get_url(self.hass)
+        except NoURLAvailableError:
+            _LOGGER.debug("No Home Assistant URL available for the health snapshot")
+
+        async with timeout(5), session.get(health_url) as response:
+            addon["online"] = checked(response.status, int) == 200
+
+        if not addon["online"]:
+            return
 
         raw_status: dict[str, Any] | None = None
-        if addon["online"]:
-            try:
-                async with timeout(5), session.get(info_url) as info_response:
-                    if checked(info_response.status, int) == 200:
-                        raw_status = await info_response.json(content_type=None)
-            except (ClientConnectionError, aiohttp.ContentTypeError, ValueError):
-                raw_status = None
+        try:
+            async with timeout(5), session.get(info_url) as info_response:
+                if checked(info_response.status, int) == 200:
+                    # A non-dict body (or malformed JSON) is treated as "no status".
+                    raw_status = checked(await info_response.json(content_type=None), dict[str, Any])
+        except (*_PROBE_ERRORS, ValueError):
+            raw_status = None
 
         addon["raw_status"] = raw_status
-        if raw_status:
-            addon["name"] = raw_status.get("addon")
-            addon["version"] = raw_status.get("version")
-            addon["listen_port"] = raw_status.get("listen", {}).get("port")
-            addon["tls"] = raw_status.get("listen", {}).get("tls")
-            addon["upstream_ha_port"] = raw_status.get("upstream", {}).get("ha_port")
-            addon["paths"] = {
-                "wslink": raw_status.get("paths", {}).get("wslink", WSLINK_URL),
-                "wu": raw_status.get("paths", {}).get("wu", DEFAULT_URL),
-            }
+        if not raw_status:
+            return
+
+        listen = checked_or(raw_status.get("listen"), dict[str, Any], {})
+        upstream = checked_or(raw_status.get("upstream"), dict[str, Any], {})
+        paths = checked_or(raw_status.get("paths"), dict[str, Any], {})
+
+        addon["name"] = raw_status.get("addon")
+        addon["version"] = raw_status.get("version")
+        addon["listen_port"] = listen.get("port")
+        addon["tls"] = listen.get("tls")
+        addon["upstream_ha_port"] = upstream.get("ha_port")
+        addon["paths"] = {
+            "wslink": paths.get("wslink", WSLINK_URL),
+            "wu": paths.get("wu", DEFAULT_URL),
+        }
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Refresh add-on health metadata from the WSLink proxy.
+
+        The proxy add-on can front any protocol (WU / WSLink / Ecowitt), so the probe
+        is not gated on a specific protocol option - it always runs.
+
+        The add-on is *optional* and this coordinator only produces diagnostics, so the
+        probe must never fail the update. `async_config_entry_first_refresh` turns any
+        exception raised here into `ConfigEntryNotReady`, which would take the station
+        webhook - the actual job of this integration - down with it. An unreachable or
+        misbehaving add-on is therefore recorded as `online: False`, never raised.
+        """
+        data = deepcopy(self.data)
+        addon = data["addon"]
+        addon["online"] = False
+        addon["raw_status"] = None
+
+        try:
+            await self._probe_addon(addon)
+        except _PROBE_ERRORS as err:
+            _LOGGER.debug("WSLink add-on probe failed (%s): %s", type(err).__name__, err)
+            addon["online"] = False
+        except Exception:  # noqa: BLE001 - diagnostics must never fail the config entry
+            _LOGGER.exception("Unexpected error while probing the WSLink add-on")
+            addon["online"] = False
 
         self._refresh_summary(data)
         return self._commit(data)
