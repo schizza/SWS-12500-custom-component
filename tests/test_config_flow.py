@@ -357,6 +357,8 @@ async def test_options_flow_ecowitt_uses_get_url_placeholders_and_webhook_defaul
         options={
             ECOWITT_WEBHOOK_ID: "",
             ECOWITT_ENABLED: False,
+            # Ecowitt can only be turned on when the legacy endpoint is off.
+            LEGACY_ENABLED: False,
         },
     )
     entry.add_to_hass(hass)

@@ -20,7 +20,7 @@ from aioecowitt import EcoWittSensor, EcoWittSensorTypes
 from aioecowitt.station import EcoWittStation
 import pytest
 
-from custom_components.sws12500.const import DOMAIN, ECOWITT_ENABLED, REMAP_ECOWITT_COMPAT
+from custom_components.sws12500.const import DOMAIN, ECOWITT_ENABLED, LEGACY_ENABLED, REMAP_ECOWITT_COMPAT
 from custom_components.sws12500.ecowitt import STYPE_TO_HA, EcowittBridge, EcoWittNativeSensor
 
 # Default config stub for native entities: the integration shares a single device,
@@ -28,8 +28,10 @@ from custom_components.sws12500.ecowitt import STYPE_TO_HA, EcowittBridge, EcoWi
 # PWS config (no ecowitt/wslink flags) is enough for the non-device assertions.
 _PWS_CONFIG = SimpleNamespace(options={})
 # An ecowitt config that yields model "Ecowitt GW1000" for device-info assertions.
+# An Ecowitt-only setup: the legacy endpoint must be off, otherwise the two protocols
+# would feed the same entities (see conflicts.effective_protocols).
 _ECOWITT_CONFIG = SimpleNamespace(
-    options={ECOWITT_ENABLED: True},
+    options={ECOWITT_ENABLED: True, LEGACY_ENABLED: False},
     runtime_data=SimpleNamespace(ecowitt_model="GW1000"),
 )
 
