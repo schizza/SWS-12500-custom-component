@@ -5,13 +5,15 @@
 
 This integration will listen for data from your station and passes them to respective sensors. It also provides the ability to push data to `Windy API` or `Pocasi Meteo`.
 
-### Ecowitt support is coming in the next major release
+### Ecowitt support
 
-As of April 11, 2026, Ecowitt stations are supported in the pre-release version
+Ecowitt stations are supported as of the pre-release version
 [v2.0.0pre1](https://github.com/schizza/SWS-12500-custom-component/releases/tag/v2.0.0pre1).
 You can download this pre-release in HACS under `target version`, where you can pick the exact
 version of the integration. Please be aware that this pre-release is really for testing
 purposes only.
+
+See [Ecowitt stations](#ecowitt-stations) for the setup steps.
 
 ---
 
@@ -19,10 +21,10 @@ purposes only.
 
 The current name no longer reflects what the integration does. It was initially developed
 primarily for the SWS 12500 station, but it already supports other weather stations as well
-(Bresser, Garni and others), and Ecowitt support is on the way — so the current name has
-become misleading. The transition will be announced via an update, and I'm also planning to
-offer a full data migration from the existing integration to the new one, so you won't lose
-any of your historical data.
+(Bresser, Garni, Ecowitt and others) — so the current name has become misleading. The
+transition will be announced via an update, and I'm also planning to offer a full data
+migration from the existing integration to the new one, so you won't lose any of your
+historical data.
 
 - The transition date hasn't been set yet, but it's currently expected to happen within the
   next ~2–3 months. At the moment, I'm working on a full refactor and general code cleanup.
@@ -95,6 +97,8 @@ Web server repo is reachable here: <https://github.com/schizza/test-station-serv
 - SWS 10500 (newer firmware revisions are also supported via the [WSLink SSL proxy add-on](https://github.com/schizza/wslink-addon))
 - Bresser stations that support custom server upload — [this model is known to work](https://www.bresser.com/p/bresser-wi-fi-clearview-weather-station-with-7-in-1-sensor-7002586), for example
 - Garni stations with WSLink support or custom server support
+- Ecowitt stations that support the `Customized` / `Ecowitt` upload protocol — see
+  [Ecowitt stations](#ecowitt-stations)
 - and a bunch of other models that aren't listed here are also supported
 
 ## Supported sensors
@@ -107,15 +111,30 @@ Beyond the standard set (outdoor / indoor temperature and humidity, barometric p
 wind speed / direction / gust, rain rate and daily / weekly / monthly / yearly totals, dew
 point, UV index, solar irradiance) the WSLink protocol also exposes:
 
-- additional channels **CH2** and **CH3** for temperature and humidity
+- additional channels **CH2** – **CH8** for temperature and humidity
 - **WBGT** index, **heat index**, **wind chill**
-- sensor battery levels (outdoor, indoor, CH2)
-- **Formaldehyde (HCHO)** in ppb and **VOC level** as a 1–5 air-quality index
-  (1 = worst, 5 = best) from the WH46 / 7-in-1 air-quality combo sensor
+- sensor battery state for the outdoor, indoor and **CH2** – **CH8** probes, exposed as
+  binary `battery` sensors (`normal` / `low`) — these used to be regular sensors, so on an
+  upgraded install the old entities are left behind; a `Repairs` issue lists them and
+  tells you how to remove them
+- **Formaldehyde (HCHO)** in ppb and **VOC level** from the WH46 / 7-in-1 air-quality
+  combo sensor, reported as a named air-quality level (`unhealthy`, `poor`, `moderate`,
+  `good`, `excellent` — the station's 1–5 index, where 1 is worst)
 - **HCHO/VOC sensor battery** reported as a percentage
 
 HCHO / VOC entities are only created when the station reports the air-quality module as
 connected (`t9cn = 1`), so they don't clutter the device when no such sensor is attached.
+
+Ecowitt stations map onto the same standard set and additionally report whatever their own
+firmware sends — absolute pressure, event / hourly / weekly / monthly / yearly / total /
+24h rain, feels-like temperature, indoor dew point and CO₂ readings among them. Only the
+fields your station actually sends are created.
+
+The integration also creates diagnostic entities describing its own state — the active
+protocol, whether each endpoint is registered, details of the last received payload, the
+status of the WSLink proxy add-on, and the state of the Windy / Pocasi Meteo forwarders.
+They are grouped under `Diagnostic` on the device page, and the same data is included in
+the config entry's `Download diagnostics` file.
 
 ## Installation
 
@@ -159,7 +178,11 @@ For manual installation you must have access to your Home Assistant's `/config` 
 6. Save your configuration.
    ![station_setup](README/station_hint.png)
 
-Once integration is added to Home Assistant, configuration dialog will ask you for `API_ID` and `API_KEY` as you set them in your station:
+Once the integration is added to Home Assistant, the first dialog asks which type of
+station you have. Choose `PWS/WSLink (Sencor, Garni, Bresser, other - Weather Underground
+compatible)` — for Ecowitt stations see [Ecowitt stations](#ecowitt-stations) instead.
+
+The next dialog asks for `API_ID` and `API_KEY` as you set them in your station:
 
 ```plain
 API_ID: ID in station's config
@@ -171,11 +194,37 @@ API_KEY: PASSWORD in station's config
 If you change `API ID` or `API KEY` in the station, you have to reconfigure integration to accept data from your station.
 
 - In `Settings` -> `Devices & services` find SWS12500 and click `Configure`.
-- In dialog box choose `Basic - Configure credentials`
+- In dialog box choose `Basic - configure credentials for Weather Station`
 
 ![reconfigure dialog](README/reconfigure.png)
 
 As soon as the integration is added into Home Assistant it will listen for incoming data from the station and starts to fill sensors as soon as data will first arrive.
+
+## Ecowitt stations
+
+Ecowitt stations do not use the `API ID` / `API KEY` pair — they are authorized by a
+secret webhook ID that the integration generates for you.
+
+- When adding the integration, pick `Ecowitt` in the station-type dialog. For an entry
+  that already exists, go to `Settings` -> `Devices & services` -> SWS12500 ->
+  `Configure` and choose `Ecowitt configuration`.
+- The dialog shows the endpoint your station has to post to and pre-fills a freshly
+  generated webhook ID:
+
+```plain
+<your Home Assistant host>:<port>/weatherhub/<webhook_id>
+```
+
+- Enter that path as the custom-server path in the Ecowitt app (`WS View` / `Customized`
+  upload), keep the protocol on `Ecowitt`, and tick `Enable Ecowitt station data`.
+
+> [!IMPORTANT]
+> The legacy PWS/WSLink endpoint and the Ecowitt endpoint cannot be enabled at the same
+> time — both feed the same sensor entities, which would mix up units and blank out
+> readings. The config flow refuses to enable one while the other is on. Picking
+> `Ecowitt` when you first add the integration turns the legacy endpoint off for you; to
+> switch back, disable Ecowitt first and then tick `Enable PWS/WSLink endpoint` under
+> `Basic - configure credentials for Weather Station`.
 
 ## Upgrading from PWS to WSLink
 
@@ -190,18 +239,25 @@ measurement scale.
 ## Resending data to Windy API
 
 - First of all you need to create account at [Windy stations](https://stations.windy.com).
-- Once you have an account created, copy your Windy API Key.
-  ![windy api key](README/windy_key.png)
+- Once you have an account created, open
+  [your stations](https://stations.windy.com/stations) and copy the **station ID** and the
+  **station password** of the station you want to feed.
+  ![windy station credentials](README/windy_key.png)
 
 - In `Settings` -> `Devices & services` find SWS12500 and click `Configure`.
 - In dialog box choose `Windy configuration`.
   ![config dialog](README/cfg.png)
 
-- Fill in `Key` you were provided at `Windy stations`.
-- Tick `Enable` checkbox.
+- Fill in `Station ID obtained form Windy` and `Station password obtained from Windy`.
+  Both are required — enabling the forwarder with either one empty is rejected.
+- Tick `Enable resending data to Windy`.
   ![enable windy](README/windy_cfg.png)
 
 - You are done.
+
+If Windy rejects the data three times in a row, the integration disables resending on its
+own, writes the reason to the log and raises a persistent notification — fix the
+credentials and tick `Enable resending data to Windy` again.
 
 ## Resending data to Pocasi Meteo
 
@@ -210,9 +266,14 @@ measurement scale.
 - In `Settings` -> `Devices & services` find SWS12500 and click `Configure`.
 - In dialog box choose `Pocasi Meteo configuration`.
 - Fill in `ID` and `KEY` you were provided at `Pocasi Meteo`.
-- Tick `Enable` checkbox.
+- Optionally adjust `Resend interval in seconds` (minimum 12s, default 30s).
+- Tick `Enable resending data to Pocasi Meteo`.
 
 - You are done.
+
+As with Windy, three unexpected responses in a row switch resending off automatically and
+log the reason. The `Forwarding to Počasí Meteo` and `Forwarding status to Počasí Meteo`
+diagnostic sensors show the current state.
 
 ## WSLink notes
 
@@ -239,3 +300,17 @@ WSLink proxy add-on is listening on port 4443
 - Your station will send data to the SSL proxy and the add-on will handle the rest.
 
 _Most stations do not care about self-signed certificates on the server side._
+
+### Add-on health monitoring
+
+The integration probes the add-on's health endpoint so the diagnostic entities can report
+whether the proxy is online, which version it runs and which ports it uses. It has to know
+the port to reach it on:
+
+- In `Settings` -> `Devices & services` find SWS12500, click `Configure` and choose
+  `WSLink add-on port`.
+- Set it to the same port the add-on listens on — the one you pointed the station at
+  above. The integration defaults to `443`, so if your add-on listens elsewhere (`4443`
+  in the example above), change it here.
+
+This setting only affects the health probe; incoming station data is unaffected by it.
