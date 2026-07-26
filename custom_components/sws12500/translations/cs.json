@@ -651,7 +651,7 @@
     },
     "predecessor_adoption_incomplete": {
       "title": "Migrace z předchozí integrace není dokončená",
-      "description": "Tyto entity se zatím nepodařilo převzít z předchozí integrace: {entities}. Starý záznam je záměrně ponechaný na místě, aby se nic neztratilo, i když se tváří jako nefunkční.\n\nStarý záznam NEMAŽ přes Nastavení -> Zařízení a služby -> Smazat. Tím se odstraní jeho záznamy v registru entit, a jakmile jsou pryč, nemá se historie ani dlouhodobé statistiky na co navázat - zpětně už je připojit nelze.\n\nMísto toho restartuj Home Assistant a nech migraci doběhnout. Tahle zpráva zmizí sama, jakmile se přenesou všechny entity."
+      "description": "Starý záznam NEMAŽ přes Nastavení -> Zařízení a služby -> Smazat. Tím se odstraní jeho záznamy v registru entit, a jakmile jsou pryč, nemá se historie ani dlouhodobé statistiky na co navázat - zpětně už je připojit nelze.\n\nMísto toho restartuj Home Assistant a nech migraci doběhnout. Starý záznam je záměrně ponechaný na místě, aby se nic neztratilo, i když se tváří jako nefunkční. Tahle zpráva zmizí sama, jakmile se přenesou všechny entity.\n\nZatím nepřevzato, celkem {count}: {entities}"
     }
   },
   "exceptions": {

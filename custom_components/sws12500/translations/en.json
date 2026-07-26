@@ -651,7 +651,7 @@
     },
     "predecessor_adoption_incomplete": {
       "title": "Migration from the previous integration is not finished",
-      "description": "These entities could not be taken over from the previous integration yet: {entities}. The old entry is deliberately left in place so nothing is lost, even though it shows up as broken.\n\nDo NOT delete the old entry via Settings -> Devices & Services -> Delete. That removes its entity registry records, and once they are gone there is nothing left for the history and the long-term statistics to attach to - they cannot be relinked afterwards.\n\nRestart Home Assistant instead and let the migration finish. This message disappears on its own once every entity has been moved over."
+      "description": "Do NOT delete the old entry via Settings -> Devices & Services -> Delete. That removes its entity registry records, and once they are gone there is nothing left for the history and the long-term statistics to attach to - they cannot be relinked afterwards.\n\nRestart Home Assistant instead and let the migration finish. The old entry is deliberately left in place so nothing is lost, even though it shows up as broken. This message disappears on its own once every entity has been moved over.\n\nStill waiting to be taken over, {count} in total: {entities}"
     }
   },
   "exceptions": {

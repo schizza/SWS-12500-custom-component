@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import logging
+from typing import Final
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_RESTORED, STATE_UNKNOWN
@@ -43,6 +44,9 @@ from .const import DOMAIN, POCASI_CZ_ENABLED, POCASI_CZ_ENABLED_LEGACY, PREDECES
 from .data import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+# How many stranded entities the repair notice names before it falls back to the count.
+ISSUE_ENTITY_SAMPLE: Final = 5
 
 
 @dataclass(slots=True)
@@ -201,6 +205,18 @@ def _adopt_devices(hass: HomeAssistant, entry: ConfigEntry, old_entry: ConfigEnt
     `entity_registry.async_device_modified` only deletes entities whose `config_entry_id`
     is one of the removed device's own, and by this point the adopted ones point at this
     entry.
+
+    That count is taken before our platforms run, so it catches a device that is already
+    empty when adoption starts, but not one adoption itself empties. A predecessor still
+    on v2.0.0pre1 arrives with its per-channel Ecowitt device still holding entities, so
+    it reads as populated and gets this entry attached; its entities are then adopted and
+    `async_forward_entry_setups` re-homes them onto the canonical device, because
+    `EcowittBridge` and `WeatherSensor` both take their `device_info` from
+    `build_device_info`. The row is left empty, still referenced by a live config entry,
+    and `async_cleanup` therefore never reaps it. The residue is cosmetic only - the
+    `entity_id` values do not change, so no history and no long-term statistics are
+    involved - and it is left alone deliberately, because closing it would mean another
+    pass after platform setup for a configuration that does not exist in the field.
     """
 
     device_registry = dr.async_get(hass)
@@ -354,6 +370,22 @@ def _adoption_issue_id(entry: ConfigEntry) -> str:
     return f"predecessor_adoption_{entry.entry_id}"
 
 
+def _sample_skipped(skipped: list[str]) -> str:
+    """Render the stranded entities short enough to read at a glance.
+
+    A predecessor that refuses to unload strands its whole station at once, and a WSLink
+    station carries on the order of eighty sensor keys. Spelled out in full, the list
+    would push the one sentence that matters - do not delete the old entry - off the
+    bottom of the notice. Cut here rather than in the translations, so no language has to
+    solve it again; the total travels beside it as its own placeholder.
+    """
+
+    shown = sorted(skipped)[:ISSUE_ENTITY_SAMPLE]
+    if len(skipped) > len(shown):
+        shown.append("...")
+    return ", ".join(shown)
+
+
 @callback
 def update_predecessor_adoption_issue(
     hass: HomeAssistant,
@@ -366,8 +398,9 @@ def update_predecessor_adoption_issue(
     reads as broken ("Integration not found"). The obvious reaction - deleting it under
     Settings - is the one action that cannot be undone: it calls
     `entity_registry.async_clear_config_entry`, and the registry entries it drops are
-    what the recorder history and the long-term statistics hang off. Hence a repair
-    notice that names the entities and spells the wrong move out.
+    what the recorder history and the long-term statistics hang off. That warning leads
+    the notice; the list of what is still stranded comes underneath it, sampled rather
+    than spelled out.
 
     Cleared again as soon as a later pass finishes the job, so it cannot outlive the
     problem it describes.
@@ -384,7 +417,10 @@ def update_predecessor_adoption_issue(
             is_fixable=False,
             severity=IssueSeverity.ERROR,
             translation_key="predecessor_adoption_incomplete",
-            translation_placeholders={"entities": ", ".join(sorted(result.skipped))},
+            translation_placeholders={
+                "entities": _sample_skipped(result.skipped),
+                "count": str(len(result.skipped)),
+            },
         )
     else:
         ir.async_delete_issue(hass, DOMAIN, issue_id=issue_id)

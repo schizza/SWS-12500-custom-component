@@ -490,7 +490,7 @@ async def test_a_stalled_migration_raises_a_repair_issue(hass: HomeAssistant, en
     issue = ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}")
     assert issue is not None
     assert issue.translation_key == "predecessor_adoption_incomplete"
-    assert issue.translation_placeholders == {"entities": blocked}
+    assert issue.translation_placeholders == {"entities": blocked, "count": "1"}
 
 
 async def test_a_predecessor_that_will_not_unload_raises_a_repair_issue(
@@ -522,7 +522,48 @@ async def test_a_predecessor_that_will_not_unload_raises_a_repair_issue(
     assert not result.complete
     issue = ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}")
     assert issue is not None
-    assert issue.translation_placeholders == {"entities": ", ".join(sorted(created.values()))}
+    assert issue.translation_placeholders == {
+        "entities": ", ".join(sorted(created.values())),
+        "count": str(len(created)),
+    }
+
+
+async def test_a_whole_station_is_summarised_not_spelled_out(
+    hass: HomeAssistant, entries, monkeypatch
+) -> None:
+    """A refused unload strands every sensor at once, and a WSLink station has dozens.
+
+    Rendered in full, the list buries the one sentence the notice exists for. The sample
+    stays short and the total rides alongside it, so the user can still tell a couple of
+    stuck entities apart from the entire station.
+    """
+    from homeassistant.config_entries import ConfigEntryState
+
+    from custom_components.sws12500.predecessor import ISSUE_ENTITY_SAMPLE
+
+    old, new = entries
+    registry = er.async_get(hass)
+    seeded = [
+        registry.async_get_or_create("sensor", OLD_DOMAIN, f"key_{index:02d}", config_entry=old).entity_id
+        for index in range(ISSUE_ENTITY_SAMPLE * 3)
+    ]
+    old.mock_state(hass, ConfigEntryState.LOADED)
+
+    async def _refuse(*_a: Any, **_kw: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(hass.config_entries, "async_unload", _refuse)
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, result)
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}")
+    assert issue is not None
+    placeholders = issue.translation_placeholders
+    assert placeholders is not None
+    listed = placeholders["entities"].split(", ")
+    assert listed == [*sorted(seeded)[:ISSUE_ENTITY_SAMPLE], "..."]
+    assert placeholders["count"] == str(len(seeded))
 
 
 async def test_a_finished_migration_raises_no_issue(hass: HomeAssistant, entries) -> None:
