@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -27,6 +29,7 @@ from custom_components.sws12500.health_coordinator import HealthCoordinator
 from custom_components.sws12500.routes import unregistered
 
 ECOWITT_PATH = ECOWITT_URL_PREFIX + "/{webhook_id}"
+COMPONENT_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "sws12500"
 
 
 @dataclass(slots=True)
@@ -116,20 +119,33 @@ async def test_register_path_registers_routes_and_stores_dispatcher(hass_with_ht
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "router_error",
+    ("router_error", "expected_key"),
     [
-        RuntimeError("router broken"),
+        (RuntimeError("router broken"), "webhook_routes_failed"),
         # aiohttp's own wording when a route *name* is taken. The names here are fixed
         # rather than domain-scoped, so a previous version of this integration that is
         # still installed holds them - the state a half-finished migration leaves behind.
-        ValueError("Duplicate '_default_route', already handled by <ResourceRoute>"),
+        (
+            ValueError("Duplicate '_default_route', already handled by <ResourceRoute>"),
+            "webhook_routes_taken",
+        ),
+        # aiohttp raises ValueError for a malformed path too. Same exception type, and
+        # nothing whatsoever to do with a leftover previous version.
+        (ValueError("Path should be started with / got 'weatherhub'"), "webhook_routes_failed"),
     ],
-    ids=["runtime_error", "duplicate_route_name"],
+    ids=["runtime_error", "duplicate_route_name", "malformed_path"],
 )
 async def test_register_path_raises_config_entry_not_ready_on_router_error(
     hass_with_http,
     router_error: Exception,
+    expected_key: str,
 ):
+    """Only a duplicate route name may be reported as a leftover previous version.
+
+    The message is the only thing the user sees on the integrations page. Telling
+    somebody with a malformed path to uninstall a version they may never have installed
+    sends them off the trail, while the real cause sits in the log line above.
+    """
     from homeassistant.exceptions import ConfigEntryNotReady
 
     entry = MockConfigEntry(
@@ -148,9 +164,44 @@ async def test_register_path_raises_config_entry_not_ready_on_router_error(
     with pytest.raises(ConfigEntryNotReady) as excinfo:
         register_path(hass_with_http, coordinator, coordinator_health, entry)
 
-    # The message is the only thing the user sees on the integrations page, so it has to
-    # name the fix rather than repeat the aiohttp internals.
-    assert "HACS" in str(excinfo.value)
+    assert excinfo.value.translation_key == expected_key
+    assert excinfo.value.translation_domain == DOMAIN
+    # The original exception is what the log line carries, in both cases.
+    assert excinfo.value.__cause__ is router_error
+
+    messages = json.loads((COMPONENT_DIR / "strings.json").read_text(encoding="utf-8"))["exceptions"]
+    shown = messages[expected_key]["message"]
+    if expected_key == "webhook_routes_taken":
+        assert "HACS" in shown
+    else:
+        assert "HACS" not in shown, "a generic router failure must not tell the user to uninstall anything"
+
+
+@pytest.mark.asyncio
+async def test_route_failure_messages_are_translated(hass, enable_custom_integrations):
+    """A translation key that resolves to nothing shows the user the raw key.
+
+    Home Assistant looks exception messages up under `component.<domain>.exceptions.
+    <key>.message`, loading them from the integration's own `translations/` directory -
+    custom integrations included. This asserts the wiring, so a renamed or missing key
+    fails here rather than on somebody's integrations page.
+    """
+    from homeassistant.exceptions import ConfigEntryNotReady
+    from homeassistant.helpers import translation
+
+    hass.config.components.add(DOMAIN)
+    await translation.async_load_integrations(hass, {DOMAIN})
+
+    taken = ConfigEntryNotReady(translation_domain=DOMAIN, translation_key="webhook_routes_taken")
+    assert "HACS" in str(taken)
+
+    failed = ConfigEntryNotReady(
+        translation_domain=DOMAIN,
+        translation_key="webhook_routes_failed",
+        translation_placeholders={"error": "router broken"},
+    )
+    assert "router broken" in str(failed)
+    assert "HACS" not in str(failed)
 
 
 @pytest.mark.asyncio

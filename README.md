@@ -35,6 +35,17 @@ historical data.
 - I'm also looking for someone who owns an Ecowitt weather station and would be willing to
   help with testing the integration for these devices.
 
+> [!WARNING]
+> When that day comes, do **not** delete this integration under `Settings` -> `Devices & services` -> `Delete`.
+> That action removes the entity registry records, and your history and long-term statistics have nothing left to attach to once they are gone.
+> They cannot be relinked afterwards, not even by the new integration.
+>
+> Removing the *repository* in HACS is safe and is exactly what the migration expects.
+> The config entry stays where it is, showing up as `Integration not found`, which looks broken but is the state the new integration needs in order to take your entities over with their history intact.
+>
+> Both actions are called "remove" in the UI and look interchangeable, so this is worth saying out loud.
+> The full step-by-step procedure, with the new repository's name and URL, will be published together with the new integration.
+
 ---
 
 ## Warning — WSLink app (applies also to SWS 12500 with firmware > 3.0)

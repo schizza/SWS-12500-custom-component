@@ -648,6 +648,18 @@
     "protocol_conflict": {
       "title": "Zapnuté dva neslučitelné protokoly",
       "description": "Současně je zapnutý starý endpoint (PWS/WSLink) i Ecowitt. Oba plní stejné entity senzorů, takže jejich souběh míchá měrné jednotky a hodnoty mezi aktualizacemi mizí. Používá se starý endpoint a data z Ecowittu se ignorují, dokud si nevybereš jeden: jdi do Nastavení -> Zařízení a služby -> SWS 12500 -> Konfigurovat a vypni buď starý endpoint, nebo Ecowitt."
+    },
+    "predecessor_adoption_incomplete": {
+      "title": "Migrace z předchozí integrace není dokončená",
+      "description": "Tyto entity se zatím nepodařilo převzít z předchozí integrace: {entities}. Starý záznam je záměrně ponechaný na místě, aby se nic neztratilo, i když se tváří jako nefunkční.\n\nStarý záznam NEMAŽ přes Nastavení -> Zařízení a služby -> Smazat. Tím se odstraní jeho záznamy v registru entit, a jakmile jsou pryč, nemá se historie ani dlouhodobé statistiky na co navázat - zpětně už je připojit nelze.\n\nMísto toho restartuj Home Assistant a nech migraci doběhnout. Tahle zpráva zmizí sama, jakmile se přenesou všechny entity."
+    }
+  },
+  "exceptions": {
+    "webhook_routes_taken": {
+      "message": "Webhook cesty už registruje jiná instance této integrace. Odeber předchozí verzi v HACS a restartuj Home Assistant."
+    },
+    "webhook_routes_failed": {
+      "message": "Webhook cesty se nepodařilo zaregistrovat: {error}"
     }
   },
   "notify": {

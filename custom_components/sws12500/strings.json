@@ -648,6 +648,18 @@
     "protocol_conflict": {
       "title": "Two incompatible protocols enabled",
       "description": "The legacy (PWS/WSLink) and Ecowitt endpoints are both enabled. They map onto the same sensor entities, so running both mixes up measurement units and makes readings disappear between updates. The legacy endpoint is being used and Ecowitt data is ignored until you choose one: go to Settings -> Devices & Services -> SWS 12500 -> Configure and disable either the legacy endpoint or Ecowitt."
+    },
+    "predecessor_adoption_incomplete": {
+      "title": "Migration from the previous integration is not finished",
+      "description": "These entities could not be taken over from the previous integration yet: {entities}. The old entry is deliberately left in place so nothing is lost, even though it shows up as broken.\n\nDo NOT delete the old entry via Settings -> Devices & Services -> Delete. That removes its entity registry records, and once they are gone there is nothing left for the history and the long-term statistics to attach to - they cannot be relinked afterwards.\n\nRestart Home Assistant instead and let the migration finish. This message disappears on its own once every entity has been moved over."
+    }
+  },
+  "exceptions": {
+    "webhook_routes_taken": {
+      "message": "Webhook routes are already registered by another instance of this integration. Remove the previous version in HACS and restart Home Assistant."
+    },
+    "webhook_routes_failed": {
+      "message": "Webhook routes could not be registered: {error}"
     }
   },
   "notify": {

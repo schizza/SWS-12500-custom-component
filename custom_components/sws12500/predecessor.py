@@ -12,7 +12,7 @@ It rewrites `platform` and `config_entry_id` and leaves `entity_id` alone. Every
 the user set by hand rides along for free, because the registry entry itself survives:
 renames, icons, areas, labels, categories, hidden and disabled state.
 
-This constrains the upgrade procedure, and the README has to say so plainly:
+This constrains the upgrade procedure:
 
 1. Do **not** delete the old integration under Settings first. That path calls
    `entity_registry.async_clear_config_entry`, which removes exactly the entries this
@@ -22,6 +22,10 @@ This constrains the upgrade procedure, and the README has to say so plainly:
    needs.
 3. Add this integration. Adoption runs during setup, before any of our own entities are
    created, so the migrated entries are the ones our platforms bind to.
+
+The README carries the general form of the warning - remove the repository in HACS, never
+the entry under Settings. The step-by-step procedure needs the new repository's name and
+URL, which do not exist yet, so it is written there once they do.
 """
 
 from __future__ import annotations
@@ -31,8 +35,9 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_RESTORED, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
+from homeassistant.helpers.issue_registry import IssueSeverity
 
 from .const import DOMAIN, POCASI_CZ_ENABLED, POCASI_CZ_ENABLED_LEGACY, PREDECESSOR_DOMAIN
 from .data import build_device_info
@@ -58,6 +63,25 @@ class AdoptionResult:
     def attempted(self) -> bool:
         """Whether there was anything to do at all."""
         return bool(self.adopted or self.live or self.conflicting)
+
+    @property
+    def skipped(self) -> list[str]:
+        """Every entity that stayed behind, whatever the reason."""
+        return [*self.live, *self.conflicting]
+
+    def absorb(self, other: AdoptionResult) -> None:
+        """Fold one predecessor entry's outcome into the running total.
+
+        Completeness has to be decided per predecessor entry, not on the running total.
+        There can be more than one - the predecessor's manifest never declared
+        `single_config_entry` - and a single blocked entity under the first one would
+        otherwise condemn every later entry to be kept forever, even a fully adopted one.
+        """
+
+        self.adopted.extend(other.adopted)
+        self.live.extend(other.live)
+        self.conflicting.extend(other.conflicting)
+        self.predecessor_removed |= other.predecessor_removed
 
 
 def _release_restored_state(hass: HomeAssistant, entity_id: str) -> bool:
@@ -148,21 +172,35 @@ def _adopt_devices(hass: HomeAssistant, entry: ConfigEntry, old_entry: ConfigEnt
     the two ever drifted, `async_get_or_create` would quietly mint a second device and
     strand the adopted one.
 
-    Add the new config entry before removing the old one. A device left with no config
-    entries is deleted, and deleting a device takes its entities with it
-    (`entity_registry.async_device_modified`).
+    Only ever add this entry, never remove the old one. Removing it is what
+    `hass.config_entries.async_remove` does anyway, and only that path is reached once
+    adoption is known to be complete. Doing it here instead would fire
+    `entity_registry.async_device_modified`, which deletes every entity of this device
+    that is still pointing at the config entry just detached - which is to say, exactly
+    the entities adoption deliberately refused to move, silently and before
+    `AdoptionResult.complete` ever gets a chance to protect them.
+
+    A predecessor entry can own more than one device (v2.0.0pre1 created a second one per
+    Ecowitt channel), and only one device may hold a given identifier: passing the same
+    set twice raises `DeviceIdentifierCollisionError` and would fail setup for good. The
+    extra devices therefore keep their own identifiers and are only repointed, which
+    leaves them attached to this entry and reapable once they hold nothing.
     """
 
     device_registry = dr.async_get(hass)
     identifiers = set(build_device_info(entry)["identifiers"])
 
     for device in dr.async_entries_for_config_entry(device_registry, old_entry.entry_id):
+        holder = device_registry.async_get_device(identifiers=identifiers)
+        if holder is not None and holder.id != device.id:
+            device_registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
+            continue
+
         device_registry.async_update_device(
             device.id,
             new_identifiers=identifiers,  # type: ignore[arg-type]  same 1-tuple shape as build_device_info
             add_config_entry_id=entry.entry_id,
         )
-        device_registry.async_update_device(device.id, remove_config_entry_id=old_entry.entry_id)
 
 
 async def _adopt_entities(
@@ -244,26 +282,30 @@ async def async_adopt_predecessor(
                 )
                 continue
 
-        await _adopt_entities(hass, entry, old_entry, result)
+        # Scoped to this predecessor entry, then folded in: whether an entry may be
+        # removed depends on its own entities only, never on what a sibling left behind.
+        entry_result = AdoptionResult()
+        await _adopt_entities(hass, entry, old_entry, entry_result)
 
         # Before removing the old entry, not after: `async_remove` clears the entry from
         # its devices, and a device that loses its last config entry is deleted along
         # with the entities pointing at it.
         _adopt_devices(hass, entry, old_entry)
 
-        if not result.complete:
+        if entry_result.complete:
+            await hass.config_entries.async_remove(old_entry.entry_id)
+            entry_result.predecessor_removed = True
+        else:
             # Removing the entry now would delete whatever we could not carry over.
             # Leaving it in place costs a repair notice and keeps a retry possible.
             _LOGGER.error(
                 "Adopted %s entities but %s could not be moved; the previous integration "
                 "is left in place so nothing is lost",
-                len(result.adopted),
-                len(result.live) + len(result.conflicting),
+                len(entry_result.adopted),
+                len(entry_result.skipped),
             )
-            continue
 
-        await hass.config_entries.async_remove(old_entry.entry_id)
-        result.predecessor_removed = True
+        result.absorb(entry_result)
 
     if result.adopted:
         _LOGGER.info(
@@ -273,3 +315,44 @@ async def async_adopt_predecessor(
         )
 
     return result
+
+
+def _adoption_issue_id(entry: ConfigEntry) -> str:
+    """Return the Repairs issue id for this config entry."""
+    return f"predecessor_adoption_{entry.entry_id}"
+
+
+@callback
+def update_predecessor_adoption_issue(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    result: AdoptionResult,
+) -> None:
+    """Tell the user about a migration that stalled, and what not to do about it.
+
+    A partial run leaves the previous integration's entry in place on purpose, where it
+    reads as broken ("Integration not found"). The obvious reaction - deleting it under
+    Settings - is the one action that cannot be undone: it calls
+    `entity_registry.async_clear_config_entry`, and the registry entries it drops are
+    what the recorder history and the long-term statistics hang off. Hence a repair
+    notice that names the entities and spells the wrong move out.
+
+    Cleared again as soon as a later pass finishes the job, so it cannot outlive the
+    problem it describes.
+    """
+
+    issue_id = _adoption_issue_id(entry)
+
+    if result.attempted and not result.complete:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id=issue_id,
+            is_persistent=True,
+            is_fixable=False,
+            severity=IssueSeverity.ERROR,
+            translation_key="predecessor_adoption_incomplete",
+            translation_placeholders={"entities": ", ".join(sorted(result.skipped))},
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, issue_id=issue_id)

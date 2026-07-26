@@ -56,7 +56,7 @@ from .coordinator import WeatherDataUpdateCoordinator
 from .data import SWSConfigEntry, SWSRuntimeData
 from .health_coordinator import HealthCoordinator
 from .legacy import update_legacy_battery_issue
-from .predecessor import async_adopt_predecessor, inherit_predecessor_options
+from .predecessor import async_adopt_predecessor, inherit_predecessor_options, update_predecessor_adoption_issue
 from .routes import Routes
 from .staleness import update_stale_sensors_issue
 
@@ -151,9 +151,19 @@ def register_path(
         # act on rather than an unhandled traceback.
         except (RuntimeError, ValueError) as Ex:
             _LOGGER.critical("Routes cannot be added. Integration will not work as expected. %s", Ex)
+            # Only the duplicate-name case is a leftover previous version. aiohttp raises
+            # ValueError for a malformed path or a bad `{webhook_id}` pattern too, and
+            # RuntimeError for a router that is already frozen - telling those users to
+            # uninstall something they may not even have would send them off the trail.
+            if isinstance(Ex, ValueError) and str(Ex).startswith("Duplicate"):
+                raise ConfigEntryNotReady(
+                    translation_domain=DOMAIN,
+                    translation_key="webhook_routes_taken",
+                ) from Ex
             raise ConfigEntryNotReady(
-                "Webhook routes are already registered by another instance of this "
-                "integration. Remove the previous version in HACS and restart Home Assistant."
+                translation_domain=DOMAIN,
+                translation_key="webhook_routes_failed",
+                translation_placeholders={"error": str(Ex)},
             ) from Ex
 
         # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
@@ -251,7 +261,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
     # platforms then bind to those same entries by unique id, keeping their entity_id
     # and with it their recorder history. After `async_forward_entry_setups` the
     # entity_ids would already have been handed out to freshly created entities.
-    await async_adopt_predecessor(hass, entry)
+    # The outcome is reported, not dropped: a migration that stalled leaves the old entry
+    # behind looking broken, and the user has to be told not to delete it by hand.
+    adoption = await async_adopt_predecessor(hass, entry)
+    update_predecessor_adoption_issue(hass, entry, adoption)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

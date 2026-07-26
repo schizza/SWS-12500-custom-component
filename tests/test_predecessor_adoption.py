@@ -25,10 +25,13 @@ from custom_components.sws12500.const import (
     SENSORS_TO_LOAD,
 )
 from custom_components.sws12500.data import build_device_info
-from custom_components.sws12500.predecessor import async_adopt_predecessor
+from custom_components.sws12500.predecessor import (
+    async_adopt_predecessor,
+    update_predecessor_adoption_issue,
+)
 from homeassistant.const import ATTR_RESTORED, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er, issue_registry as ir
 
 OLD_DOMAIN = "sws12500_legacy"
 
@@ -286,6 +289,165 @@ async def test_device_identifiers_match_what_the_platform_will_look_up(
     looked_up = device_registry.async_get_device(identifiers=set(build_device_info(new)["identifiers"]))
     assert looked_up is not None
     assert looked_up.id == device.id
+
+
+async def test_a_refused_entity_survives_its_device_being_repointed(hass: HomeAssistant, entries) -> None:
+    """The quietest way to lose history, and the reason a device is never detached here.
+
+    `entity_registry.async_device_modified` reacts to a device losing a config entry by
+    deleting every entity of that device still pointing at it. On a partial adoption
+    those are precisely the entities we refused to move - so detaching the predecessor
+    from the device would delete them, before `AdoptionResult.complete` ever gets to
+    keep the old entry alive for a retry. The entity_id is freed, the recorder history
+    and the long-term statistics are orphaned, and nothing is logged.
+    """
+    old, new = entries
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN,)},  # type: ignore[arg-type]
+        name="Weather Station",
+    )
+    created = _seed(hass, old, device_id=device.id)
+    refused = created["outside_temp"]
+    hass.states.async_set(refused, "21.5")  # live: adoption must leave this one alone
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+
+    assert result.live == [refused]
+    registry = er.async_get(hass)
+    survived = registry.async_get(refused)
+    assert survived is not None, "the refused entity was deleted along with the device link"
+    assert survived.entity_id == refused
+    assert survived.platform == OLD_DOMAIN
+    assert hass.config_entries.async_get_entry(old.entry_id) is not None
+
+
+async def test_a_second_device_does_not_collide(hass: HomeAssistant, entries) -> None:
+    """Two devices, one identifier set. Rewriting both would raise and never recover.
+
+    `device_registry._validate_identifiers` refuses an identifier another device already
+    holds, and the exception would escape `async_setup_entry` - after the entities were
+    repointed and before the old entry was removed, so every restart reproduces it and
+    the integration never sets up again.
+    """
+    old, new = entries
+    device_registry = dr.async_get(hass)
+    primary = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN,)},  # type: ignore[arg-type]
+        name="Weather Station",
+    )
+    secondary = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN, "ecowitt_ch1")},
+        name="Channel 1",
+    )
+    created = _seed(hass, old, device_id=primary.id)
+    registry = er.async_get(hass)
+    extra = registry.async_get_or_create(
+        "sensor", OLD_DOMAIN, "ch1_temp", config_entry=old, device_id=secondary.id
+    )
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+
+    assert result.complete
+    for entity_id in (*created.values(), extra.entity_id):
+        assert registry.async_get(entity_id) is not None, f"{entity_id} disappeared"
+
+    # One device holds the shared identifiers, the other keeps its own and is repointed.
+    holder = device_registry.async_get_device(identifiers=set(build_device_info(new)["identifiers"]))
+    assert holder is not None
+    assert holder.id == primary.id
+    kept = device_registry.async_get(secondary.id)
+    assert kept is not None
+    assert kept.identifiers == {(OLD_DOMAIN, "ecowitt_ch1")}
+    assert new.entry_id in kept.config_entries
+
+
+# ---------------------------------------------------------------------------
+# More than one predecessor entry
+# ---------------------------------------------------------------------------
+
+
+async def test_a_blocked_entry_does_not_hold_back_a_clean_one(hass: HomeAssistant, entries) -> None:
+    """Completeness is per predecessor entry; the predecessor never had `single_config_entry`.
+
+    Decided on the running total, one blocked entity under the first entry would condemn
+    every later one to be kept forever - broken "Integration not found" rows that no
+    retry can ever clear, because the same blocker reproduces the state every time.
+    """
+    old, new = entries
+    created = _seed(hass, old)
+    blocked = created["outside_temp"]
+    hass.states.async_set(blocked, "21.5")
+
+    second = MockConfigEntry(domain=OLD_DOMAIN, title="Old 2")
+    second.add_to_hass(hass)
+    registry = er.async_get(hass)
+    clean = registry.async_get_or_create("sensor", OLD_DOMAIN, "second_station_temp", config_entry=second)
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+
+    assert hass.config_entries.async_get_entry(second.entry_id) is None, (
+        "a fully adopted entry must be removed even when a sibling was blocked"
+    )
+    assert hass.config_entries.async_get_entry(old.entry_id) is not None
+    assert result.predecessor_removed
+    assert not result.complete
+    assert registry.async_get_entity_id("sensor", DOMAIN, "second_station_temp") == clean.entity_id
+
+
+# ---------------------------------------------------------------------------
+# Reporting - the user has to be told, and told what not to do
+# ---------------------------------------------------------------------------
+
+
+async def test_a_stalled_migration_raises_a_repair_issue(hass: HomeAssistant, entries) -> None:
+    """A log line is not enough: the obvious reaction to the leftover entry destroys history."""
+    old, new = entries
+    created = _seed(hass, old)
+    blocked = created["outside_temp"]
+    hass.states.async_set(blocked, "21.5")
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, result)
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}")
+    assert issue is not None
+    assert issue.translation_key == "predecessor_adoption_incomplete"
+    assert issue.translation_placeholders == {"entities": blocked}
+
+
+async def test_a_finished_migration_raises_no_issue(hass: HomeAssistant, entries) -> None:
+    """Nothing was left behind, so there is nothing to warn about."""
+    old, new = entries
+    _seed(hass, old)
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, result)
+
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}") is None
+
+
+async def test_the_issue_is_cleared_once_the_migration_finishes(hass: HomeAssistant, entries) -> None:
+    """Otherwise the notice outlives the problem and the user learns to ignore it."""
+    old, new = entries
+    created = _seed(hass, old)
+    blocked = created["outside_temp"]
+    hass.states.async_set(blocked, "21.5")
+
+    first = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, first)
+    issue_id = f"predecessor_adoption_{new.entry_id}"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+
+    hass.states.async_remove(blocked)
+    second = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, second)
+
+    assert second.complete
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
 
 
 # ---------------------------------------------------------------------------
