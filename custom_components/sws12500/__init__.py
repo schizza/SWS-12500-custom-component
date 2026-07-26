@@ -66,6 +66,14 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 CONFIG_ENTRY_VERSION: int = 2
 
 
+def _shared_routes(hass: HomeAssistant) -> Routes | None:
+    """Return the route dispatcher shared across entry reloads, if it exists yet."""
+
+    domain_data = hass.data.get(DOMAIN)
+    routes = domain_data.get("routes") if isinstance(domain_data, dict) else None
+    return routes if isinstance(routes, Routes) else None
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
     """Migrate an old config entry.
 
@@ -277,10 +285,25 @@ async def async_unload_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        domain_data = hass.data.get(DOMAIN)
-        routes = domain_data.get("routes") if isinstance(domain_data, dict) else None
-        if isinstance(routes, Routes):
+        if (routes := _shared_routes(hass)) is not None:
             routes.deactivate()
         setattr(entry, "runtime_data", None)
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> None:
+    """Release what the shared dispatcher keeps across an unload.
+
+    Unload is deliberately not the end of the line - the dispatcher keeps the ingress
+    observer so a payload that lands mid-reload is still recorded, and the next setup
+    repoints it at the new coordinator. Removal has no next setup, so the references
+    have to go here or the deleted entry's coordinators stay reachable from
+    `hass.data[DOMAIN]["routes"]` for the rest of the process.
+    """
+
+    del entry  # single_config_entry: the shared dispatcher belongs to the one entry
+
+    if (routes := _shared_routes(hass)) is not None:
+        routes.release()
+        _LOGGER.debug("Config entry removed; dispatcher references released.")

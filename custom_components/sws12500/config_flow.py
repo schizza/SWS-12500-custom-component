@@ -28,6 +28,7 @@ from .const import (
     POCASI_CZ_API_KEY,
     POCASI_CZ_ENABLED,
     POCASI_CZ_LOGGER_ENABLED,
+    POCASI_CZ_SEND_DEFAULT,
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_SEND_MINIMUM,
     SENSORS_TO_LOAD,
@@ -143,7 +144,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             POCASI_CZ_API_KEY: self.config_entry.options.get(POCASI_CZ_API_KEY, ""),
             POCASI_CZ_ENABLED: self.config_entry.options.get(POCASI_CZ_ENABLED, False),
             POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(POCASI_CZ_LOGGER_ENABLED, False),
-            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(POCASI_CZ_SEND_INTERVAL, 30),
+            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(
+                POCASI_CZ_SEND_INTERVAL, POCASI_CZ_SEND_DEFAULT
+            ),
         }
 
         self.pocasi_cz_schema = {

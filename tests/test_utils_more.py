@@ -254,6 +254,19 @@ def test_battery_level_handles_none_empty_invalid_and_known_values():
     assert battery_level("2") == UnitOfBat.UNKNOWN
 
 
+def test_battery_level_accepts_the_decimal_spelling():
+    """The station sometimes sends integer fields as decimals.
+
+    Reading `1.0` as UNKNOWN would make the deprecated ENUM battery sensor contradict
+    the binary battery entity fed by the very same payload field.
+    """
+    assert battery_level("1.0") == UnitOfBat.NORMAL
+    assert battery_level("0.0") == UnitOfBat.LOW
+    assert battery_level(1.0) == UnitOfBat.NORMAL
+    assert battery_level("  ") == UnitOfBat.UNKNOWN
+    assert battery_level([]) == UnitOfBat.UNKNOWN
+
+
 
 def test_temperature_conversions_round_trip():
     # Use a value that is exactly representable in binary-ish floats

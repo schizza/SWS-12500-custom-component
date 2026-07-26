@@ -27,6 +27,7 @@ from .const import (
     POCASI_CZ_ENABLED,
     POCASI_CZ_LOGGER_ENABLED,
     POCASI_CZ_MAX_RETRIES,
+    POCASI_CZ_SEND_DEFAULT,
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_SUCCESS,
     POCASI_CZ_UNEXPECTED,
@@ -34,7 +35,7 @@ from .const import (
     POCASI_INVALID_KEY,
     WSLINK_URL,
 )
-from .utils import anonymize, update_options
+from .utils import anonymize, to_int, update_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +56,9 @@ class PocasiPush:
         self.last_status: str = "disabled" if not self.enabled else "idle"
         self.last_error: str | None = None
         self.last_attempt_at: str | None = None
-        self._interval = int(self.config.options.get(POCASI_CZ_SEND_INTERVAL, 30))
+        # A stored interval that does not parse falls back to the default rather than
+        # raising here, which would take the whole config entry setup down.
+        self._interval = to_int(self.config.options.get(POCASI_CZ_SEND_INTERVAL)) or POCASI_CZ_SEND_DEFAULT
 
         self.last_update = dt_util.utcnow()
         self.next_update = dt_util.utcnow() + timedelta(seconds=self._interval)

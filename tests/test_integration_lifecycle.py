@@ -24,6 +24,7 @@ from custom_components.sws12500.const import (
 from custom_components.sws12500.coordinator import IncorrectDataError, WeatherDataUpdateCoordinator
 from custom_components.sws12500.data import SWSRuntimeData
 from custom_components.sws12500.health_coordinator import HealthCoordinator
+from custom_components.sws12500.routes import unregistered
 
 ECOWITT_PATH = ECOWITT_URL_PREFIX + "/{webhook_id}"
 
@@ -423,6 +424,67 @@ async def test_async_unload_entry_deactivates_shared_routes(hass_with_http):
 
     response = await routes.dispatch(SimpleNamespace(method="GET", path=DEFAULT_URL))
     assert response.status == 503
+
+
+@pytest.mark.asyncio
+async def test_async_remove_entry_releases_dispatcher_references(hass_with_http):
+    """Unload keeps the observer on purpose; removal has to let it go.
+
+    The dispatcher outlives the entry in `hass.data`, so a removed entry whose
+    coordinators are still referenced there stays alive for the rest of the process.
+    """
+    from custom_components.sws12500 import async_remove_entry
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
+    entry.add_to_hass(hass_with_http)
+
+    coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
+    register_path(hass_with_http, coordinator, coordinator_health, entry)
+
+    routes = hass_with_http.data[DOMAIN]["routes"]
+    routes.deactivate()
+    # Unload deliberately keeps the observer so mid-reload ingress is still recorded.
+    assert routes._ingress_observer is not None
+
+    await async_remove_entry(hass_with_http, entry)
+
+    assert routes._ingress_observer is None
+    assert all(route.handler is unregistered for route in routes.routes.values())
+
+
+@pytest.mark.asyncio
+async def test_reload_after_unload_still_rebinds_the_observer(hass_with_http, monkeypatch):
+    """Release must not be reached on the reload path."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={API_ID: "id", API_KEY: "key"})
+    entry.add_to_hass(hass_with_http)
+
+    coordinator = WeatherDataUpdateCoordinator(hass_with_http, entry)
+    coordinator_health = HealthCoordinator(hass_with_http, entry)
+    register_path(hass_with_http, coordinator, coordinator_health, entry)
+
+    routes = hass_with_http.data[DOMAIN]["routes"]
+    first_observer = routes._ingress_observer
+
+    _mock_health_first_refresh(monkeypatch)
+    monkeypatch.setattr(
+        hass_with_http.config_entries,
+        "async_unload_platforms",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        hass_with_http.config_entries,
+        "async_forward_entry_setups",
+        AsyncMock(return_value=True),
+    )
+    await async_unload_entry(hass_with_http, entry)
+
+    assert await async_setup_entry(hass_with_http, entry) is True
+
+    assert routes.active is True
+    assert routes._ingress_observer is not None
+    assert routes._ingress_observer != first_observer
+    assert routes.path_enabled(HEALTH_URL) is True
 
 
 @pytest.mark.asyncio

@@ -232,11 +232,12 @@ def wind_dir_to_text(deg: float | str | None) -> UnitOfDir | None:
     return azimut
 
 
-def battery_level(battery: int | str | None) -> UnitOfBat:
+def battery_level(battery: Any) -> UnitOfBat:
     """Return battery level.
 
-    WSLink payload values often arrive as strings (e.g. "0"/"1"), so we accept
-    both ints and strings and coerce to int before mapping.
+    Goes through `to_int` like every other payload coercion: values arrive as
+    strings, sometimes spelled as decimals ("1.0"), and reading one of those as
+    "unknown" would contradict the binary battery entity fed by the same field.
 
     Returns UnitOfBat
     """
@@ -246,17 +247,9 @@ def battery_level(battery: int | str | None) -> UnitOfBat:
         1: UnitOfBat.NORMAL,
     }
 
-    if (battery is None) or (battery == ""):
+    vi = to_int(battery)
+    if vi is None:
         return UnitOfBat.UNKNOWN
-
-    vi: int
-    if isinstance(battery, int):
-        vi = battery
-    else:
-        try:
-            vi = int(battery)
-        except ValueError:
-            return UnitOfBat.UNKNOWN
 
     return level_map.get(vi, UnitOfBat.UNKNOWN)
 

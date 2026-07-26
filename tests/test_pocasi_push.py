@@ -111,6 +111,26 @@ def notify(monkeypatch):
     return created
 
 
+@pytest.mark.parametrize("stored", ["", "abc", None, [], 0])
+def test_unreadable_send_interval_falls_back_to_the_default(hass, stored):
+    """A corrupted option must not take the whole entry setup down.
+
+    `PocasiPush` is constructed from the coordinator during `async_setup_entry`, so a
+    raise here means the integration fails to load rather than forwarding late.
+    """
+    from custom_components.sws12500.const import POCASI_CZ_SEND_DEFAULT
+
+    entry = _make_entry()
+    entry.options[POCASI_CZ_SEND_INTERVAL] = stored
+
+    assert PocasiPush(hass, entry)._interval == POCASI_CZ_SEND_DEFAULT
+
+
+def test_a_stored_send_interval_is_honoured(hass):
+    entry = _make_entry(interval=45)
+    assert PocasiPush(hass, entry)._interval == 45
+
+
 @pytest.mark.asyncio
 async def test_push_data_to_server_missing_api_id_returns_early(monkeypatch, hass):
     entry = _make_entry(api_id=None, api_key="key")

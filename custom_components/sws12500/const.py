@@ -226,6 +226,7 @@ WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
+POCASI_CZ_SEND_DEFAULT: Final = 30  # used when the option is unset or unreadable
 # Failed sends in a row before resending is disabled. Timeouts are excluded on purpose -
 # a slow upstream is transient, see the TimeoutError branch in `PocasiPush`.
 POCASI_CZ_MAX_RETRIES: Final = 3

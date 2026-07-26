@@ -80,6 +80,23 @@ class Routes:
         """
         self.active = False
 
+    def release(self) -> None:
+        """Drop every config-entry object the dispatcher still holds.
+
+        `deactivate()` deliberately keeps the ingress observer so a payload arriving
+        while the entry is unloaded is still recorded. Removal is the other case: the
+        entry is gone for good, and this dispatcher outlives it in `hass.data`, so
+        holding its coordinators - and through them the removed ConfigEntry - would
+        keep them alive for the rest of the process.
+
+        Enablement flags are left alone: a re-added entry rebinds every handler
+        through the usual setup path, and `rebind_handler` only touches sticky routes
+        that are still enabled.
+        """
+        self._ingress_observer = None
+        for route in self.routes.values():
+            route.handler = unregistered
+
     def _resolve_route(self, request: Request) -> RouteInfo | None:
         """Find the matching RouteInfo for a request.
 
