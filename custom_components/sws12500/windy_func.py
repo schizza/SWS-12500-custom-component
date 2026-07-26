@@ -175,15 +175,13 @@ class WindyPush:
             indata["uv"] = indata.pop("t1uvi")
         if "t1solrad" in indata:
             indata["solarradiation"] = indata.pop("t1solrad")
-        # Indoor readings mean nothing to Windy. Renaming them to their PWS spelling
-        # (rather than dropping them here) leaves PURGE_DATA - which lists PWS names -
-        # as the single place that decides what Windy never receives, exactly as on the
-        # Ecowitt path. The values stay Celsius/percent, which is fine because they are
-        # purged before the request is built.
-        if "intem" in indata:
-            indata["indoortempf"] = indata.pop("intem")
-        if "inhum" in indata:
-            indata["indoorhumidity"] = indata.pop("inhum")
+
+        # Indoor readings mean nothing to Windy, and there is no PWS name to put them
+        # under: `indoortempf` is Fahrenheit while WSLink `intem` is Celsius. Dropping
+        # them outright keeps the payload unit-correct on its own terms, rather than
+        # relying on PURGE_DATA to discard a mislabelled value afterwards.
+        indata.pop("intem", None)
+        indata.pop("inhum", None)
 
         return indata
 
@@ -349,7 +347,20 @@ class WindyPush:
         # TimeoutError is not a ClientError: an `async_timeout`/`asyncio` timeout would
         # otherwise escape into the webhook handler and answer the station with HTTP 500,
         # even though the measured data was already stored.
-        except (ClientError, TimeoutError) as ex:
+        #
+        # It gets its own branch because it must not spend the retry budget: a slow
+        # upstream is transient and self-healing, so the next push just tries again,
+        # while `invalid_response_count` is meant for faults that will not fix
+        # themselves. Caught first on purpose - aiohttp's ServerTimeoutError is both a
+        # ClientError and a TimeoutError, and it belongs here.
+        except TimeoutError as ex:
+            self.last_status = "timeout"
+            self.last_error = type(ex).__name__
+            _LOGGER.warning(
+                "Windy did not answer within %s seconds. Will try again on the next push.",
+                FORWARD_TIMEOUT,
+            )
+        except ClientError as ex:
             self.last_status = "client_error"
             # Store only the exception class - last_error is surfaced via entity
             # attributes; str(ex) could embed the request URL.

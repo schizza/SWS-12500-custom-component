@@ -121,6 +121,16 @@ def hass():
     return SimpleNamespace()
 
 
+@pytest.fixture(autouse=True)
+def notify(monkeypatch):
+    """Capture the disable notification; the stub `hass` cannot serve the real one."""
+    created = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.persistent_notification.async_create", created
+    )
+    return created
+
+
 @pytest.fixture
 def pusher(monkeypatch, hass):
     """A PocasiPush wired to a recording session and allowed to send immediately."""

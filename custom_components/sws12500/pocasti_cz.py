@@ -10,6 +10,7 @@ from typing import Any, Literal
 from aiohttp import ClientError, ClientTimeout
 from py_typecheck.core import checked_or
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -91,12 +92,19 @@ class PocasiPush:
         return "unexpected_response"
 
     async def _disable_pocasi(self, reason: str) -> None:
-        """Turn resending off and persist it, so it survives a restart."""
+        """Turn resending off and persist it, so it survives a restart.
+
+        Notifies the user as well - as `WindyPush._disable_windy` does. Forwarding
+        switching itself off is otherwise invisible until someone notices that data
+        stopped arriving upstream, since the only other trace is a log line.
+        """
 
         self.last_error = reason
 
         if not await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False):
             _LOGGER.debug("Failed to set Pocasi Meteo options to false.")
+
+        persistent_notification.async_create(self.hass, reason, "Pocasi Meteo resending disabled.")
 
     async def push_data_to_server(self, data: dict[str, Any], mode: PocasiMode):
         """Forward a station payload to Pocasi Meteo.
@@ -219,7 +227,20 @@ class PocasiPush:
         # TimeoutError is not a ClientError: an `async_timeout`/`asyncio` timeout would
         # otherwise escape into the webhook handler and answer the station with HTTP 500,
         # even though the measured data was already stored.
-        except (ClientError, TimeoutError) as ex:
+        #
+        # It gets its own branch because it must not spend the retry budget: a slow
+        # upstream is transient and self-healing, so the next push just tries again,
+        # while `invalid_response_count` is meant for faults that will not fix
+        # themselves. Caught first on purpose - aiohttp's ServerTimeoutError is both a
+        # ClientError and a TimeoutError, and it belongs here.
+        except TimeoutError as ex:
+            self.last_status = "timeout"
+            self.last_error = type(ex).__name__
+            _LOGGER.warning(
+                "Pocasi Meteo did not answer within %s seconds. Will try again on the next push.",
+                FORWARD_TIMEOUT,
+            )
+        except ClientError as ex:
             self.last_status = "client_error"
             # Store only the exception class - last_error is surfaced via entity
             # attributes; str(ex) could embed the request URL.

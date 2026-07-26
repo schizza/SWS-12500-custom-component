@@ -13,6 +13,7 @@ from custom_components.sws12500.const import (
     PURGE_DATA,
     WINDY_ENABLED,
     WINDY_LOGGER_ENABLED,
+    WINDY_MAX_RETRIES,
     WINDY_STATION_ID,
     WINDY_STATION_PW,
     WINDY_UNEXPECTED,
@@ -130,8 +131,6 @@ def test_covert_wslink_to_pws_maps_keys(hass):
     assert out["precip"] == "8"
     assert out["uv"] == "9"
     assert out["solarradiation"] == "10"
-    assert out["indoortempf"] == "21.5"
-    assert out["indoorhumidity"] == "48"
     assert out["other"] == "keep"
     for k in (
         "t1ws",
@@ -148,6 +147,11 @@ def test_covert_wslink_to_pws_maps_keys(hass):
         "inhum",
     ):
         assert k not in out
+
+    # Indoor readings are dropped, not renamed: WSLink sends Celsius, while the PWS
+    # `indoortempf` spelling promises Fahrenheit.
+    assert "indoortempf" not in out
+    assert "indoorhumidity" not in out
 
 
 @pytest.mark.asyncio
@@ -462,14 +466,15 @@ async def test_push_data_to_windy_client_error_increments_and_disables_after_thr
 
 
 @pytest.mark.asyncio
-async def test_push_data_to_windy_timeout_is_handled_like_client_error(
-    monkeypatch, hass
-):
+async def test_push_data_to_windy_timeout_is_caught_and_not_counted(monkeypatch, hass):
     """A network timeout must not escape into the webhook handler.
 
     `TimeoutError` is not a subclass of `ClientError`, so it used to propagate out
     of `push_data_to_windy`, through the awaiting coordinator, and answer the
     station with HTTP 500 - even though the measured data was already stored.
+
+    It must not spend the retry budget either: a slow upstream is transient, so the
+    next push simply tries again.
     """
     entry = _make_entry()
     wp = WindyPush(hass, entry)
@@ -493,9 +498,61 @@ async def test_push_data_to_windy_timeout_is_handled_like_client_error(
     ok = await wp.push_data_to_windy({"a": "b"})
 
     assert ok is True
-    assert wp.last_status == "client_error"
+    assert wp.last_status == "timeout"
     assert wp.last_error == "TimeoutError"
-    assert wp.invalid_response_count == 1
+    assert wp.invalid_response_count == 0
+
+
+@pytest.mark.asyncio
+async def test_repeated_timeouts_never_disable_windy(monkeypatch, hass):
+    """15 minutes of a merely slow Windy must not turn forwarding off for good.
+
+    Bounding the request made this branch reachable; counting it would let a
+    transient slowdown burn the whole retry budget with nothing to recover it.
+    """
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+
+    update_options = AsyncMock(return_value=True)
+    monkeypatch.setattr("custom_components.sws12500.windy_func.update_options", update_options)
+    notify = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.persistent_notification.async_create", notify
+    )
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    for _ in range(WINDY_MAX_RETRIES + 2):
+        wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+        assert await wp.push_data_to_windy({"a": "b"}) is True
+
+    assert wp.invalid_response_count == 0
+    assert wp.enabled is True
+    update_options.assert_not_awaited()
+    notify.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_timeout_does_not_reset_an_existing_client_error_budget(monkeypatch, hass):
+    """A timeout is ignored by the counter, not a substitute for a successful send."""
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.invalid_response_count = 2
+    wp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await wp.push_data_to_windy({"a": "b"})
+
+    assert wp.invalid_response_count == 2
 
 
 @pytest.mark.asyncio
@@ -608,8 +665,9 @@ async def test_push_data_to_windy_purges_after_converting(monkeypatch, hass):
 async def test_push_data_to_windy_drops_wslink_indoor_readings(monkeypatch, hass):
     """WSLink `intem`/`inhum` must not reach Windy under either spelling.
 
-    PURGE_DATA lists the PWS names, so before these two were mapped in the converter
-    they slipped through untouched and Windy received a raw `intem`/`inhum` pair.
+    PURGE_DATA lists the PWS names, so these two used to slip through untouched and
+    Windy received a raw `intem`/`inhum` pair. The converter drops them instead, which
+    holds regardless of what PURGE_DATA contains.
     """
     entry = _make_entry()
     wp = WindyPush(hass, entry)

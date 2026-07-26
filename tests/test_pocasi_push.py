@@ -101,6 +101,16 @@ def hass():
     return SimpleNamespace()
 
 
+@pytest.fixture(autouse=True)
+def notify(monkeypatch):
+    """Capture the disable notification; the stub `hass` cannot serve the real one."""
+    created = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.persistent_notification.async_create", created
+    )
+    return created
+
+
 @pytest.mark.asyncio
 async def test_push_data_to_server_missing_api_id_returns_early(monkeypatch, hass):
     entry = _make_entry(api_id=None, api_key="key")
@@ -339,14 +349,15 @@ async def test_push_data_to_server_client_error_increments_and_disables_after_th
 
 
 @pytest.mark.asyncio
-async def test_push_data_to_server_timeout_is_handled_like_client_error(
-    monkeypatch, hass
-):
+async def test_push_data_to_server_timeout_is_caught_and_not_counted(monkeypatch, hass):
     """A network timeout must not escape into the webhook handler.
 
     `TimeoutError` is not a subclass of `ClientError`, so it used to propagate out
     of `push_data_to_server`, through the awaiting coordinator, and answer the
     station with HTTP 500 - even though the measured data was already stored.
+
+    It must not spend the retry budget either: a slow upstream is transient, so the
+    next push simply tries again.
     """
     entry = _make_entry()
     pp = PocasiPush(hass, entry)
@@ -366,10 +377,92 @@ async def test_push_data_to_server_timeout_is_handled_like_client_error(
     pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
     await pp.push_data_to_server({"x": 1}, "WU")
 
-    assert pp.last_status == "client_error"
+    assert pp.last_status == "timeout"
     assert pp.last_error == "TimeoutError"
-    assert pp.invalid_response_count == 1
+    assert pp.invalid_response_count == 0
     assert pp.enabled is True
+
+
+@pytest.mark.asyncio
+async def test_repeated_timeouts_never_disable_pocasi(monkeypatch, hass, notify):
+    """Two minutes of a merely slow server must not turn forwarding off for good.
+
+    With a 30 second send interval, counting timeouts would spend the whole retry
+    budget on a slowdown that recovers by itself.
+    """
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+
+    update_options = _write_through_update_options(entry)
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.update_options", update_options
+    )
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    for _ in range(POCASI_CZ_MAX_RETRIES + 2):
+        pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+        await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.invalid_response_count == 0
+    assert pp.enabled is True
+    update_options.assert_not_awaited()
+    notify.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_timeout_does_not_reset_an_existing_client_error_budget(monkeypatch, hass):
+    """A timeout is ignored by the counter, not a substitute for a successful send."""
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+    pp.invalid_response_count = 2
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+
+    session = _FakeSession(exc=TimeoutError("timed out"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.invalid_response_count == 2
+
+
+@pytest.mark.asyncio
+async def test_disabling_pocasi_notifies_the_user(monkeypatch, hass, notify):
+    """Forwarding switching itself off must be visible, not just a log line.
+
+    Windy already raises a persistent notification; without one here the user only
+    finds out when data stops arriving upstream.
+    """
+    entry = _make_entry()
+    pp = PocasiPush(hass, entry)
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+
+    session = _FakeSession(response=_FakeResponse("", status=401))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+    monkeypatch.setattr("custom_components.sws12500.pocasti_cz.anonymize", lambda d: d)
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.update_options",
+        _write_through_update_options(entry),
+    )
+    monkeypatch.setattr("custom_components.sws12500.pocasti_cz._LOGGER.critical", MagicMock())
+
+    await pp.push_data_to_server({"x": 1}, "WU")
+
+    assert pp.enabled is False
+    notify.assert_called_once()
+    args = notify.call_args.args
+    assert args[0] is hass
+    assert POCASI_INVALID_KEY in args[1]
 
 
 @pytest.mark.asyncio
