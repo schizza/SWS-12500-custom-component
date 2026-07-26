@@ -177,7 +177,9 @@ WINDY_URL = "https://stations.windy.com/api/v2/observation/update"
 
 POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
-POCASI_CZ_MAX_RETRIES: Final = 3  # failed sends in a row before resending is disabled
+# Failed sends in a row before resending is disabled. Timeouts are excluded on purpose -
+# a slow upstream is transient, see the TimeoutError branch in `PocasiPush`.
+POCASI_CZ_MAX_RETRIES: Final = 3
 
 # Pocasi Meteo accepts Ecowitt only as a POST in the Ecowitt protocol itself - the
 # station payload is forwarded verbatim rather than translated to PWS. Per their

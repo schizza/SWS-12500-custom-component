@@ -271,9 +271,9 @@ credentials and tick `Enable resending data to Windy` again.
 
 - You are done.
 
-As with Windy, three unexpected responses in a row switch resending off automatically and
-log the reason. The `Forwarding to Počasí Meteo` and `Forwarding status to Počasí Meteo`
-diagnostic sensors show the current state.
+As with Windy, three unexpected responses in a row switch resending off automatically, log
+the reason and raise a persistent notification. The `Forwarding to Počasí Meteo` and
+`Forwarding status to Počasí Meteo` diagnostic sensors show the current state.
 
 ## WSLink notes
 
