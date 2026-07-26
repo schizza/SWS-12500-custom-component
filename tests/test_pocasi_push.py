@@ -49,8 +49,8 @@ class _FakeSession:
         self._exc = exc
         self.calls: list[dict[str, Any]] = []
 
-    def get(self, url: str, *, params: dict[str, Any] | None = None):
-        self.calls.append({"url": url, "params": dict(params or {})})
+    def get(self, url: str, *, params: dict[str, Any] | None = None, timeout: Any = None):
+        self.calls.append({"url": url, "params": dict(params or {}), "timeout": timeout})
         if self._exc is not None:
             raise self._exc
         assert self._response is not None
@@ -370,6 +370,33 @@ async def test_push_data_to_server_timeout_is_handled_like_client_error(
     assert pp.last_error == "TimeoutError"
     assert pp.invalid_response_count == 1
     assert pp.enabled is True
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_server_bounds_the_request(monkeypatch, hass):
+    """The send must carry an explicit timeout.
+
+    Home Assistant's shared session sets none, so aiohttp's 5 minute default would
+    hold the station's own webhook open long past the point where it gives up - and
+    the TimeoutError branch above could never run in time to matter.
+    """
+    from custom_components.sws12500.const import FORWARD_TIMEOUT
+
+    pp = PocasiPush(hass, _make_entry())
+
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.pocasti_cz.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    pp.next_update = dt_util.utcnow() - timedelta(seconds=1)
+    await pp.push_data_to_server({"tempf": "68"}, "WU")
+
+    timeout = session.calls[0]["timeout"]
+    assert timeout is not None
+    assert timeout.total == FORWARD_TIMEOUT
+    assert 0 < timeout.total <= 30
 
 
 def test_verify_response_logs_debug_when_logger_enabled(monkeypatch, hass):

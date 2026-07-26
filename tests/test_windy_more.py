@@ -30,7 +30,7 @@ class _FakeSession:
     def __init__(self, response: _FakeResponse) -> None:
         self._response = response
 
-    def get(self, url: str, *, params=None, headers=None):
+    def get(self, url: str, *, params=None, headers=None, timeout=None):
         return self._response
 
 

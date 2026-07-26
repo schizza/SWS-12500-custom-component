@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import logging
 from typing import Literal
 
-from aiohttp.client import ClientResponse
+from aiohttp.client import ClientResponse, ClientTimeout
 from aiohttp.client_exceptions import ClientError
 from py_typecheck import checked_or
 
@@ -17,6 +17,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    FORWARD_TIMEOUT,
     PURGE_DATA,
     WINDY_ENABLED,
     WINDY_INVALID_KEY,
@@ -29,7 +30,7 @@ from .const import (
     WINDY_UNEXPECTED,
     WINDY_URL,
 )
-from .utils import remap_ecowitt_to_wu, update_options
+from .utils import remap_ecowitt_to_windy, update_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ class WindyPush:
             raise WindyRateLimitExceeded
 
     def _to_pws(self, data: dict[str, str], source: WindySource) -> dict[str, str]:
-        """Convert a station payload into the PWS field names Windy understands.
+        """Convert a station payload into the field names Windy understands.
 
         Windy speaks the PWS/WU vocabulary, so every other protocol has to be mapped
         onto it first. All three sources are dispatched here so the conversions stay
@@ -149,7 +150,7 @@ class WindyPush:
         if source == "ecowitt":
             # Windy has no Ecowitt endpoint; the shared table also drops the station
             # metadata (PASSKEY, stationtype, model, ...) that means nothing upstream.
-            return remap_ecowitt_to_wu(data)
+            return remap_ecowitt_to_windy(data)
         return data
 
     def _covert_wslink_to_pws(self, indata: dict[str, str]) -> dict[str, str]:
@@ -174,6 +175,15 @@ class WindyPush:
             indata["uv"] = indata.pop("t1uvi")
         if "t1solrad" in indata:
             indata["solarradiation"] = indata.pop("t1solrad")
+        # Indoor readings mean nothing to Windy. Renaming them to their PWS spelling
+        # (rather than dropping them here) leaves PURGE_DATA - which lists PWS names -
+        # as the single place that decides what Windy never receives, exactly as on the
+        # Ecowitt path. The values stay Celsius/percent, which is fine because they are
+        # purged before the request is built.
+        if "intem" in indata:
+            indata["indoortempf"] = indata.pop("intem")
+        if "inhum" in indata:
+            indata["indoorhumidity"] = indata.pop("inhum")
 
         return indata
 
@@ -259,7 +269,16 @@ class WindyPush:
             _LOGGER.info("Dataset for windy: %s", {**purged_data, "id": "***"})
         session = async_get_clientsession(self.hass)
         try:
-            async with session.get(request_url, params=purged_data, headers=headers) as resp:
+            # Home Assistant's shared session sets no timeout, so without an explicit
+            # one a stalled Windy would hold the station's webhook open for aiohttp's
+            # 5 minute default and the TimeoutError branch below could never run in
+            # time to answer the station.
+            async with session.get(
+                request_url,
+                params=purged_data,
+                headers=headers,
+                timeout=ClientTimeout(total=FORWARD_TIMEOUT),
+            ) as resp:
                 try:
                     self.verify_windy_response(response=resp)
                 except WindyNotInserted:

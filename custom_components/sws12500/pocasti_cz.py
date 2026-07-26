@@ -7,7 +7,7 @@ from functools import partial
 import logging
 from typing import Any, Literal
 
-from aiohttp import ClientError
+from aiohttp import ClientError, ClientTimeout
 from py_typecheck.core import checked_or
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     DEFAULT_URL,
+    FORWARD_TIMEOUT,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
     POCASI_CZ_ECOWITT_ID_PARAM,
@@ -146,6 +147,12 @@ class PocasiPush:
         request_url: str = ""
         params: dict[str, Any] = {}
 
+        # Home Assistant's shared session sets no timeout, so without an explicit one a
+        # stalled server would hold the station's webhook open for aiohttp's 5 minute
+        # default and the TimeoutError branch below could never run in time to answer
+        # the station.
+        timeout = ClientTimeout(total=FORWARD_TIMEOUT)
+
         if mode == "ECOWITT":
             # Pocasi Meteo takes Ecowitt only as a POST in the Ecowitt protocol itself,
             # so the station payload is forwarded verbatim; only the credentials are
@@ -155,7 +162,7 @@ class PocasiPush:
                 POCASI_CZ_ECOWITT_ID_PARAM: _api_id,
                 POCASI_CZ_ECOWITT_PW_PARAM: _api_key,
             }
-            make_request = partial(session.post, request_url, params=params, data=_data)
+            make_request = partial(session.post, request_url, params=params, data=_data, timeout=timeout)
         else:
             if mode == "WSLINK":
                 _data["wsid"] = _api_id
@@ -166,7 +173,7 @@ class PocasiPush:
                 _data["PASSWORD"] = _api_key
                 request_url = f"{POCASI_CZ_URL}{DEFAULT_URL}"
 
-            make_request = partial(session.get, request_url, params=_data)
+            make_request = partial(session.get, request_url, params=_data, timeout=timeout)
 
         _LOGGER.debug(
             "Payload for Pocasi Meteo server: [mode=%s] [request_url=%s] [params=%s] = %s",

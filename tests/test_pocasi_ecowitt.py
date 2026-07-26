@@ -79,11 +79,27 @@ class _RecordingSession:
     calls: list[dict[str, Any]] = field(default_factory=list)
 
     def get(self, url: str, *, params: dict[str, Any] | None = None, **kw: Any):
-        self.calls.append({"verb": "GET", "url": url, "params": dict(params or {}), "body": kw.get("data")})
+        self.calls.append(
+            {
+                "verb": "GET",
+                "url": url,
+                "params": dict(params or {}),
+                "body": kw.get("data"),
+                "timeout": kw.get("timeout"),
+            }
+        )
         return self.response
 
-    def post(self, url: str, *, params: dict[str, Any] | None = None, data: Any = None, **_kw: Any):
-        self.calls.append({"verb": "POST", "url": url, "params": dict(params or {}), "body": data})
+    def post(self, url: str, *, params: dict[str, Any] | None = None, data: Any = None, **kw: Any):
+        self.calls.append(
+            {
+                "verb": "POST",
+                "url": url,
+                "params": dict(params or {}),
+                "body": data,
+                "timeout": kw.get("timeout"),
+            }
+        )
         return self.response
 
 
@@ -169,6 +185,22 @@ async def test_credentials_are_not_injected_into_the_body(pusher) -> None:
     body = session.calls[0]["body"]
     for key in ("ID", "PAS", "PASSWORD", "wsid", "wspw"):
         assert key not in body
+
+
+async def test_ecowitt_post_is_bounded_by_a_timeout(pusher) -> None:
+    """The POST is awaited inside the station's own request, so it must be bounded.
+
+    Home Assistant's shared session sets no timeout, leaving aiohttp's 5 minute
+    default - long past the point where the station gives up waiting for us.
+    """
+    from custom_components.sws12500.const import FORWARD_TIMEOUT
+
+    pp, session = pusher
+    await pp.push_data_to_server(ECOWITT_PAYLOAD, "ECOWITT")
+
+    timeout = session.calls[0]["timeout"]
+    assert timeout is not None
+    assert timeout.total == FORWARD_TIMEOUT
 
 
 async def test_caller_payload_is_not_mutated(pusher) -> None:
@@ -275,73 +307,87 @@ def test_pas_is_masked_for_logging() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Windy takes the same payload translated to PWS field names
+# Windy takes the same payload translated to the field names it accepts
 #
 # Windy has no Ecowitt endpoint, so `baromrelin`, `dewpointf`, `tempinf`,
-# `humidityin`, `uv` and `hourlyrainin` would not be understood there.
+# `humidityin` and `hourlyrainin` would not be understood there.
 # ---------------------------------------------------------------------------
 
 
-def test_ecowitt_to_wu_renames_the_diverging_fields() -> None:
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+def test_ecowitt_to_windy_renames_the_diverging_fields() -> None:
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    translated = remap_ecowitt_to_wu(ECOWITT_PAYLOAD)
+    translated = remap_ecowitt_to_windy(ECOWITT_PAYLOAD)
 
     assert translated["dewptf"] == "20.3"
     assert translated["baromin"] == "28.792"
     assert translated["indoortempf"] == "53.4"
     assert translated["indoorhumidity"] == "76"
-    assert translated["UV"] == "0"
     assert translated["rainin"] == "2.08"  # WU `rainin` is the past hour
 
     # The Ecowitt spellings must be gone, not merely duplicated.
-    for gone in ("baromrelin", "tempinf", "humidityin", "uv", "hourlyrainin", "dewpointf"):
+    for gone in ("baromrelin", "tempinf", "humidityin", "hourlyrainin", "dewpointf"):
         assert gone not in translated
 
 
-def test_ecowitt_to_wu_keeps_the_shared_names() -> None:
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+def test_ecowitt_to_windy_keeps_the_shared_names() -> None:
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    translated = remap_ecowitt_to_wu(ECOWITT_PAYLOAD)
+    translated = remap_ecowitt_to_windy(ECOWITT_PAYLOAD)
 
     for same in ("tempf", "humidity", "windspeedmph", "windgustmph", "winddir", "solarradiation", "dailyrainin"):
         assert translated[same] == ECOWITT_PAYLOAD[same]
 
 
-def test_ecowitt_to_wu_drops_device_metadata() -> None:
+def test_ecowitt_to_windy_drops_device_metadata() -> None:
     """Allowlist: station metadata has no meaning upstream and must not be forwarded."""
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    translated = remap_ecowitt_to_wu(ECOWITT_PAYLOAD)
+    translated = remap_ecowitt_to_windy(ECOWITT_PAYLOAD)
 
     for junk in ("PASSKEY", "stationtype", "model", "freq", "baromabsin"):
         assert junk not in translated
 
 
-def test_ecowitt_to_wu_ignores_unknown_future_fields() -> None:
+def test_ecowitt_to_windy_ignores_unknown_future_fields() -> None:
     """A denylist would forward whatever a future firmware starts sending."""
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    translated = remap_ecowitt_to_wu({**ECOWITT_PAYLOAD, "some_new_sensor_v9": "42"})
+    translated = remap_ecowitt_to_windy({**ECOWITT_PAYLOAD, "some_new_sensor_v9": "42"})
     assert "some_new_sensor_v9" not in translated
 
 
-def test_ecowitt_to_wu_handles_a_partial_payload() -> None:
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+def test_ecowitt_to_windy_handles_a_partial_payload() -> None:
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    assert remap_ecowitt_to_wu({"tempf": "43.2"}) == {"tempf": "43.2"}
-    assert remap_ecowitt_to_wu({}) == {}
+    assert remap_ecowitt_to_windy({"tempf": "43.2"}) == {"tempf": "43.2"}
+    assert remap_ecowitt_to_windy({}) == {}
 
 
-def test_ecowitt_to_wu_produces_names_the_wu_pipeline_knows() -> None:
+def test_ecowitt_to_windy_keeps_the_windy_uv_spelling() -> None:
+    """Windy documents the UV index as lowercase `uv`; WU spells it `UV`.
+
+    The WSLink converter already emits `uv` on the path that demonstrably works, so
+    this table has to follow Windy rather than WU - otherwise Ecowitt users silently
+    lose the UV index upstream. See `test_both_windy_converters_agree_on_uv`.
+    """
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
+
+    translated = remap_ecowitt_to_windy(ECOWITT_PAYLOAD)
+    assert translated["uv"] == "0"
+    assert "UV" not in translated
+
+
+def test_ecowitt_to_windy_produces_names_the_wu_pipeline_knows() -> None:
     """The translated names must be the ones a real PWS station sends.
 
     That is what makes the Windy forward work: it is the already-proven path, so the
-    output is pinned against the integration's own WU parser rather than guessed.
+    output is pinned against the integration's own WU parser rather than guessed. `uv`
+    is the documented exception - Windy's own spelling, see the table's comment.
     """
     from custom_components.sws12500.const import REMAP_ITEMS
-    from custom_components.sws12500.utils import remap_ecowitt_to_wu
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
 
-    translated = remap_ecowitt_to_wu(ECOWITT_PAYLOAD)
-    unknown = set(translated) - set(REMAP_ITEMS) - {"dateutc"}
-    assert not unknown, f"field names the WU protocol does not define: {sorted(unknown)}"
+    translated = remap_ecowitt_to_windy(ECOWITT_PAYLOAD)
+    unknown = set(translated) - set(REMAP_ITEMS) - {"dateutc", "uv"}
+    assert not unknown, f"field names neither protocol defines: {sorted(unknown)}"

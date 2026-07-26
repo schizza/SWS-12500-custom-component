@@ -32,7 +32,7 @@ from .const import (
     HEAT_INDEX,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
-    REMAP_ECOWITT_TO_WU,
+    REMAP_ECOWITT_TO_WINDY,
     REMAP_ITEMS,
     REMAP_WSLINK_ITEMS,
     SENSORS_TO_LOAD,
@@ -292,6 +292,11 @@ def heat_index(data: dict[str, int | float | str], convert: bool = False) -> flo
 
     data: dict with temperature and humidity
     convert: bool, convert received data from Celsius to Fahrenheit
+
+    The result is floored at the ambient temperature. The NWS step-1 average is only
+    meaningful once it reaches 80 F; below that it drifts under the air temperature
+    (6.2 C at 40% RH yields 3.9 C), and an entity called "Heat index" reading colder
+    than the air is wrong rather than merely imprecise. Always returns Fahrenheit.
     """
     if (temp := to_float(data.get(OUTSIDE_TEMP))) is None:
         _LOGGER.error(
@@ -331,9 +336,9 @@ def heat_index(data: dict[str, int | float | str], convert: bool = False) -> flo
         if rh > 80 and (80 <= temp <= 87):
             adjustment = ((rh - 85) / 10) * ((87 - temp) / 5)
 
-        return round((full_index + adjustment if adjustment else full_index), 2)
+        return max(round((full_index + adjustment if adjustment else full_index), 2), temp)
 
-    return simple
+    return max(simple, temp)
 
 
 def chill_index(data: dict[str, str | float | int], convert: bool = False) -> float | None:
@@ -451,14 +456,15 @@ def wslink_chill_index(data: dict[str, Any]) -> float | None:
     return None if value_f is None else round(fahrenheit_to_celsius(value_f), 2)
 
 
-def remap_ecowitt_to_wu(data: dict[str, Any]) -> dict[str, Any]:
-    """Translate an Ecowitt payload into WU/PWS field names.
+def remap_ecowitt_to_windy(data: dict[str, Any]) -> dict[str, Any]:
+    """Translate an Ecowitt payload into the field names Windy accepts.
 
     Needed for services that do not speak the Ecowitt protocol - Windy, unlike Pocasi
-    Meteo, has no Ecowitt endpoint, so fields such as `baromrelin`, `dewpointf`,
-    `tempinf` or `uv` would simply not be understood.
+    Meteo, has no Ecowitt endpoint, so fields such as `baromrelin`, `dewpointf` or
+    `tempinf` would simply not be understood.
 
-    Only fields listed in `REMAP_ECOWITT_TO_WU` are passed on; see the table there for
-    why that is an allowlist rather than a denylist.
+    Only fields listed in `REMAP_ECOWITT_TO_WINDY` are passed on; see the table there
+    for why that is an allowlist rather than a denylist, and where it departs from the
+    WU spelling.
     """
-    return {wu_key: data[eco_key] for eco_key, wu_key in REMAP_ECOWITT_TO_WU.items() if eco_key in data}
+    return {out_key: data[eco_key] for eco_key, out_key in REMAP_ECOWITT_TO_WINDY.items() if eco_key in data}

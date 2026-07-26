@@ -195,26 +195,40 @@ LEGACY_ENABLED: Final = "legacy_enabled"
 WINDY_MAX_RETRIES: Final = 3
 WSLINK_ADDON_PORT: Final = "WSLINK_ADDON_PORT"
 
+# Forwarding to Windy / Pocasi Meteo is awaited inline in the station's own request
+# path, so an upstream that accepts the connection and never answers would hold the
+# webhook open. aiohttp's default is a 5 minute total, long past the point where the
+# station itself gives up; cut the send short instead and retry on the next push.
+FORWARD_TIMEOUT: Final = 15  # seconds
+
 ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
 ECOWITT_ENABLED: Final = "ecowitt_enabled"
 ECOWITT_URL_PREFIX: Final = "/weatherhub"
 
-# Ecowitt field names -> WU/PWS field names.
+# Ecowitt field names -> the field names Windy accepts.
 #
 # Windy has no Ecowitt endpoint, so an Ecowitt payload has to be translated before it
-# can be forwarded there. After translation the payload carries exactly the field names
-# Windy already receives from a real PWS station, which is the path known to work.
+# can be forwarded there. The target vocabulary is mostly the PWS/WU one Windy already
+# receives from a real PWS station, but not exactly: Windy documents the UV index as
+# lowercase `uv` (https://stations.windy.com/api-reference) while WU spells it `UV`
+# (see REMAP_ITEMS). This table follows Windy, which is its only consumer.
 #
 # Deliberately an allowlist, not a "strip the bad keys" denylist: the Ecowitt payload
 # also carries device metadata (stationtype, model, freq, runtime, heap, interval) that
 # is meaningless upstream, and a denylist would forward whatever fields a future
 # firmware adds.
 #
-# Multi-channel temp/humidity (temp1f..temp7f) are intentionally absent - the WU
+# This is the *full* mapping, not the set of fields that end up on the wire: five of
+# the entries below (`dateutc`, `solarradiation`, `dailyrainin`, `indoortempf`,
+# `indoorhumidity`) are in PURGE_DATA and are stripped by `push_data_to_windy` right
+# after the conversion. They are listed so the translation itself stays complete and
+# keeps working if the purge list ever changes.
+#
+# Multi-channel temp/humidity (temp1f..temp7f) are intentionally absent - the PWS
 # protocol has no equivalent, and mapping them onto its soil fields would send wrong
 # data.
-REMAP_ECOWITT_TO_WU: Final[dict[str, str]] = {
+REMAP_ECOWITT_TO_WINDY: Final[dict[str, str]] = {
     # same name on both sides, listed so the allowlist is complete
     "tempf": "tempf",
     "humidity": "humidity",
@@ -224,12 +238,12 @@ REMAP_ECOWITT_TO_WU: Final[dict[str, str]] = {
     "dailyrainin": "dailyrainin",
     "solarradiation": "solarradiation",
     "dateutc": "dateutc",
+    "uv": "uv",
     # renamed between the two protocols
     "dewpointf": "dewptf",
     "baromrelin": "baromin",
     "tempinf": "indoortempf",
     "humidityin": "indoorhumidity",
-    "uv": "UV",
     "hourlyrainin": "rainin",  # WU `rainin` is the accumulation over the past hour
 }
 

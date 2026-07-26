@@ -151,3 +151,35 @@ def test_wu_platform_still_computes_in_fahrenheit() -> None:
     by_key = {d.key: d for d in SENSOR_TYPES_WEATHER_API}
     assert by_key[HEAT_INDEX].value_from_data_fn is heat_index
     assert by_key[CHILL_INDEX].value_from_data_fn is chill_index
+
+
+# ---------------------------------------------------------------------------
+# A heat index colder than the air is not a heat index
+# ---------------------------------------------------------------------------
+
+
+def test_cold_weather_heat_index_is_clamped_to_ambient() -> None:
+    """The NWS step-1 average drifts below the air temperature in the cold.
+
+    Unclamped, this exact payload reports 3.92 C under a sensor named "Heat index"
+    while the station measures 6.2 C.
+    """
+    assert wslink_heat_index(LIVE_PAYLOAD) == 6.2
+
+
+def test_hot_weather_heat_index_is_left_alone() -> None:
+    """The clamp must not touch the range the formula is actually defined for."""
+    hot = {OUTSIDE_TEMP: "32", OUTSIDE_HUMIDITY: "70"}
+    computed = wslink_heat_index(hot)
+
+    assert computed is not None
+    assert computed > 32, computed
+
+
+def test_clamp_applies_to_the_wu_platform_too() -> None:
+    """Both platforms share `heat_index`, so neither can drift from the other."""
+    assert heat_index({OUTSIDE_TEMP: "43.16", OUTSIDE_HUMIDITY: "40"}) == 43.16
+    assert heat_index({OUTSIDE_TEMP: "6.2", OUTSIDE_HUMIDITY: "40"}, convert=True) == pytest.approx(43.16)
+
+    hot_f = heat_index({OUTSIDE_TEMP: "90", OUTSIDE_HUMIDITY: "70"})
+    assert hot_f is not None and hot_f > 90

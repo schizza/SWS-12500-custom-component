@@ -51,9 +51,15 @@ class _FakeSession:
         *,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        timeout: Any = None,
     ):
         self.calls.append(
-            {"url": url, "params": dict(params or {}), "headers": dict(headers or {})}
+            {
+                "url": url,
+                "params": dict(params or {}),
+                "headers": dict(headers or {}),
+                "timeout": timeout,
+            }
         )
         if self._exc is not None:
             raise self._exc
@@ -109,6 +115,8 @@ def test_covert_wslink_to_pws_maps_keys(hass):
         "t1rainhr": "8",
         "t1uvi": "9",
         "t1solrad": "10",
+        "intem": "21.5",
+        "inhum": "48",
         "other": "keep",
     }
     out = wp._covert_wslink_to_pws(data)
@@ -122,6 +130,8 @@ def test_covert_wslink_to_pws_maps_keys(hass):
     assert out["precip"] == "8"
     assert out["uv"] == "9"
     assert out["solarradiation"] == "10"
+    assert out["indoortempf"] == "21.5"
+    assert out["indoorhumidity"] == "48"
     assert out["other"] == "keep"
     for k in (
         "t1ws",
@@ -134,6 +144,8 @@ def test_covert_wslink_to_pws_maps_keys(hass):
         "t1rainhr",
         "t1uvi",
         "t1solrad",
+        "intem",
+        "inhum",
     ):
         assert k not in out
 
@@ -521,10 +533,10 @@ async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
 
 @pytest.mark.asyncio
 async def test_push_data_to_windy_ecowitt_conversion_applied(monkeypatch, hass):
-    """End to end: an Ecowitt payload must reach Windy in PWS field names.
+    """End to end: an Ecowitt payload must reach Windy in the names it accepts.
 
     Windy has no Ecowitt endpoint, so `baromrelin`, `dewpointf`, `tempinf`,
-    `humidityin`, `uv` and `hourlyrainin` would not be understood there.
+    `humidityin` and `hourlyrainin` would not be understood there.
     """
     entry = _make_entry()
     wp = WindyPush(hass, entry)
@@ -555,11 +567,11 @@ async def test_push_data_to_windy_ecowitt_conversion_applied(monkeypatch, hass):
     assert params["tempf"] == "68"
     assert params["baromin"] == "29.9"
     assert params["dewptf"] == "50.1"
-    assert params["UV"] == "3"
+    assert params["uv"] == "3"
     assert params["rainin"] == "0.04"
 
     # Ecowitt spellings gone, station metadata never forwarded.
-    for gone in ("baromrelin", "dewpointf", "uv", "hourlyrainin", "PASSKEY", "stationtype", "model"):
+    for gone in ("baromrelin", "dewpointf", "hourlyrainin", "PASSKEY", "stationtype", "model"):
         assert gone not in params
 
 
@@ -590,3 +602,70 @@ async def test_push_data_to_windy_purges_after_converting(monkeypatch, hass):
     params = session.calls[0]["params"]
     assert "indoortempf" not in params
     assert "indoorhumidity" not in params
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_windy_drops_wslink_indoor_readings(monkeypatch, hass):
+    """WSLink `intem`/`inhum` must not reach Windy under either spelling.
+
+    PURGE_DATA lists the PWS names, so before these two were mapped in the converter
+    they slipped through untouched and Windy received a raw `intem`/`inhum` pair.
+    """
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.next_update = dt_util.utcnow() - timedelta(minutes=1)
+
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await wp.push_data_to_windy({"t1tem": "6.2", "intem": "21.5", "inhum": "48"}, source="wslink")
+
+    params = session.calls[0]["params"]
+    assert params["temp"] == "6.2"
+    for gone in ("intem", "inhum", "indoortempf", "indoorhumidity"):
+        assert gone not in params
+
+
+def test_both_windy_converters_agree_on_uv(hass):
+    """One UV spelling for Windy, whichever protocol the station speaks.
+
+    Windy documents lowercase `uv`; WU spells it `UV`. When the two converters
+    disagreed, Ecowitt users silently lost the UV index upstream.
+    """
+    from custom_components.sws12500.utils import remap_ecowitt_to_windy
+
+    wp = WindyPush(hass, _make_entry())
+
+    assert wp._covert_wslink_to_pws({"t1uvi": "3"}) == {"uv": "3"}
+    assert remap_ecowitt_to_windy({"uv": "3"}) == {"uv": "3"}
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_windy_bounds_the_request(monkeypatch, hass):
+    """The send must carry an explicit timeout.
+
+    Home Assistant's shared session sets none, so aiohttp's 5 minute default would
+    hold the station's own webhook open long past the point where it gives up - and
+    the TimeoutError branch could never run in time to matter.
+    """
+    from custom_components.sws12500.const import FORWARD_TIMEOUT
+
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.next_update = dt_util.utcnow() - timedelta(minutes=1)
+
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await wp.push_data_to_windy({"tempf": "68"})
+
+    timeout = session.calls[0]["timeout"]
+    assert timeout is not None
+    assert timeout.total == FORWARD_TIMEOUT
+    assert 0 < timeout.total <= 30
