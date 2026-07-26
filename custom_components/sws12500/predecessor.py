@@ -182,17 +182,42 @@ def _adopt_devices(hass: HomeAssistant, entry: ConfigEntry, old_entry: ConfigEnt
 
     A predecessor entry can own more than one device (v2.0.0pre1 created a second one per
     Ecowitt channel), and only one device may hold a given identifier: passing the same
-    set twice raises `DeviceIdentifierCollisionError` and would fail setup for good. The
-    extra devices therefore keep their own identifiers and are only repointed, which
-    leaves them attached to this entry and reapable once they hold nothing.
+    set twice raises `DeviceIdentifierCollisionError` and would fail setup for good. So
+    exactly one of them can be the device our platforms resolve, and which one must not
+    be left to the order the registry happens to yield. Once the domain really changes,
+    nothing holds the target identifiers yet, so a per-channel row that happened to come
+    first would become the station device and every adopted entity would be moved onto
+    it, stranding the real one with the user's name, area and labels on it. The device
+    carrying the most entities wins instead, ties broken on `device.id` so the outcome
+    does not depend on storage order at all. The others keep their own identifiers and
+    are only repointed.
+
+    A device carrying no entities is left alone entirely. Attaching this entry to it
+    would keep it alive forever: `device_registry.async_cleanup` subtracts
+    `references_config_entries` from the orphan set, so a device linked to any live
+    config entry is never reaped, and an empty device page would sit under this
+    integration for good. Left untouched, `async_remove(old_entry)` takes its last config
+    entry away and deletes it. Nothing rides on it - the remove branch of
+    `entity_registry.async_device_modified` only deletes entities whose `config_entry_id`
+    is one of the removed device's own, and by this point the adopted ones point at this
+    entry.
     """
 
     device_registry = dr.async_get(hass)
+    registry = er.async_get(hass)
     identifiers = set(build_device_info(entry)["identifiers"])
 
-    for device in dr.async_entries_for_config_entry(device_registry, old_entry.entry_id):
+    devices = dr.async_entries_for_config_entry(device_registry, old_entry.entry_id)
+    held = {
+        device.id: len(er.async_entries_for_device(registry, device.id, include_disabled_entities=True))
+        for device in devices
+    }
+    populated = [device for device in devices if held[device.id]]
+    canonical = min(populated, key=lambda device: (-held[device.id], device.id), default=None)
+
+    for device in populated:
         holder = device_registry.async_get_device(identifiers=identifiers)
-        if holder is not None and holder.id != device.id:
+        if device is not canonical or (holder is not None and holder.id != device.id):
             device_registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
             continue
 
@@ -279,6 +304,13 @@ async def async_adopt_predecessor(
                     "Could not unload the previous integration (%s); adoption skipped. "
                     "Restart Home Assistant and try again",
                     old_entry.entry_id,
+                )
+                # Counted as left behind rather than passed over in silence. This is the
+                # run where *nothing* moved, so it is also where deleting the old entry
+                # by hand would cost the most - exactly what the repair notice is for.
+                registry = er.async_get(hass)
+                result.live.extend(
+                    old.entity_id for old in er.async_entries_for_config_entry(registry, old_entry.entry_id)
                 )
                 continue
 

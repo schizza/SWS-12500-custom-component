@@ -365,6 +365,80 @@ async def test_a_second_device_does_not_collide(hass: HomeAssistant, entries) ->
     assert new.entry_id in kept.config_entries
 
 
+async def test_the_station_device_wins_regardless_of_registry_order(hass: HomeAssistant, entries) -> None:
+    """Which device becomes ours must not be decided by storage order.
+
+    Registered here in the order that punishes "first one claims the identifiers": the
+    single-entity channel row comes first. After the rename nothing holds the target
+    identifiers yet, so nothing else would stop it - and the station device, carrying the
+    user's own name, area and labels, would be stranded on the old-domain identifier
+    while every adopted entity is moved onto the channel row.
+    """
+    old, new = entries
+    device_registry = dr.async_get(hass)
+    channel = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN, "ecowitt_ch1")},
+        name="Channel 1",
+    )
+    station = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN, "station")},
+        name="Weather Station",
+    )
+    ordered = [d.id for d in dr.async_entries_for_config_entry(device_registry, old.entry_id)]
+    assert ordered[0] == channel.id, "fixture no longer puts the smaller device first"
+
+    _seed(hass, old, device_id=station.id)
+    registry = er.async_get(hass)
+    registry.async_get_or_create("sensor", OLD_DOMAIN, "ch1_temp", config_entry=old, device_id=channel.id)
+
+    await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+
+    holder = device_registry.async_get_device(identifiers=set(build_device_info(new)["identifiers"]))
+    assert holder is not None
+    assert holder.id == station.id, "the device holding most of the entities has to be the one we adopt"
+    stayed = device_registry.async_get(channel.id)
+    assert stayed is not None
+    assert stayed.identifiers == {(OLD_DOMAIN, "ecowitt_ch1")}
+
+
+async def test_an_empty_device_is_not_carried_over(hass: HomeAssistant, entries) -> None:
+    """An emptied device must not be kept alive by us, or it never goes away.
+
+    `device_registry.async_cleanup` subtracts every device referenced by a live config
+    entry from the orphan set, so attaching this entry to a device that holds nothing
+    pins it in place permanently - an empty device page under the new integration that
+    no cleanup pass will ever reap. Leaving it alone lets `async_remove(old_entry)` take
+    its last config entry and delete it.
+    """
+    old, new = entries
+    device_registry = dr.async_get(hass)
+    station = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN,)},  # type: ignore[arg-type]
+        name="Weather Station",
+    )
+    ghost = device_registry.async_get_or_create(
+        config_entry_id=old.entry_id,
+        identifiers={(OLD_DOMAIN, "ecowitt_ch1")},
+        name="Channel 1",
+    )
+    created = _seed(hass, old, device_id=station.id)
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+
+    assert result.complete
+    assert device_registry.async_get(ghost.id) is None, "the empty device outlived the migration"
+    survived = device_registry.async_get(station.id)
+    assert survived is not None
+    registry = er.async_get(hass)
+    for entity_id in created.values():
+        entry = registry.async_get(entity_id)
+        assert entry is not None
+        assert entry.device_id == station.id
+
+
 # ---------------------------------------------------------------------------
 # More than one predecessor entry
 # ---------------------------------------------------------------------------
@@ -417,6 +491,38 @@ async def test_a_stalled_migration_raises_a_repair_issue(hass: HomeAssistant, en
     assert issue is not None
     assert issue.translation_key == "predecessor_adoption_incomplete"
     assert issue.translation_placeholders == {"entities": blocked}
+
+
+async def test_a_predecessor_that_will_not_unload_raises_a_repair_issue(
+    hass: HomeAssistant, entries, monkeypatch
+) -> None:
+    """The run where nothing at all moved is the one that most needs the warning.
+
+    Passed over in silence, an unloadable predecessor contributes nothing to the result,
+    so `attempted` stays False and the notice is deleted instead of raised - leaving the
+    user with a leftover entry, no explanation, and the one irreversible action a click
+    away.
+    """
+    from homeassistant.config_entries import ConfigEntryState
+
+    old, new = entries
+    created = _seed(hass, old)
+    old.mock_state(hass, ConfigEntryState.LOADED)
+
+    async def _refuse(*_a: Any, **_kw: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(hass.config_entries, "async_unload", _refuse)
+
+    result = await async_adopt_predecessor(hass, new, predecessor_domain=OLD_DOMAIN)
+    update_predecessor_adoption_issue(hass, new, result)
+
+    assert not result.adopted
+    assert sorted(result.live) == sorted(created.values())
+    assert not result.complete
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"predecessor_adoption_{new.entry_id}")
+    assert issue is not None
+    assert issue.translation_placeholders == {"entities": ", ".join(sorted(created.values()))}
 
 
 async def test_a_finished_migration_raises_no_issue(hass: HomeAssistant, entries) -> None:
