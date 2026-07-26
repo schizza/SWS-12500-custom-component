@@ -3,23 +3,45 @@
     "error": {
       "valid_credentials_api": "Vyplňte platné API ID.",
       "valid_credentials_key": "Vyplňte platný API KEY.",
-      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!"
+      "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "ecowitt_webhook_required": "Před zapnutím dat Ecowitt zadejte webhook ID.",
+      "protocols_mutually_exclusive": "Starý endpoint (PWS/WSLink) a Ecowitt nelze zapnout současně – plní stejné entity senzorů, což by pomíchalo jednotky a mazalo naměřené hodnoty. Nejdřív jeden z nich vypni."
     },
     "step": {
       "user": {
-        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
-        "title": "Nastavení přihlášení",
+        "title": "Vyberte typ stanice",
+        "description": "Zadejte typ stanice, kterou používáte. Pokude nepoužíváte Ecowitt, vyberte PWS/WSLink",
+        "menu_options": {
+          "pws": "PWS/WSLink (Sencor, Garni, Bresser, jiné - Weather Underground kompatibilní)",
+          "ecowitt": "Ecowitt"
+        }
+      },
+      "pws": {
+        "title": "Přihlašovací údaje PWS/WSLink.",
+        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem.",
         "data": {
           "API_ID": "API ID / ID Stanice",
           "API_KEY": "API KEY / Heslo",
-          "wslink": "WSLink API",
+          "wslink": "WSLink Protorkol",
           "dev_debug_checkbox": "Developer log"
         },
         "data_description": {
-          "dev_debug_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři.",
           "API_ID": "API ID je ID stanice, které jste nastavili v meteostanici.",
           "API_KEY": "API KEY je heslo, které jste nastavili v meteostanici.",
-          "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink."
+          "wslink": "Zapněte tuto volbu, pokud stanice používá WSLink protokol. Pokud si nejstě jistí, použijte https://test-station.schizza.cz/",
+          "dev_debug_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři."
+        }
+      },
+      "ecowitt": {
+        "title": "Nastavení pro Ecowitt stanice",
+        "description": "Zadejte unikátní webhook ID pro příjem dat ze stanic Ecowitt. Pokud nepoužíváte stanice Ecowitt, tento krok přeskočte.",
+        "data": {
+          "ecowitt_webhook_id": "Unikátní webhook ID pro Ecowitt stanice",
+          "ecowitt_enabled": "Povolit data ze stanic Ecowitt"
+        },
+        "data_description": {
+          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
         }
       }
     }
@@ -29,11 +51,14 @@
       "valid_credentials_api": "Vyplňte platné API ID",
       "valid_credentials_key": "Vyplňte platný API KEY",
       "valid_credentials_match": "API ID a API KEY nesmějí být stejné!",
+      "ecowitt_webhook_required": "Před zapnutím dat Ecowitt zadejte webhook ID.",
       "windy_id_required": "Je vyžadováno Windy ID, pokud chcete aktivovat přeposílání dat na Windy",
       "windy_pw_required": "Je vyžadován Windy KEY, pokud chcete aktivovat přeposílání dat na Windy",
+      "windy_key_required": "Pro aktivaci je vyžadováno Windy ID i heslo stanice.",
       "pocasi_id_required": "Je vyžadován Počasí ID, pokud chcete aktivovat přeposílání dat na Počasí Meteo CZ",
       "pocasi_key_required": "Klíč k účtu Počasí Meteo je povinný.",
-      "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund."
+      "pocasi_send_minimum": "Minimální interval pro přeposílání je 12 sekund.",
+      "protocols_mutually_exclusive": "Starý endpoint (PWS/WSLink) a Ecowitt nelze zapnout současně – plní stejné entity senzorů, což by pomíchalo jednotky a mazalo naměřené hodnoty. Nejdřív jeden z nich vypni."
     },
     "step": {
       "init": {
@@ -43,23 +68,26 @@
           "basic": "Základní - přístupové údaje (přihlášení)",
           "windy": "Nastavení pro přeposílání dat na Windy",
           "pocasi": "Nastavení pro přeposlání dat na Počasí Meteo CZ",
-          "migration": "Migrace statistiky senzoru"
+          "ecowitt": "Nastavení pro stanice Ecowitt",
+          "wslink_port_setup": "Nastavení portu WSLink Addonu"
         }
       },
       "basic": {
-        "description": "Zadejte API ID a API KEY, aby meteostanice mohla komunikovat s HomeAssistantem",
-        "title": "Nastavení přihlášení",
+        "description": "Nastavení endpointu PWS/WSLink. Pro stanici jen s Ecowwittem vypněte 'Povolit endpoint PWS/WSLink'. API ID/KEY nejsou potřeba",
+        "title": "Nastavení PWS/WSLink",
         "data": {
           "API_ID": "API ID / ID Stanice",
           "API_KEY": "API KEY / Heslo",
-          "wslink": "WSLink API",
-          "dev_debug_checkbox": "Developer log"
+          "wslink": "WSLink protokol",
+          "dev_debug_checkbox": "Developer log",
+          "legacy_enabled": "Povolit endpoint PWS/WSLink"
         },
         "data_description": {
           "dev_debug_checkbox": "Zapnout pouze v případě, že chcete poslat ladící informace vývojáři.",
           "API_ID": "API ID je ID stanice, které jste nastavili v meteostanici.",
           "API_KEY": "API KEY je heslo, které jste nastavili v meteostanici.",
-          "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink."
+          "wslink": "WSLink API zapněte, pokud je stanice nastavena na zasílání dat přes WSLink.",
+          "legacy_enabled": "Vyplněte, pokud vaše stanice používá pouze Ecowitt."
         }
       },
       "windy": {
@@ -83,34 +111,261 @@
         "data": {
           "POCASI_CZ_API_ID": "ID účtu na Počasí Meteo",
           "POCASI_CZ_API_KEY": "Klíč (Key) k účtu Počasí Meteo",
-          "POCASI_CZ_SEND_INTERVAL": "Interval v sekundách",
-          "pocasi_enabled_chcekbox": "Povolit přeposílání dat na server Počasí Meteo",
+          "POCASI_SEND_INTERVAL": "Interval v sekundách",
+          "pocasi_enabled_checkbox": "Povolit přeposílání dat na server Počasí Meteo",
           "pocasi_logger_checkbox": "Logovat data a odpovědi z Počasí Meteo"
         },
         "data_description": {
-          "POCASI_API_ID": "ID získáte ve své aplikaci Počasí Meteo",
-          "POCASI_API_KEY": "Klíč (Key) získáte ve své aplikaci Počasí Meteo",
+          "POCASI_CZ_API_ID": "ID získáte ve své aplikaci Počasí Meteo",
+          "POCASI_CZ_API_KEY": "Klíč (Key) získáte ve své aplikaci Počasí Meteo",
           "POCASI_SEND_INTERVAL": "Interval v jakém se mají data na server přeposílat (minimum 12s, defaultně 30s)",
           "pocasi_enabled_checkbox": "Zapne přeposílání data na server Počasí Meteo",
           "pocasi_logger_checkbox": "Zapnout pouze v případě, že chcete zaslat ladící informace vývojáři."
         }
       },
-      "migration": {
-        "title": "Migrace statistiky senzoru.",
-        "description": "Pro správnou funkci dlouhodobé statistiky je nutné provést migraci jednotky senzoru v dlouhodobé statistice. Původní jednotka dlouhodobé statistiky pro denní úhrn srážek byla v mm/d, nicméně stanice zasílá pouze data v mm bez časového rozlišení.\n\n Senzor, který má být migrován je pro denní úhrn srážek. Pokud je v seznamu již správná hodnota u senzoru pro denní úhrn (mm), pak je již migrace hotová.\n\n Výsledek migrace pro senzor: {migration_status}, přepvedeno celkem {migration_count} řádků.",
+      "ecowitt": {
+        "description": "Nastavení pro Ecowitt",
+        "title": "Konfigurace pro stanice Ecowitt",
         "data": {
-          "sensor_to_migrate": "Senzor pro migraci",
-          "trigger_action": "Spustit migraci"
+          "ecowitt_webhook_id": "Unikátní webhook ID",
+          "ecowitt_enabled": "Povolit data ze stanice Ecowitt"
         },
         "data_description": {
-          "sensor_to_migrate": "Vyberte správný senzor pri migraci statistiky. \n Hodnoty senzoru budou zachovány, nepřepočítají se, pouze se změní jednotka v dlouhodobé statistice. ",
-          "trigger_action": "Po zaškrtnutí se spustí migrace statistiky senzoru."
+          "ecowitt_webhook_id": "Nastavení pro stanici: {url}:{port}/weatherhub/{webhook_id}",
+          "ecowitt_enabled": "Povolit přijímání dat ze stanic Ecowitt"
+        }
+      },
+      "wslink_port_setup": {
+        "description": "Nastavení portu, kde naslouchá WSLink Addon. Slouží pro příjem diagnostik.",
+        "title": "Port WSLink Addonu",
+        "data": {
+          "WSLINK_ADDON_PORT": "Naslouchající port WSLink Addonu"
+        },
+        "data_description": {
+          "WSLINK_ADDON_PORT": "Zadejte port, tak jak jej máte nastavený ve WSLink Addonu."
         }
       }
     }
   },
   "entity": {
+    "binary_sensor": {
+      "outside_battery": {
+        "name": "Venkovní baterie"
+      },
+      "indoor_battery": {
+        "name": "Baterie kozole"
+      },
+      "ch2_battery": {
+        "name": "Baterie senzoru 2"
+      },
+      "ch3_battery": {
+        "name": "Baterie senzoru 3"
+      },
+      "ch4_battery": {
+        "name": "Baterie senzoru 4"
+      },
+      "ch5_battery": {
+        "name": "Baterie senzoru 5"
+      },
+      "ch6_battery": {
+        "name": "Baterie senzoru 6"
+      },
+      "ch7_battery": {
+        "name": "Baterie senzoru 7"
+      },
+      "ch8_battery": {
+        "name": "Baterie senzoru 8"
+      },
+      "lightning_battery": {
+        "name": "Baterie čidla blesků"
+      },
+      "leak_ch1": {
+        "name": "Zaplavení CH1"
+      },
+      "leak_ch2": {
+        "name": "Zaplavení CH2"
+      },
+      "leak_ch3": {
+        "name": "Zaplavení CH3"
+      },
+      "leak_ch4": {
+        "name": "Zaplavení CH4"
+      },
+      "leak_ch5": {
+        "name": "Zaplavení CH5"
+      },
+      "leak_ch6": {
+        "name": "Zaplavení CH6"
+      },
+      "leak_ch7": {
+        "name": "Zaplavení CH7"
+      },
+      "leak_ch1_battery": {
+        "name": "Baterie čidla zaplavení CH1"
+      },
+      "leak_ch2_battery": {
+        "name": "Baterie čidla zaplavení CH2"
+      },
+      "leak_ch3_battery": {
+        "name": "Baterie čidla zaplavení CH3"
+      },
+      "leak_ch4_battery": {
+        "name": "Baterie čidla zaplavení CH4"
+      },
+      "leak_ch5_battery": {
+        "name": "Baterie čidla zaplavení CH5"
+      },
+      "leak_ch6_battery": {
+        "name": "Baterie čidla zaplavení CH6"
+      },
+      "leak_ch7_battery": {
+        "name": "Baterie čidla zaplavení CH7"
+      }
+    },
     "sensor": {
+      "ecowitt_absolute_pressure": {
+        "name": "Absolutní tlak"
+      },
+      "ecowitt_rain_rate": {
+        "name": "Intenzita srážek"
+      },
+      "ecowitt_event_rain": {
+        "name": "Srážky (událost)"
+      },
+      "ecowitt_hourly_rain": {
+        "name": "Hodinové srážky"
+      },
+      "ecowitt_weekly_rain": {
+        "name": "Týdenní srážky"
+      },
+      "ecowitt_monthly_rain": {
+        "name": "Měsíční srážky"
+      },
+      "ecowitt_yearly_rain": {
+        "name": "Roční srážky"
+      },
+      "ecowitt_total_rain": {
+        "name": "Celkové srážky"
+      },
+      "ecowitt_24h_rain": {
+        "name": "Srážky za 24 h"
+      },
+      "ecowitt_feels_like": {
+        "name": "Pocitová teplota"
+      },
+      "ecowitt_indoor_dewpoint": {
+        "name": "Vnitřní rosný bod"
+      },
+      "ecowitt_console_co2": {
+        "name": "CO₂ konzole"
+      },
+      "ecowitt_console_co2_24h": {
+        "name": "CO₂ konzole (průměr 24 h)"
+      },
+      "ecowitt_co2": {
+        "name": "CO₂"
+      },
+      "ecowitt_co2_24h": {
+        "name": "CO₂ (průměr 24 h)"
+      },
+      "integration_health": {
+        "name": "Stav integrace",
+        "state": {
+          "online_wu": "Online PWS/WU",
+          "online_wslink": "Online WSLink",
+          "online_ecowitt": "Online Ecowitt",
+          "online_idle": "Čekám na data",
+          "degraded": "Degradovaný",
+          "error": "Nefunkční"
+        }
+      },
+      "active_protocol": {
+        "name": "Aktivní protokol",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API",
+          "ecowitt": "Ecowitt"
+        }
+      },
+      "wslink_addon_status": {
+        "name": "Stav WSLink Addonu",
+        "state": {
+          "online": "Běží",
+          "offline": "Vypnutý"
+        }
+      },
+      "wslink_addon_name": {
+        "name": "Název WSLink Addonu"
+      },
+      "wslink_addon_version": {
+        "name": "Verze WSLink Addonu"
+      },
+      "wslink_addon_listen_port": {
+        "name": "Port WSLink Addonu"
+      },
+      "wslink_upstream_ha_port": {
+        "name": "Port upstream HA WSLink Addonu"
+      },
+      "route_wu_enabled": {
+        "name": "Protokol PWS/WU"
+      },
+      "route_wslink_enabled": {
+        "name": "Protokol WSLink"
+      },
+      "last_ingress_time": {
+        "name": "Poslední přístup"
+      },
+      "last_ingress_protocol": {
+        "name": "Protokol posledního přístupu",
+        "state": {
+          "wu": "PWS/WU",
+          "wslink": "WSLink API",
+          "ecowitt": "Ecowitt"
+        }
+      },
+      "last_ingress_route_enabled": {
+        "name": "Trasa posledního přístupu povolena"
+      },
+      "last_ingress_accepted": {
+        "name": "Poslední přístup",
+        "state": {
+          "accepted": "Prijat",
+          "rejected": "Odmítnut"
+        }
+      },
+      "last_ingress_authorized": {
+        "name": "Autorizace posledního přístupu",
+        "state": {
+          "authorized": "Autorizován",
+          "unauthorized": "Neautorizován",
+          "unknown": "Neznámý"
+        }
+      },
+      "last_ingress_reason": {
+        "name": "Zpráva přístupu"
+      },
+      "forward_windy_enabled": {
+        "name": "Přeposílání na Windy"
+      },
+      "forward_windy_status": {
+        "name": "Stav přeposílání na Windy",
+        "state": {
+          "disabled": "Vypnuto",
+          "idle": "Čekám na odeslání",
+          "ok": "Ok"
+        }
+      },
+      "forward_pocasi_enabled": {
+        "name": "Přeposílání na Počasí Meteo"
+      },
+      "forward_pocasi_status": {
+        "name": "Stav přeposílání na Počasí Meteo",
+        "state": {
+          "disabled": "Vypnuto",
+          "idle": "Čekám na odeslání",
+          "ok": "Ok"
+        }
+      },
       "indoor_temp": {
         "name": "Vnitřní teplota"
       },
@@ -167,6 +422,30 @@
       },
       "ch4_humidity": {
         "name": "Vlhkost sensoru 4"
+      },
+      "ch5_temp": {
+        "name": "Teplota senzoru 5"
+      },
+      "ch5_humidity": {
+        "name": "Vlhkost sensoru 5"
+      },
+      "ch6_temp": {
+        "name": "Teplota senzoru 6"
+      },
+      "ch6_humidity": {
+        "name": "Vlhkost sensoru 6"
+      },
+      "ch7_temp": {
+        "name": "Teplota senzoru 7"
+      },
+      "ch7_humidity": {
+        "name": "Vlhkost sensoru 7"
+      },
+      "ch8_temp": {
+        "name": "Teplota senzoru 8"
+      },
+      "ch8_humidity": {
+        "name": "Vlhkost sensoru 8"
       },
       "heat_index": {
         "name": "Tepelný index"
@@ -231,7 +510,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "indoor_battery": {
@@ -239,7 +518,7 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
       },
       "ch2_battery": {
@@ -247,9 +526,140 @@
         "state": {
           "low": "Nízká",
           "normal": "Normální",
-          "unknown": "Neznámá / zcela vybitá"
+          "drained": "Neznámá / zcela vybitá"
         }
+      },
+      "ch3_battery": {
+        "name": "Stav nabití baterie kanálu 3",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch4_battery": {
+        "name": "Stav nabití baterie kanálu 4",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch5_battery": {
+        "name": "Stav nabití baterie kanálu 5",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch6_battery": {
+        "name": "Stav nabití baterie kanálu 6",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch7_battery": {
+        "name": "Stav nabití baterie kanálu 7",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "ch8_battery": {
+        "name": "Stav nabití baterie kanálu 8",
+        "state": {
+          "low": "Nízká",
+          "normal": "Normální",
+          "drained": "Neznámá / zcela vybitá"
+        }
+      },
+      "abs_pressure": {
+        "name": "Absolutní tlak"
+      },
+      "feels_like": {
+        "name": "Pocitová teplota"
+      },
+      "wind_speed_avg10": {
+        "name": "Rychlost větru (10min průměr)"
+      },
+      "lightning_last": {
+        "name": "Čas od posledního blesku"
+      },
+      "lightning_distance": {
+        "name": "Vzdálenost blesku"
+      },
+      "lightning_strikes_1h": {
+        "name": "Blesky, poslední hodina (t5lsf)"
+      },
+      "lightning_count_5m": {
+        "name": "Blesky (5 minut)"
+      },
+      "lightning_count_30m": {
+        "name": "Blesky (30 minut)"
+      },
+      "lightning_count_1h": {
+        "name": "Blesky celkem, 1 hodina (t5ls1htc)"
+      },
+      "lightning_count_1d": {
+        "name": "Blesky (1 den)"
+      },
+      "pm25": {
+        "name": "PM2,5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "pm25_aqi": {
+        "name": "PM2,5 AQI"
+      },
+      "pm10_aqi": {
+        "name": "PM10 AQI"
+      },
+      "t8_battery": {
+        "name": "Baterie čidla PM"
+      },
+      "co2": {
+        "name": "CO2"
+      },
+      "t10_battery": {
+        "name": "Baterie čidla CO2"
+      },
+      "co": {
+        "name": "CO"
+      },
+      "t11_battery": {
+        "name": "Baterie čidla CO"
       }
+    }
+  },
+  "issues": {
+    "legacy_battery_sensor_deprecated": {
+      "title": "Detekovány zastaralé senzory baterií.",
+      "description": "V registru entit byly nalezeny staré senzory baterií ({entities}). Byly nahrazeny binárními senzory baterií a budou odstraněny ve verzi {remove_version}. Smažte prosím staré entity ručně přes Nastavení -> Zařízení a služby -> SWS-12500."
+    },
+    "stale_sensors_detected": {
+      "title": "Detekovány nečinné sensory",
+      "description": "Tyto senzory jsou nastavené, ale nereportují data: {sensors}. V HA budou viditelné jako Nedostupné. Pokud už nejsou přítomné, můžeš je odstranit přes Nastavení –> Zařízení a Služby –> SWS 12500."
+    },
+    "protocol_conflict": {
+      "title": "Zapnuté dva neslučitelné protokoly",
+      "description": "Současně je zapnutý starý endpoint (PWS/WSLink) i Ecowitt. Oba plní stejné entity senzorů, takže jejich souběh míchá měrné jednotky a hodnoty mezi aktualizacemi mizí. Používá se starý endpoint a data z Ecowittu se ignorují, dokud si nevybereš jeden: jdi do Nastavení -> Zařízení a služby -> SWS 12500 -> Konfigurovat a vypni buď starý endpoint, nebo Ecowitt."
+    },
+    "predecessor_adoption_incomplete": {
+      "title": "Migrace z předchozí integrace není dokončená",
+      "description": "Starý záznam NEMAŽ přes Nastavení -> Zařízení a služby -> Smazat. Tím se odstraní jeho záznamy v registru entit, a jakmile jsou pryč, nemá se historie ani dlouhodobé statistiky na co navázat - zpětně už je připojit nelze.\n\nMísto toho restartuj Home Assistant a nech migraci doběhnout. Starý záznam je záměrně ponechaný na místě, aby se nic neztratilo, i když se tváří jako nefunkční. Tahle zpráva zmizí sama, jakmile se přenesou všechny entity.\n\nZatím nepřevzato, celkem {count}: {entities}"
+    }
+  },
+  "exceptions": {
+    "webhook_routes_taken": {
+      "message": "Webhook cesty už registruje jiná instance této integrace. Odeber předchozí verzi v HACS a restartuj Home Assistant."
+    },
+    "webhook_routes_failed": {
+      "message": "Webhook cesty se nepodařilo zaregistrovat: {error}"
     }
   },
   "notify": {

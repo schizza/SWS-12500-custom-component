@@ -1,23 +1,34 @@
 """Config flow for Sencor SWS 12500 Weather Station integration."""
 
+from __future__ import annotations
+
+import secrets
 from typing import Any
 
 import voluptuous as vol
+from yarl import URL
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.core import callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
+from .conflicts import ERROR_MUTUALLY_EXCLUSIVE
 from .const import (
     API_ID,
     API_KEY,
+    CHANNEL_TYPES,
     DEV_DBG,
     DOMAIN,
+    ECOWITT_ENABLED,
+    ECOWITT_WEBHOOK_ID,
     INVALID_CREDENTIALS,
+    LEGACY_ENABLED,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
     POCASI_CZ_ENABLED,
     POCASI_CZ_LOGGER_ENABLED,
+    POCASI_CZ_SEND_DEFAULT,
     POCASI_CZ_SEND_INTERVAL,
     POCASI_CZ_SEND_MINIMUM,
     SENSORS_TO_LOAD,
@@ -26,15 +37,47 @@ from .const import (
     WINDY_STATION_ID,
     WINDY_STATION_PW,
     WSLINK,
+    WSLINK_ADDON_PORT,
 )
 
+# Masked text input for secret fields (API keys / station passwords).
+_PASSWORD_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
-class CannotConnect(HomeAssistantError):
-    """We can not connect. - not used in push mechanism."""
+
+def _is_invalid_credential(value: Any) -> bool:
+    """Return True when a PWS/WSLink credential is unusable.
+
+    Blank (or whitespace-only) values are as useless as the placeholder strings in
+    `INVALID_CREDENTIALS`: `_validate_credentials` rejects every incoming packet if
+    either option is empty, so the entry would be created but never receive data.
+    """
+    return not isinstance(value, str) or not value.strip() or value in INVALID_CREDENTIALS
 
 
-class InvalidAuth(HomeAssistantError):
-    """Invalid auth exception."""
+def _ha_url_placeholders(hass: HomeAssistant) -> tuple[str, str]:
+    """Return (host, port) of the Home Assistant URL for the Ecowitt instructions.
+
+    `get_url` raises `NoURLAvailableError` when HA cannot resolve any of its own
+    URLs. These values are shown as setup instructions only, so fall back to a
+    placeholder instead of letting the config flow abort.
+    """
+    try:
+        url: URL = URL(get_url(hass))
+    except NoURLAvailableError:
+        return "UNKNOWN", "UNKNOWN"
+
+    return url.host or "UNKNOWN", str(url.port)
+
+
+def _validate_ecowitt_webhook(user_input: dict[str, Any], errors: dict[str, str]) -> None:
+    """Reject enabling Ecowitt without a webhook id.
+
+    The id is the endpoint's only credential, so an empty one would leave
+    `/weatherhub/<id>` unauthenticated (`received_ecowitt_data` rejects it outright).
+    """
+    webhook = user_input.get(ECOWITT_WEBHOOK_ID, "")
+    if user_input.get(ECOWITT_ENABLED) and (not isinstance(webhook, str) or not webhook.strip()):
+        errors[ECOWITT_WEBHOOK_ID] = "ecowitt_webhook_required"
 
 
 class ConfigOptionsFlowHandler(OptionsFlow):
@@ -49,63 +92,66 @@ class ConfigOptionsFlowHandler(OptionsFlow):
         self.windy_data_schema = {}
         self.user_data: dict[str, Any] = {}
         self.user_data_schema = {}
-        self.sensors: dict[str, Any] = {}
         self.migrate_schema = {}
         self.pocasi_cz: dict[str, Any] = {}
         self.pocasi_cz_schema = {}
+        self.ecowitt: dict[str, Any] = {}
+        self.ecowitt_schema = {}
+        self.wslink_addon_port: dict[str, int] = {}
+        self.wslink_addod_schema = {}
 
     async def _get_entry_data(self):
         """Get entry data."""
-        entry_data = {**self.config_entry.data, **self.config_entry.options}
 
         self.user_data = {
-            API_ID: entry_data.get(API_ID),
-            API_KEY: entry_data.get(API_KEY),
-            WSLINK: entry_data.get(WSLINK, False),
-            DEV_DBG: entry_data.get(DEV_DBG, False),
+            API_ID: self.config_entry.options.get(API_ID, ""),
+            API_KEY: self.config_entry.options.get(API_KEY, ""),
+            LEGACY_ENABLED: self.config_entry.options.get(LEGACY_ENABLED, True),
+            WSLINK: self.config_entry.options.get(WSLINK, False),
+            DEV_DBG: self.config_entry.options.get(DEV_DBG, False),
         }
 
         self.user_data_schema = {
-            vol.Required(API_ID, default=self.user_data.get(API_ID, "")): str,
-            vol.Required(API_KEY, default=self.user_data.get(API_KEY, "")): str,
+            vol.Optional(API_ID, default=self.user_data.get(API_ID, "")): str,
+            vol.Optional(API_KEY, default=self.user_data.get(API_KEY, "")): _PASSWORD_SELECTOR,
             vol.Optional(WSLINK, default=self.user_data.get(WSLINK, False)): bool,
             vol.Optional(DEV_DBG, default=self.user_data.get(DEV_DBG, False)): bool,
-        }
-
-        self.sensors = {
-            SENSORS_TO_LOAD: (
-                entry_data.get(SENSORS_TO_LOAD) if isinstance(entry_data.get(SENSORS_TO_LOAD), list) else []
-            )
+            vol.Optional(LEGACY_ENABLED, default=self.user_data.get(LEGACY_ENABLED, True)): bool,
         }
 
         self.windy_data = {
-            WINDY_STATION_ID: entry_data.get(WINDY_STATION_ID),
-            WINDY_STATION_PW: entry_data.get(WINDY_STATION_PW),
-            WINDY_ENABLED: entry_data.get(WINDY_ENABLED, False),
-            WINDY_LOGGER_ENABLED: entry_data.get(WINDY_LOGGER_ENABLED, False),
+            WINDY_STATION_ID: self.config_entry.options.get(WINDY_STATION_ID, ""),
+            WINDY_STATION_PW: self.config_entry.options.get(WINDY_STATION_PW, ""),
+            WINDY_LOGGER_ENABLED: self.config_entry.options.get(WINDY_LOGGER_ENABLED, False),
+            WINDY_ENABLED: self.config_entry.options.get(WINDY_ENABLED, False),
         }
 
         self.windy_data_schema = {
             vol.Optional(WINDY_STATION_ID, default=self.windy_data.get(WINDY_STATION_ID, "")): str,
-            vol.Optional(WINDY_STATION_PW, default=self.windy_data.get(WINDY_STATION_PW, "")): str,
-            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool or False,
+            vol.Optional(
+                WINDY_STATION_PW,
+                default=self.windy_data.get(WINDY_STATION_PW, ""),
+            ): _PASSWORD_SELECTOR,
+            vol.Optional(WINDY_ENABLED, default=self.windy_data[WINDY_ENABLED]): bool,
             vol.Optional(
                 WINDY_LOGGER_ENABLED,
                 default=self.windy_data[WINDY_LOGGER_ENABLED],
-            ): bool or False,
+            ): bool,
         }
 
         self.pocasi_cz = {
-            POCASI_CZ_API_ID: entry_data.get(POCASI_CZ_API_ID, ""),
-            POCASI_CZ_API_KEY: entry_data.get(POCASI_CZ_API_KEY, ""),
-            POCASI_CZ_ENABLED: entry_data.get(POCASI_CZ_ENABLED, False),
-            POCASI_CZ_LOGGER_ENABLED: entry_data.get(POCASI_CZ_LOGGER_ENABLED, False),
-            POCASI_CZ_SEND_INTERVAL: entry_data.get(POCASI_CZ_SEND_INTERVAL, 30),
+            POCASI_CZ_API_ID: self.config_entry.options.get(POCASI_CZ_API_ID, ""),
+            POCASI_CZ_API_KEY: self.config_entry.options.get(POCASI_CZ_API_KEY, ""),
+            POCASI_CZ_ENABLED: self.config_entry.options.get(POCASI_CZ_ENABLED, False),
+            POCASI_CZ_LOGGER_ENABLED: self.config_entry.options.get(POCASI_CZ_LOGGER_ENABLED, False),
+            POCASI_CZ_SEND_INTERVAL: self.config_entry.options.get(
+                POCASI_CZ_SEND_INTERVAL, POCASI_CZ_SEND_DEFAULT
+            ),
         }
 
         self.pocasi_cz_schema = {
             vol.Required(POCASI_CZ_API_ID, default=self.pocasi_cz.get(POCASI_CZ_API_ID)): str,
-            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): str,
+            vol.Required(POCASI_CZ_API_KEY, default=self.pocasi_cz.get(POCASI_CZ_API_KEY)): _PASSWORD_SELECTOR,
             vol.Required(
                 POCASI_CZ_SEND_INTERVAL,
                 default=self.pocasi_cz.get(POCASI_CZ_SEND_INTERVAL),
@@ -117,13 +163,28 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             ): bool,
         }
 
-    async def async_step_init(self, user_input=None):
-        """Manage the options - show menu first."""
-        return self.async_show_menu(step_id="init", menu_options=["basic", "windy", "pocasi"])
+        self.ecowitt = {
+            ECOWITT_WEBHOOK_ID: self.config_entry.options.get(ECOWITT_WEBHOOK_ID, ""),
+            ECOWITT_ENABLED: self.config_entry.options.get(ECOWITT_ENABLED, False),
+        }
 
-    async def async_step_basic(self, user_input=None):
-        """Manage basic options - credentials."""
-        errors = {}
+        self.wslink_addon_port = {WSLINK_ADDON_PORT: self.config_entry.options.get(WSLINK_ADDON_PORT, 443)}
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        """Manage the options - show menu first."""
+        _ = user_input
+        return self.async_show_menu(
+            step_id="init", menu_options=["basic", "wslink_port_setup", "ecowitt", "windy", "pocasi"]
+        )
+
+    async def async_step_basic(self, user_input: Any = None):
+        """Manage basic options - PWS/WSLink credentials and legacy endpoint toggle.
+
+        API ID/KEY are required only when legacy (PWS/WSLINK) endpoint is enabled.
+        For an Ecowitt-only setup, the user can turn the legacy endpoint off and leave credentials empty.
+
+        """
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -134,22 +195,20 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        if user_input[API_ID] in INVALID_CREDENTIALS:
-            errors[API_ID] = "valid_credentials_api"
-        elif user_input[API_KEY] in INVALID_CREDENTIALS:
-            errors[API_KEY] = "valid_credentials_key"
-        elif user_input[API_KEY] == user_input[API_ID]:
-            errors["base"] = "valid_credentials_match"
-        else:
-            # retain windy data
-            user_input.update(self.windy_data)
+        if user_input.get(LEGACY_ENABLED):
+            # Both endpoints remap onto the same internal sensor keys, so enabling the
+            # legacy one while Ecowitt is active would corrupt those entities.
+            if self.ecowitt.get(ECOWITT_ENABLED):
+                errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
+            elif _is_invalid_credential(user_input.get(API_ID)):
+                errors[API_ID] = "valid_credentials_api"
+            elif _is_invalid_credential(user_input.get(API_KEY)):
+                errors[API_KEY] = "valid_credentials_key"
+            elif user_input[API_KEY] == user_input[API_ID]:
+                errors["base"] = "valid_credentials_match"
 
-            # retain sensors
-            user_input.update(self.sensors)
-
-            # retain pocasi data
-            user_input.update(self.pocasi_cz)
-
+        if not errors:
+            user_input = self.retain_data(user_input)
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
         self.user_data = user_input
@@ -161,9 +220,9 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_windy(self, user_input=None):
+    async def async_step_windy(self, user_input: Any = None):
         """Manage windy options."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -174,36 +233,24 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 errors=errors,
             )
 
-        station_id = (user_input.get(WINDY_STATION_ID) or "").strip()
-        station_pw = (user_input.get(WINDY_STATION_PW) or "").strip()
-        if user_input.get(WINDY_ENABLED):
-            if not station_id:
-                errors[WINDY_STATION_ID] = "windy_id_required"
-            if not station_pw:
-                errors[WINDY_STATION_PW] = "windy_pw_required"
-            if errors:
-                return self.async_show_form(
-                    step_id="windy",
-                    data_schema=vol.Schema(self.windy_data_schema),
-                    errors=errors,
-                )
+        if (user_input[WINDY_ENABLED] is True) and (
+            (user_input[WINDY_STATION_ID] == "") or (user_input[WINDY_STATION_PW] == "")
+        ):
+            errors[WINDY_STATION_ID] = "windy_key_required"
+            return self.async_show_form(
+                step_id="windy",
+                data_schema=vol.Schema(self.windy_data_schema),
+                errors=errors,
+            )
 
-        # retain user_data
-        user_input.update(self.user_data)
-
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain pocasi cz
-
-        user_input.update(self.pocasi_cz)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
 
     async def async_step_pocasi(self, user_input: Any = None) -> ConfigFlowResult:
         """Handle the pocasi step."""
 
-        errors = {}
+        errors: dict[str, str] = {}
 
         await self._get_entry_data()
 
@@ -229,55 +276,189 @@ class ConfigOptionsFlowHandler(OptionsFlow):
                 data_schema=vol.Schema(self.pocasi_cz_schema),
                 errors=errors,
             )
-        # retain user data
-        user_input.update(self.user_data)
 
-        # retain senors
-        user_input.update(self.sensors)
-
-        # retain windy
-        user_input.update(self.windy_data)
+        user_input = self.retain_data(user_input)
 
         return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
+        """Ecowitt stations setup."""
+
+        errors: dict[str, str] = {}
+        await self._get_entry_data()
+
+        if not (webhook := self.ecowitt.get(ECOWITT_WEBHOOK_ID)):
+            webhook = secrets.token_hex(8)
+
+        if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
+            # Both endpoints remap onto the same internal sensor keys, so enabling
+            # Ecowitt while the legacy endpoint is active would corrupt those entities.
+            if user_input.get(ECOWITT_ENABLED) and self.user_data.get(LEGACY_ENABLED):
+                errors["base"] = ERROR_MUTUALLY_EXCLUSIVE
+            if not errors:
+                return self.async_create_entry(title=DOMAIN, data=self.retain_data(user_input))
+
+        host, port = _ha_url_placeholders(self.hass)
+
+        ecowitt_schema = {
+            vol.Required(
+                ECOWITT_WEBHOOK_ID,
+                default=webhook,
+            ): str,
+            vol.Optional(
+                ECOWITT_ENABLED,
+                default=self.ecowitt.get(ECOWITT_ENABLED, False),
+            ): bool,
+        }
+
+        return self.async_show_form(
+            step_id="ecowitt",
+            data_schema=vol.Schema(ecowitt_schema),
+            description_placeholders={
+                "url": host,
+                "port": port,
+                "webhook_id": webhook,
+            },
+            errors=errors,
+        )
+
+    async def async_step_wslink_port_setup(self, user_input: Any = None) -> ConfigFlowResult:
+        """WSLink Addon port setup."""
+
+        errors: dict[str, str] = {}
+        await self._get_entry_data()
+
+        if not (port := self.wslink_addon_port.get(WSLINK_ADDON_PORT)):
+            port = 443
+
+        wslink_port_schema = {
+            vol.Required(WSLINK_ADDON_PORT, default=port): int,
+        }
+        if user_input is None:
+            return self.async_show_form(
+                step_id="wslink_port_setup",
+                data_schema=vol.Schema(wslink_port_schema),
+                errors=errors,
+            )
+
+        user_input = self.retain_data(user_input)
+        return self.async_create_entry(title=DOMAIN, data=user_input)
+
+    def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Merge the submitted step over every other section's current values.
+
+        `SENSORS_TO_LOAD` and `CHANNEL_TYPES` are re-read here rather than taken from
+        the `_get_entry_data` snapshot: the webhook handler writes both, so a dialog
+        left open while the station reports a new field - or a new probe type - would
+        otherwise roll that back on submit. Losing the probe types would silently turn
+        every soil channel back into an air-humidity entity.
+        """
+
+        discovered = self.config_entry.options.get(SENSORS_TO_LOAD)
+        probe_types = self.config_entry.options.get(CHANNEL_TYPES)
+
+        retained: dict[str, Any] = {
+            **self.user_data,
+            **self.windy_data,
+            **self.pocasi_cz,
+            **self.ecowitt,
+            **self.wslink_addon_port,
+            **dict(data),
+            SENSORS_TO_LOAD: discovered if isinstance(discovered, list) else [],
+        }
+
+        if isinstance(probe_types, dict) and probe_types:
+            retained[CHANNEL_TYPES] = probe_types
+
+        return retained
 
 
 class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sencor SWS 12500 Weather Station."""
 
-    data_schema = {
+    pws_schema = {
         vol.Required(API_ID): str,
-        vol.Required(API_KEY): str,
+        vol.Required(API_KEY): _PASSWORD_SELECTOR,
         vol.Optional(WSLINK): bool,
         vol.Optional(DEV_DBG): bool,
     }
 
-    VERSION = 1
+    VERSION = 2
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: Any = None):
         """Handle the initial step."""
+
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["pws", "ecowitt"],
+        )
+
+    async def async_step_pws(self, user_input: Any = None) -> ConfigFlowResult:
+        """PWS/WSLink credentials setup."""
+
+        errors: dict[str, str] = {}
+
         if user_input is None:
-            await self.async_set_unique_id(DOMAIN)
-            self._abort_if_unique_id_configured()
+            return self.async_show_form(step_id="pws", data_schema=vol.Schema(self.pws_schema), errors=errors)
 
-            return self.async_show_form(
-                step_id="user",
-                data_schema=vol.Schema(self.data_schema),
-            )
-
-        errors = {}
-
-        if user_input[API_ID] in INVALID_CREDENTIALS:
+        if _is_invalid_credential(user_input.get(API_ID)):
             errors[API_ID] = "valid_credentials_api"
-        elif user_input[API_KEY] in INVALID_CREDENTIALS:
+        elif _is_invalid_credential(user_input.get(API_KEY)):
             errors[API_KEY] = "valid_credentials_key"
         elif user_input[API_KEY] == user_input[API_ID]:
             errors["base"] = "valid_credentials_match"
         else:
-            return self.async_create_entry(title=DOMAIN, data=user_input, options=user_input)
+            options: dict[str, Any] = {
+                **user_input,
+                LEGACY_ENABLED: True,
+                ECOWITT_ENABLED: False,
+            }
+            return self.async_create_entry(title=DOMAIN, data=options, options=options)
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(self.data_schema),
+            step_id="pws",
+            data_schema=vol.Schema(self.pws_schema),
+            errors=errors,
+        )
+
+    async def async_step_ecowitt(self, user_input: Any = None) -> ConfigFlowResult:
+        """Ecowitt stations setup."""
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            _validate_ecowitt_webhook(user_input, errors)
+            if not errors:
+                options: dict[str, Any] = {
+                    **user_input,
+                    LEGACY_ENABLED: False,
+                    WSLINK: False,
+                    API_ID: "",
+                    API_KEY: "",
+                }
+
+                return self.async_create_entry(title=DOMAIN, data=options, options=options)
+
+        webhook = user_input.get(ECOWITT_WEBHOOK_ID, "") if user_input is not None else secrets.token_hex(8)
+        host, port = _ha_url_placeholders(self.hass)
+
+        ecowitt_schema = {
+            vol.Required(ECOWITT_WEBHOOK_ID, default=webhook): str,
+            vol.Optional(ECOWITT_ENABLED, default=True): bool,
+        }
+
+        return self.async_show_form(
+            step_id="ecowitt",
+            data_schema=vol.Schema(ecowitt_schema),
+            description_placeholders={
+                "url": host,
+                "port": port,
+                "webhook_id": webhook,
+            },
             errors=errors,
         )
 

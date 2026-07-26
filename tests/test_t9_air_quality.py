@@ -4,7 +4,7 @@ Covers what was added for the WSLink ``t9hcho`` / ``t9voclv`` / ``t9bat`` /
 ``t9cn`` parameters:
 
 - the new constants (``REMAP_WSLINK_ITEMS``, ``CONNECTION_GATED_SENSORS``,
-  ``BATTERY_NON_BINARY``, ``VOCLevel`` / ``VOC_LEVEL_MAP``)
+  ``VOCLevel`` / ``VOC_LEVEL_MAP``)
 - the ``utils.voc_level_to_text`` and ``utils.battery_5step_to_pct`` helpers
 - the connection gating in ``utils.remap_wslink_items``
 - the new ``SENSOR_TYPES_WSLINK`` entity descriptions
@@ -20,7 +20,6 @@ import pytest
 
 from custom_components.sws12500.const import (
     BATTERY_LIST,
-    BATTERY_NON_BINARY,
     CONNECTION_GATED_SENSORS,
     HCHO,
     OUTSIDE_TEMP,
@@ -70,11 +69,12 @@ def test_t9_keys_are_remapped() -> None:
 
 
 def test_connection_gated_sensors_definition() -> None:
-    assert CONNECTION_GATED_SENSORS == {"t9cn": [HCHO, VOC, T9_BATTERY]}
+    # The T9 HCHO/VOC probe is gated by its own connection flag. (Multi-channel
+    # CH2-CH8 probes have their own gates too; we only assert the T9 one here.)
+    assert CONNECTION_GATED_SENSORS["t9cn"] == [HCHO, VOC, T9_BATTERY]
 
 
 def test_t9_battery_is_non_binary_only() -> None:
-    assert BATTERY_NON_BINARY == [T9_BATTERY]
     # the 0-5 / percentage battery must not be treated as a binary low/normal one
     assert T9_BATTERY not in BATTERY_LIST
 
@@ -84,7 +84,7 @@ def test_voc_level_map_is_complete_and_ordered() -> None:
     assert set(VOC_LEVEL_MAP) == {1, 2, 3, 4, 5}
     assert set(VOC_LEVEL_MAP.values()) == set(VOCLevel)
     assert VOC_LEVEL_MAP[1] is VOCLevel.UNHEALTHY
-    assert VOC_LEVEL_MAP[5] is VOCLevel.EXCELENT
+    assert VOC_LEVEL_MAP[5] is VOCLevel.EXCELLENT
     assert [member.value for member in VOCLevel] == [
         "unhealthy",
         "poor",
@@ -109,7 +109,7 @@ def test_voc_level_to_text_handles_empty(empty) -> None:
         ("2", VOCLevel.POOR),
         ("3", VOCLevel.MODERATE),
         ("4", VOCLevel.GOOD),
-        ("5", VOCLevel.EXCELENT),
+        ("5", VOCLevel.EXCELLENT),
         (3, VOCLevel.MODERATE),
     ],
 )
@@ -149,13 +149,27 @@ def test_remap_keeps_t9_group_when_connected() -> None:
     assert out[OUTSIDE_TEMP] == "11.3"
 
 
-@pytest.mark.parametrize("conn", [{"t9cn": "0"}, {}], ids=["disconnected", "absent"])
-def test_remap_drops_t9_group_when_disconnected_or_absent(conn) -> None:
-    out = remap_wslink_items({**conn, "t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
+def test_remap_drops_t9_group_when_disconnected() -> None:
+    """An explicit `t9cn=0` means the probe is gone, so its readings must not linger."""
+    out = remap_wslink_items({"t9cn": "0", "t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
     assert HCHO not in out
     assert VOC not in out
     assert T9_BATTERY not in out
     # unrelated sensors are untouched by the gating
+    assert out[OUTSIDE_TEMP] == "11.3"
+
+
+def test_remap_keeps_t9_group_when_the_flag_is_absent() -> None:
+    """A missing connection flag is no information, not a disconnection.
+
+    Treating absence as "disconnected" would blank the readings of any probe whose
+    firmware simply does not send the flag - and with `t1cn` now gating the outdoor
+    probe, that would have meant losing temperature, wind and rain outright.
+    """
+    out = remap_wslink_items({"t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
+    assert out[HCHO] == "57"
+    assert out[VOC] == "5"
+    assert out[T9_BATTERY] == "5"
     assert out[OUTSIDE_TEMP] == "11.3"
 
 
@@ -184,8 +198,8 @@ def test_hcho_entity_description(wslink_descriptions) -> None:
     assert description.device_class is SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS
     assert description.native_unit_of_measurement == CONCENTRATION_PARTS_PER_BILLION
     assert description.state_class is SensorStateClass.MEASUREMENT
-    # value_fn is a pass-through (typing.cast is a no-op at runtime; HA coerces the str)
-    assert description.value_fn("57") == "57"
+    # HCHO is a numeric ppb concentration, so value_fn coerces to int.
+    assert description.value_fn("57") == 57
 
 
 def test_voc_entity_description(wslink_descriptions) -> None:

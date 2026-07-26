@@ -1,269 +1,350 @@
-"""The Sencor SWS 12500 Weather Station integration."""
+"""Sencor SWS 12500 Weather Station integration (push/webhook based).
 
+Architecture overview
+---------------------
+This integration is *push-based*: the weather station calls our HTTP endpoint and we
+receive an HTTP payload. We do not poll the station.
+
+Key building blocks:
+- `WeatherDataUpdateCoordinator` acts as an in-memory "data bus" for the latest payload.
+  On each webhook request we call `async_set_updated_data(...)` and all `CoordinatorEntity`
+  sensors get notified and update their states.
+- `entry.runtime_data` stores per-entry runtime state (coordinator instance, options
+  snapshot, and sensor platform callbacks). Shared aiohttp route registrations stay
+  under `hass.data[DOMAIN]["routes"]` because they must survive a config-entry reload.
+
+Auto-discovery
+--------------
+When the station starts sending a new field, we:
+1) persist the new sensor key into options (`SENSORS_TO_LOAD`)
+2) dynamically add the new entity through the sensor platform (without reloading)
+
+Why avoid reload?
+Reloading a config entry unloads platforms temporarily, which removes coordinator listeners.
+With a high-frequency push source (webhook), a reload at the wrong moment can lead to a
+period where no entities are subscribed, causing stale states until another full reload/restart.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
 import logging
+from typing import Any
 
-import aiohttp.web
-from aiohttp.web_exceptions import HTTPUnauthorized
+from py_typecheck import checked, checked_or
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import InvalidStateError, PlatformNotReady
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.event import async_track_time_interval
 
+from .conflicts import effective_protocols, update_protocol_conflict_issue
 from .const import (
-    API_ID,
-    API_KEY,
+    CHANNEL_TYPES,
     DEFAULT_URL,
-    DEV_DBG,
     DOMAIN,
+    ECOWITT_URL_PREFIX,
+    HEALTH_URL,
     POCASI_CZ_ENABLED,
+    POCASI_CZ_ENABLED_LEGACY,
     SENSORS_TO_LOAD,
     WINDY_ENABLED,
     WSLINK,
     WSLINK_URL,
 )
-from .pocasti_cz import PocasiPush
-from .routes import Routes, unregistred
-from .utils import (
-    anonymize,
-    check_disabled,
-    loaded_sensors,
-    remap_items,
-    remap_wslink_items,
-    translated_notification,
-    translations,
-    update_options,
-)
-from .windy_func import WindyPush
+from .coordinator import WeatherDataUpdateCoordinator
+from .data import SWSConfigEntry, SWSRuntimeData
+from .health_coordinator import HealthCoordinator
+from .legacy import update_legacy_battery_issue
+from .predecessor import async_adopt_predecessor, inherit_predecessor_options, update_predecessor_adoption_issue
+from .routes import Routes
+from .staleness import update_stale_sensors_issue
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+
+# Keep in sync with `ConfigFlowHandler.VERSION`.
+CONFIG_ENTRY_VERSION: int = 2
 
 
-class IncorrectDataError(InvalidStateError):
-    """Invalid exception."""
+def _shared_routes(hass: HomeAssistant) -> Routes | None:
+    """Return the route dispatcher shared across entry reloads, if it exists yet."""
+
+    domain_data = hass.data.get(DOMAIN)
+    routes = domain_data.get("routes") if isinstance(domain_data, dict) else None
+    return routes if isinstance(routes, Routes) else None
 
 
-class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
-    """Manage fetched data."""
+async def async_migrate_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
+    """Migrate an old config entry.
 
-    def __init__(self, hass: HomeAssistant, config: ConfigEntry) -> None:
-        """Init global updater."""
-        self.hass = hass
-        self.config = config
-        self.config_entry = config
-        self.windy = WindyPush(hass, config)
-        self.pocasi: PocasiPush = PocasiPush(hass, config)
-        super().__init__(hass, _LOGGER, name=DOMAIN)
+    Version 2 renames the Pocasi Meteo enable flag from the misspelled
+    `pocasi_enabled_chcekbox` to `pocasi_enabled_checkbox`. Without moving the persisted
+    value, forwarding would silently switch off for every existing install.
+    """
 
-    async def recieved_data(self, webdata: aiohttp.web.Request):
-        """Handle incoming data query."""
-        _wslink = self.config_entry.options.get(WSLINK)
-        get_data = webdata.query
-        post_data = await webdata.post()
+    if entry.version > CONFIG_ENTRY_VERSION:
+        # Downgrades are not supported - the entry was written by a newer version.
+        return False
 
-        data = dict(get_data) | dict(post_data)
+    if entry.version < 2:
+        options = dict(entry.options)
+        if POCASI_CZ_ENABLED_LEGACY in options:
+            legacy_value = options.pop(POCASI_CZ_ENABLED_LEGACY)
+            # Never clobber an already-correct key (both may exist after a partial upgrade).
+            options.setdefault(POCASI_CZ_ENABLED, legacy_value)
+            _LOGGER.debug("Migrated Pocasi Meteo enable flag to %s.", POCASI_CZ_ENABLED)
 
-        response = None
-
-        if not _wslink and ("ID" not in data or "PASSWORD" not in data):
-            _LOGGER.error("Invalid request. No security data provided!")
-            raise HTTPUnauthorized
-
-        if _wslink and ("wsid" not in data or "wspw" not in data):
-            _LOGGER.error("Invalid request. No security data provided!")
-            raise HTTPUnauthorized
-
-        if _wslink:
-            id_data = data["wsid"]
-            key_data = data["wspw"]
-        else:
-            id_data = data["ID"]
-            key_data = data["PASSWORD"]
-
-        _id = self.config_entry.options.get(API_ID)
-        _key = self.config_entry.options.get(API_KEY)
-
-        if id_data != _id or key_data != _key:
-            _LOGGER.error("Unauthorised access!")
-            raise HTTPUnauthorized
-
-        if self.config_entry.options.get(WINDY_ENABLED):
-            _ = await self.windy.push_data_to_windy(data, _wslink)
-
-        if self.config.options.get(POCASI_CZ_ENABLED):
-            await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
-
-        remaped_items = (
-            remap_wslink_items(data)
-            if self.config_entry.options.get(WSLINK)
-            else remap_items(data)
-        )
-
-        if sensors := check_disabled(self.hass, remaped_items, self.config):
-            translate_sensors = [
-                await translations(
-                    self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity"
-                )
-                for t_key in sensors
-                if await translations(
-                    self.hass, DOMAIN, f"sensor.{t_key}", key="name", category="entity"
-                )
-                is not None
-            ]
-            human_readable = "\n".join(translate_sensors)
-
-            await translated_notification(
-                self.hass,
-                DOMAIN,
-                "added",
-                {"added_sensors": f"{human_readable}\n"},
-            )
-            if _loaded_sensors := loaded_sensors(self.config_entry):
-                sensors.extend(_loaded_sensors)
-            await update_options(self.hass, self.config_entry, SENSORS_TO_LOAD, sensors)
-            # await self.hass.config_entries.async_reload(self.config.entry_id)
-
-        self.async_set_updated_data(remaped_items)
-
-        if self.config_entry.options.get(DEV_DBG):
-            _LOGGER.info("Dev log: %s", anonymize(data))
-
-        response = response or "OK"
-        return aiohttp.web.Response(body=f"{response or 'OK'}", status=200)
-
-
-def register_path(
-    hass: HomeAssistant,
-    url_path: str,
-    coordinator: WeatherDataUpdateCoordinator,
-    config: ConfigEntry,
-):
-    """Register path to handle incoming data."""
-
-    hass_data = hass.data.setdefault(DOMAIN, {})
-    debug = config.options.get(DEV_DBG)
-    _wslink = config.options.get(WSLINK, False)
-
-    routes: Routes = hass_data.get("routes", Routes())
-
-    if not routes.routes:
-        routes = Routes()
-        _LOGGER.info("Routes not found, creating new routes")
-
-        if debug:
-            _LOGGER.debug("Enabled route is: %s, WSLink is %s", url_path, _wslink)
-
-        try:
-            default_route = hass.http.app.router.add_get(
-                DEFAULT_URL,
-                coordinator.recieved_data if not _wslink else unregistred,
-                name="weather_default_url",
-            )
-            if debug:
-                _LOGGER.debug("Default route: %s", default_route)
-
-            wslink_route = hass.http.app.router.add_get(
-                WSLINK_URL,
-                coordinator.recieved_data if _wslink else unregistred,
-                name="weather_wslink_url",
-            )
-            if debug:
-                _LOGGER.debug("WSLink route: %s", wslink_route)
-
-            wslink_post_route = hass.http.app.router.add_post(
-                WSLINK_URL,
-                coordinator.recieved_data if _wslink else unregistred,
-                name="weather_wslink_post_route_url",
-            )
-            if debug:
-                _LOGGER.debug("WSLink route: %s", wslink_post_route)
-
-            routes.add_route(
-                DEFAULT_URL,
-                default_route,
-                coordinator.recieved_data if not _wslink else unregistred,
-                not _wslink,
-            )
-            routes.add_route(
-                WSLINK_URL, wslink_route, coordinator.recieved_data, _wslink
-            )
-
-            routes.add_route(
-                WSLINK_URL, wslink_post_route, coordinator.recieved_data, _wslink
-            )
-
-            hass_data["routes"] = routes
-
-        except RuntimeError as Ex:  # pylint: disable=(broad-except)
-            if (
-                "Added route will never be executed, method GET is already registered"
-                in Ex.args
-            ):
-                _LOGGER.info("Handler to URL (%s) already registred", url_path)
-                return False
-
-            _LOGGER.error("Unable to register URL handler! (%s)", Ex.args)
-            return False
-
-        _LOGGER.info(
-            "Registered path to handle weather data: %s",
-            routes.get_enabled(),  # pylint: disable=used-before-assignment
-        )
-
-    if _wslink:
-        routes.switch_route(coordinator.recieved_data, WSLINK_URL)
-    else:
-        routes.switch_route(coordinator.recieved_data, DEFAULT_URL)
-
-    return routes
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up the config entry for my device."""
-
-    coordinator = WeatherDataUpdateCoordinator(hass, entry)
-
-    hass_data = hass.data.setdefault(DOMAIN, {})
-    hass_data[entry.entry_id] = coordinator
-
-    _wslink = entry.options.get(WSLINK)
-    debug = entry.options.get(DEV_DBG)
-
-    if debug:
-        _LOGGER.debug("WS Link is %s", "enbled" if _wslink else "disabled")
-
-    route = register_path(
-        hass, DEFAULT_URL if not _wslink else WSLINK_URL, coordinator, entry
-    )
-
-    if not route:
-        _LOGGER.error("Fatal: path not registered!")
-        raise PlatformNotReady
-
-    hass_data["route"] = route
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    entry.async_on_unload(entry.add_update_listener(update_listener))
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
 
     return True
 
 
-async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
-    """Update setup listener."""
+def register_path(
+    hass: HomeAssistant,
+    coordinator: WeatherDataUpdateCoordinator,
+    coordinator_h: HealthCoordinator,
+    config: SWSConfigEntry,
+) -> bool:
+    """Register webhook paths.
 
+    We register the supported station endpoints and use an internal dispatcher
+    (`Routes`) to enable only the configured ingress path. This lets us toggle
+    protocols without re-registering routes on the aiohttp router.
+    """
+
+    hass.data.setdefault(DOMAIN, {})
+    if (hass_data := checked(hass.data[DOMAIN], dict[str, Any])) is None:
+        raise ConfigEntryNotReady
+
+    _wslink: bool = checked_or(config.options.get(WSLINK), bool, False)
+    # Legacy and Ecowitt share one entity namespace, so only one may be wired up.
+    _legacy, _ecowitt_enabled = effective_protocols(config)
+
+    # Load registred routes
+    routes: Routes | None = hass_data.get("routes", None)
+
+    if not isinstance(routes, Routes):
+        routes = Routes()
+        routes.set_ingress_observer(coordinator_h.record_dispatch)
+
+        # Register webhooks in HomeAssistant with dispatcher
+        try:
+            _default_route = hass.http.app.router.add_get(DEFAULT_URL, routes.dispatch, name="_default_route")
+            _wslink_post_route = hass.http.app.router.add_post(WSLINK_URL, routes.dispatch, name="_wslink_post_route")
+            _wslink_get_route = hass.http.app.router.add_get(WSLINK_URL, routes.dispatch, name="_wslink_get_route")
+            _health_route = hass.http.app.router.add_get(HEALTH_URL, routes.dispatch, name="_health_route")
+
+            # Ecowitt URL contains {webhook_id} as a parameter.
+            # Station is configured to send data to: http://ha:8123/weatherhub/<webhook_id>
+
+            _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
+            _ecowitt_route = hass.http.app.router.add_post(_ecowitt_path, routes.dispatch, name="_ecowitt_route")
+
+            # Save initialised routes
+            hass_data["routes"] = routes
+
+        # ValueError as well as RuntimeError: aiohttp rejects a duplicate route *name*
+        # with ValueError, and the names here are fixed rather than domain-scoped. That
+        # is what a half-finished migration looks like - the previous version is still
+        # installed and holding the same routes - so it deserves a message the user can
+        # act on rather than an unhandled traceback.
+        except (RuntimeError, ValueError) as Ex:
+            _LOGGER.critical("Routes cannot be added. Integration will not work as expected. %s", Ex)
+            # Only the duplicate-name case is a leftover previous version. aiohttp raises
+            # ValueError for a malformed path or a bad `{webhook_id}` pattern too, and
+            # RuntimeError for a router that is already frozen - telling those users to
+            # uninstall something they may not even have would send them off the trail.
+            if isinstance(Ex, ValueError) and str(Ex).startswith("Duplicate"):
+                raise ConfigEntryNotReady(
+                    translation_domain=DOMAIN,
+                    translation_key="webhook_routes_taken",
+                ) from Ex
+            raise ConfigEntryNotReady(
+                translation_domain=DOMAIN,
+                translation_key="webhook_routes_failed",
+                translation_placeholders={"error": str(Ex)},
+            ) from Ex
+
+        # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
+        routes.add_route(DEFAULT_URL, _default_route, coordinator.received_data, enabled=_legacy and not _wslink)
+        routes.add_route(WSLINK_URL, _wslink_post_route, coordinator.received_data, enabled=_legacy and _wslink)
+        routes.add_route(WSLINK_URL, _wslink_get_route, coordinator.received_data, enabled=_legacy and _wslink)
+
+        # Make health route `sticky` so it will not change upon updating options.
+        routes.add_route(
+            HEALTH_URL,
+            _health_route,
+            coordinator_h.health_status,
+            enabled=True,
+            sticky=True,
+        )
+        routes.add_route(
+            _ecowitt_path,
+            _ecowitt_route,
+            coordinator.received_ecowitt_data,
+            enabled=_ecowitt_enabled,
+            sticky=True,
+        )
+    else:
+        routes.activate()
+        routes.set_ingress_observer(coordinator_h.record_dispatch)
+        _LOGGER.info("We have already registered routes: %s", routes.show_enabled())
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
+    """Set up a config entry.
+
+    Per-entry state is held on `entry.runtime_data`. Only the shared aiohttp route dispatcher
+    lives in `hass.data[DOMAIN]` because it must outlive a single entry reload. This separation is critical
+    to avoid issues where entities stop receiving updates after a reload because the coordinator instance they
+    are subscribed to is replaced in `hass.data[DOMAIN]` but the aiohttp route dispatcher still calls the old instance.
+    """
+
+    hass.data.setdefault(DOMAIN, {})
+
+    # First, because everything below reads the options: the protocol flags decide which
+    # coordinator and which webhook routes get wired up, and inheriting `WSLINK` after
+    # that point would leave the entry listening on the wrong endpoint until a reload.
+    inherit_predecessor_options(hass, entry)
+
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+    coordinator_health = HealthCoordinator(hass, entry)
+
+    entry.runtime_data = SWSRuntimeData(
+        coordinator=coordinator,
+        health_coordinator=coordinator_health,
+        last_options=dict(entry.options),
+    )
+    _wslink = checked_or(entry.options.get(WSLINK), bool, False)
+    # Legacy and Ecowitt share one entity namespace, so only one may be wired up.
+    _legacy, _ecowitt_enabled = effective_protocols(entry)
+    _ecowitt_path = ECOWITT_URL_PREFIX + "/{webhook_id}"
+
+    _LOGGER.debug("WS Link is %s", "enabled" if _wslink else "disabled")
+
+    routes: Routes | None = hass.data[DOMAIN].get("routes")
+
+    if routes is not None:
+        _LOGGER.debug("We have routes registered, will try to switch dispatcher.")
+        routes.activate()
+        routes.switch_route(coordinator.received_data, DEFAULT_URL if not _wslink else WSLINK_URL, enabled=_legacy)
+        routes.set_ecowitt_enabled(_ecowitt_path, coordinator.received_ecowitt_data, _ecowitt_enabled)
+        # Rebind the sticky health route to the new coordinator so /station/health
+        # does not keep serving the previous (stale) HealthCoordinator after a reload.
+        routes.rebind_handler(HEALTH_URL, coordinator_health.health_status)
+        routes.set_ingress_observer(coordinator_health.record_dispatch)
+        coordinator_health.update_routing(routes)
+        _LOGGER.debug("%s", routes.show_enabled())
+    else:
+        if not register_path(hass, coordinator, coordinator_health, entry):
+            _LOGGER.error("Fatal: path not registered!")
+            raise ConfigEntryNotReady("Webhook routes could not be registered")
+
+        routes = hass.data[DOMAIN].get("routes")
+        if routes is not None:
+            coordinator_health.update_routing(routes)
+
+    await coordinator_health.async_config_entry_first_refresh()
+    coordinator_health.update_forwarding(coordinator.windy, coordinator.pocasi)
+
+    # Late enough that the routes are proven, early enough that no entity exists yet.
+    #
+    # Late: adoption is the one destructive step - it removes the predecessor's config
+    # entry. Running it before the routes are up means a station that still has the old
+    # version installed gets its entry deleted and then a failed setup, with nothing to
+    # fall back to. Everything above this line can raise ConfigEntryNotReady and leave
+    # the user exactly where they started.
+    #
+    # Early: adoption rewrites the predecessor's registry entries in place and our
+    # platforms then bind to those same entries by unique id, keeping their entity_id
+    # and with it their recorder history. After `async_forward_entry_setups` the
+    # entity_ids would already have been handed out to freshly created entities.
+    # The outcome is reported, not dropped: a migration that stalled leaves the old entry
+    # behind looking broken, and the user has to be told not to delete it by hand.
+    adoption = await async_adopt_predecessor(hass, entry)
+    update_predecessor_adoption_issue(hass, entry, adoption)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def _check_stale(_now: datetime) -> None:
+        update_stale_sensors_issue(hass, entry)
+
+    entry.async_on_unload(async_track_time_interval(hass, _check_stale, timedelta(hours=1)))
+
+    entry.async_on_unload(entry.add_update_listener(update_listener))
+    update_legacy_battery_issue(hass, entry)
+    update_protocol_conflict_issue(hass, entry)
+
+    return True
+
+
+async def update_listener(hass: HomeAssistant, entry: SWSConfigEntry):
+    """Handle config entry option updates.
+
+    We skip reloading when only live-read options change:
+    - `SENSORS_TO_LOAD` (auto-discovery updates it as new payload fields appear),
+    - `CHANNEL_TYPES` (the webhook handler persists the probe types it is told about,
+      and they are only read when an entity is created), and
+    - the forwarding enable flags (`WINDY_ENABLED`/`POCASI_CZ_ENABLED`), which the
+      forwarders read on every push - so a forwarder that auto-disables itself from the
+      hot path no longer triggers a disruptive reload.
+
+    Why:
+    - Reloading a push-based integration temporarily unloads platforms and removes
+      coordinator listeners, which can make the UI appear "stuck" until restart.
+    """
+
+    runtime = getattr(entry, "runtime_data", None)
+    if isinstance(runtime, SWSRuntimeData):
+        old_options = runtime.last_options
+        new_options = dict(entry.options)
+
+        changed_keys = {k for k in set(old_options) | set(new_options) if old_options.get(k) != new_options.get(k)}
+
+        runtime.last_options = new_options
+
+        if changed_keys and changed_keys <= {SENSORS_TO_LOAD, CHANNEL_TYPES, WINDY_ENABLED, POCASI_CZ_ENABLED}:
+            _LOGGER.debug("Options updated (%s); skipping reload.", ", ".join(sorted(changed_keys)))
+            return
+
+    update_legacy_battery_issue(hass, entry)
     await hass.config_entries.async_reload(entry.entry_id)
-
     _LOGGER.info("Settings updated")
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
+async def async_unload_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
+    """Unload a config entry.
 
-    _ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if _ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+    `entry.runtime_data` becomes irrelevant once entry is unloaded.
+    On next `async_setup_entry` we overwrite it. The shared `hass.data[DOMAIN]["routes"]` survives by design.
+    aiohttp routes stay registered and the dispatcher is re-wired on the next setup.
+    """
 
-    return _ok
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if unload_ok:
+        if (routes := _shared_routes(hass)) is not None:
+            routes.deactivate()
+        setattr(entry, "runtime_data", None)
+
+    return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> None:
+    """Release what the shared dispatcher keeps across an unload.
+
+    Unload is deliberately not the end of the line - the dispatcher keeps the ingress
+    observer so a payload that lands mid-reload is still recorded, and the next setup
+    repoints it at the new coordinator. Removal has no next setup, so the references
+    have to go here or the deleted entry's coordinators stay reachable from
+    `hass.data[DOMAIN]["routes"]` for the rest of the process.
+    """
+
+    del entry  # single_config_entry: the shared dispatcher belongs to the one entry
+
+    if (routes := _shared_routes(hass)) is not None:
+        routes.release()
+        _LOGGER.debug("Config entry removed; dispatcher references released.")

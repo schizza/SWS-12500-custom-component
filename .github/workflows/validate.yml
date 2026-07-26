@@ -16,3 +16,19 @@ jobs:
         uses: "hacs/action@main"
         with:
           category: "integration"
+
+  # Separate job so a lint failure is distinguishable from HACS validation
+  # failing. Runs the tracked ruff.toml; formatting is deliberately not
+  # checked here, the repository has not been reformatted.
+  lint:
+    name: "Ruff"
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v3"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.13"
+      - name: Install ruff
+        run: pip install ruff==0.16.0
+      - name: Ruff check
+        run: ruff check .

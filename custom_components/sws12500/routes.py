@@ -1,79 +1,275 @@
-"""Store routes info."""
+"""Routes implementation.
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from logging import getLogger
+Why this dispatcher exists
+--------------------------
+Home Assistant registers aiohttp routes on startup. Re-registering or removing routes at runtime
+is awkward and error-prone (and can raise if routes already exist). This integration supports
+multiple station push endpoints. To allow switching between them without touching the aiohttp
+router, we register routes once and use this in-process dispatcher to decide which one is
+currently enabled.
 
-from aiohttp.web import AbstractRoute, Response
+Important note:
+- Each route stores a *bound method* handler (e.g. `coordinator.received_data`). That means the
+  route points to a specific coordinator instance. When the integration reloads, we must keep the
+  same coordinator instance or update the stored handler accordingly. Otherwise requests may go to
+  an old coordinator while entities listen to a new one (result: UI appears "frozen").
+"""
 
-_LOGGER = getLogger(__name__)
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+import logging
+from typing import Any
+
+from aiohttp.web import AbstractRoute, Request, Response
+
+_LOGGER = logging.getLogger(__name__)
+
+Handler = Callable[[Request], Awaitable[Response]]
+IngressObserver = Callable[[Request, bool, str | None], None]
 
 
 @dataclass
-class Route:
-    """Store route info."""
+class RouteInfo:
+    """Route definition held by the dispatcher.
+
+    - `handler` is the real webhook handler (bound method).
+    - `fallback` is used when the route exists but is currently disabled.
+    """
 
     url_path: str
     route: AbstractRoute
-    handler: Callable
+    handler: Handler
     enabled: bool = False
+    sticky: bool = False
+
+    fallback: Handler = field(default_factory=lambda: unregistered)
 
     def __str__(self):
         """Return string representation."""
-        return f"{self.url_path} -> {self.handler}"
+        return f"RouteInfo(url_path={self.url_path}, route={self.route}, handler={self.handler}, enabled={self.enabled}, fallback={self.fallback})"
 
 
 class Routes:
-    """Store routes info."""
+    """Simple route dispatcher.
+
+    We register aiohttp routes once and direct traffic to the currently enabled endpoint
+    using `switch_route`. This keeps route registration stable while still allowing the
+    integration to support multiple incoming push formats.
+    """
 
     def __init__(self) -> None:
-        """Initialize routes."""
-        self.routes = {}
+        """Initialize dispatcher storage."""
+        self.routes: dict[str, RouteInfo] = {}
+        self._ingress_observer: IngressObserver | None = None
+        self.active: bool = True
 
-    def switch_route(self, coordinator: Callable, url_path: str):
-        """Switch route."""
+    def activate(self) -> None:
+        """Allow registered routes to dispatch to their configured handlers."""
+        self.active = True
+
+    def deactivate(self) -> None:
+        """Stop registered routes from dispatching to config-entry handlers.
+
+        The ingress observer is deliberately kept: a payload that arrives while the
+        entry is unloaded is exactly the kind of thing diagnostics needs to record,
+        and `HealthCoordinator.record_dispatch` is safe to call then - it only
+        publishes a snapshot to (no) listeners and tolerates missing runtime data.
+        The next setup repoints it at the new coordinator.
+        """
+        self.active = False
+
+    def release(self) -> None:
+        """Drop every config-entry object the dispatcher still holds.
+
+        `deactivate()` deliberately keeps the ingress observer so a payload arriving
+        while the entry is unloaded is still recorded. Removal is the other case: the
+        entry is gone for good, and this dispatcher outlives it in `hass.data`, so
+        holding its coordinators - and through them the removed ConfigEntry - would
+        keep them alive for the rest of the process.
+
+        Enablement flags are left alone: a re-added entry rebinds every handler
+        through the usual setup path, and `rebind_handler` only touches sticky routes
+        that are still enabled.
+        """
+        self._ingress_observer = None
+        for route in self.routes.values():
+            route.handler = unregistered
+
+    def _resolve_route(self, request: Request) -> RouteInfo | None:
+        """Find the matching RouteInfo for a request.
+
+        Two step lookup:
+        1) Find exact match using method:path (for fix routes)
+        2) Fallback to aiohttp resource canonical URL
+           works for routes with path parameter - as {webhook_id}
+        """
+
+        key = f"{request.method}:{request.path}"
+        if key in self.routes:
+            return self.routes[key]
+
+        # Fallback to the aiohttp resource canonical URL (for routes with a path
+        # parameter such as {webhook_id}). Resolve defensively: a request without
+        # match_info/route/resource simply has no canonical match.
+        match_info = getattr(request, "match_info", None)
+        route = getattr(match_info, "route", None)
+        resource = getattr(route, "resource", None)
+        if resource is not None:
+            canonical_key = f"{request.method}:{resource.canonical}"
+            if canonical_key in self.routes:
+                return self.routes[canonical_key]
+
+        return None
+
+    def set_ecowitt_enabled(self, url_path: str, handler: Handler, enabled: bool) -> None:
+        """Enable or disable the Ecowitt sticky route.
+
+        switch_route() does not involve sticky routes, so we need another
+        method for Ecowitt state at reload.
+        """
 
         for route in self.routes.values():
-            if route.url_path == url_path:
-                _LOGGER.info("New coordinator to route: %s", route.url_path)
+            if route.url_path == url_path and route.sticky:
+                route.enabled = enabled
+                route.handler = handler if enabled else unregistered
+                _LOGGER.info(
+                    "Ecowitt route %s %s",
+                    route.url_path,
+                    "enabled" if enabled else "disabled",
+                )
+                return
+
+    def rebind_handler(self, url_path: str, handler: Handler) -> None:
+        """Repoint an always-on sticky route to a new handler after a reload.
+
+        Sticky routes (e.g. health) stay enabled across reloads, but their stored
+        handler is a bound method tied to a specific coordinator instance. When the
+        integration reloads, a new coordinator is created, so the handler must be
+        repointed - otherwise the route keeps calling the old (stale) instance.
+
+        Unlike `set_ecowitt_enabled`, this never changes `enabled`; it only rebinds
+        currently enabled sticky routes for `url_path`.
+        """
+
+        for route in self.routes.values():
+            if route.url_path == url_path and route.sticky and route.enabled:
+                route.handler = handler
+                _LOGGER.debug("Rebound sticky route handler for %s", url_path)
+                return
+
+    def set_ingress_observer(self, observer: IngressObserver | None) -> None:
+        """Set a callback notified for every incoming dispatcher request."""
+        self._ingress_observer = observer
+
+    async def dispatch(self, request: Request) -> Response:
+        """Dispatch incoming request to either the enabled handler or a fallback."""
+
+        info = self._resolve_route(request)
+
+        if not info:
+            _LOGGER.debug("Route (%s):%s is not registered!", request.method, request.path)
+            if self._ingress_observer is not None:
+                self._ingress_observer(request, False, "route_not_registered")
+            return await unregistered(request)
+
+        if not self.active:
+            _LOGGER.debug("Route (%s):%s received while integration is not loaded.", request.method, request.path)
+            if self._ingress_observer is not None:
+                self._ingress_observer(request, False, "integration_unloaded")
+            return Response(text="Integration is not loaded.", status=503)
+
+        if self._ingress_observer is not None:
+            self._ingress_observer(
+                request,
+                info.enabled,
+                None if info.enabled else "route_disabled",
+            )
+
+        handler = info.handler if info.enabled else info.fallback
+        return await handler(request)
+
+    def switch_route(self, handler: Handler, url_path: str | None, *, enabled: bool = True) -> None:
+        """Enable routes based on URL, disable all others. Leave sticky routes enabled.
+
+        When `enabled` is False (or url_path is None), all non-sticky (legacy) routes are disabled.
+           - used when only Ecowitt is active.
+        Sticky routes (health, ecowitt) are left untouched.
+        The aiohttp router stays untouched; we only flip which internal handler is active.
+        """
+        for route in self.routes.values():
+            if route.sticky:
+                continue
+
+            if enabled and route.url_path == url_path:
+                _LOGGER.info(
+                    "New coordinator to route: (%s):%s",
+                    route.route.method,
+                    route.url_path,
+                )
                 route.enabled = True
-                route.handler = coordinator
-                route.route._handler = coordinator  # noqa: SLF001
+                route.handler = handler
             else:
                 route.enabled = False
-                route.handler = unregistred
-                route.route._handler = unregistred  # noqa: SLF001
+                route.handler = unregistered
 
     def add_route(
         self,
         url_path: str,
         route: AbstractRoute,
-        handler: Callable,
+        handler: Handler,
+        *,
         enabled: bool = False,
-    ):
-        """Add route."""
+        sticky: bool = False,
+    ) -> None:
+        """Register a route in the dispatcher.
+
+        This does not register anything in aiohttp. It only stores routing metadata that
+        `dispatch` uses after aiohttp has routed the request by path.
+        """
         key = f"{route.method}:{url_path}"
-        self.routes[key] = Route(url_path, route, handler, enabled)
+        self.routes[key] = RouteInfo(url_path, route=route, handler=handler, enabled=enabled, sticky=sticky)
+        _LOGGER.debug("Registered dispatcher for route (%s):%s", route.method, url_path)
 
-    def get_route(self, url_path: str) -> Route | None:
-        """Get route."""
-        for route in self.routes.values():
-            if route.url_path == url_path:
-                return route
-        return None
+    def show_enabled(self) -> str:
+        """Return a human-readable description of the currently enabled route."""
 
-    def get_enabled(self) -> str:
-        """Get enabled routes."""
-        enabled_routes = {route.url_path for route in self.routes.values() if route.enabled}
-        return ", ".join(sorted(enabled_routes)) if enabled_routes else "None"
+        if not self.active:
+            return "No routes are enabled."
 
-    def __str__(self):
-        """Return string representation."""
-        return "\n".join([str(route) for route in self.routes.values()])
+        enabled_routes = {
+            f"Dispatcher enabled for ({route.route.method}):{route.url_path}, with handler: {route.handler}"
+            for route in self.routes.values()
+            if route.enabled
+        }
+        if not enabled_routes:
+            return "No routes are enabled."
+        return ", ".join(sorted(enabled_routes))
+
+    def path_enabled(self, url_path: str) -> bool:
+        """Return whether any route registered for `url_path` is enabled."""
+        return self.active and any(route.enabled for route in self.routes.values() if route.url_path == url_path)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a compact routing snapshot for diagnostics."""
+        return {
+            key: {
+                "path": route.url_path,
+                "method": route.route.method,
+                "enabled": self.active and route.enabled,
+                "sticky": route.sticky,
+            }
+            for key, route in self.routes.items()
+        }
 
 
-async def unregistred(*args, **kwargs):
-    """Unregister path to handle incoming data."""
+async def unregistered(request: Request) -> Response:
+    """Fallback response for unknown/disabled routes.
 
-    _LOGGER.error("Recieved data to unregistred webhook. Check your settings")
-    return Response(body=f"{'Unregistred webhook.'}", status=404)
+    This should normally never happen for correctly configured stations, but it provides
+    a clear error message when the station pushes to the wrong endpoint.
+    """
+    _ = request
+    _LOGGER.debug("Received data to unregistered or disabled webhook.")
+    return Response(text="Unregistered webhook. Check your settings.", status=400)
