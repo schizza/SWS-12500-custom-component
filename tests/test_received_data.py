@@ -218,7 +218,7 @@ async def test_received_data_forwards_to_windy_when_enabled(hass, monkeypatch):
     coordinator.windy.push_data_to_windy.assert_awaited_once()
     args, _kwargs = coordinator.windy.push_data_to_windy.await_args
     assert isinstance(args[0], dict)  # raw data dict
-    assert args[1] is False  # wslink flag
+    assert args[1] == "pws"  # protocol the payload arrived in
 
 
 @pytest.mark.asyncio

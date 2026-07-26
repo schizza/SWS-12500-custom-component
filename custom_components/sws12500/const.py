@@ -179,6 +179,15 @@ POCASI_CZ_URL: Final = "http://ms.pocasimeteo.cz"
 POCASI_CZ_SEND_MINIMUM: Final = 12  # minimal time to resend data
 POCASI_CZ_MAX_RETRIES: Final = 3  # failed sends in a row before resending is disabled
 
+# Pocasi Meteo accepts Ecowitt only as a POST in the Ecowitt protocol itself - the
+# station payload is forwarded verbatim rather than translated to PWS. Per their
+# integration notes the account credentials go in the query string, and the password
+# parameter is `PAS` (not `PASS` / `PASSWORD` as on the PWS endpoint):
+#   ms.pocasimeteo.cz/ws_ecowitt/ws.php?ID=xxxx&PAS=yyyy
+POCASI_CZ_ECOWITT_URL: Final = "/ws_ecowitt/ws.php"
+POCASI_CZ_ECOWITT_ID_PARAM: Final = "ID"
+POCASI_CZ_ECOWITT_PW_PARAM: Final = "PAS"
+
 
 WSLINK: Final = "wslink"
 LEGACY_ENABLED: Final = "legacy_enabled"
@@ -190,6 +199,39 @@ ECOWITT: Final = "ecowitt"
 ECOWITT_WEBHOOK_ID: Final = "ecowitt_webhook_id"
 ECOWITT_ENABLED: Final = "ecowitt_enabled"
 ECOWITT_URL_PREFIX: Final = "/weatherhub"
+
+# Ecowitt field names -> WU/PWS field names.
+#
+# Windy has no Ecowitt endpoint, so an Ecowitt payload has to be translated before it
+# can be forwarded there. After translation the payload carries exactly the field names
+# Windy already receives from a real PWS station, which is the path known to work.
+#
+# Deliberately an allowlist, not a "strip the bad keys" denylist: the Ecowitt payload
+# also carries device metadata (stationtype, model, freq, runtime, heap, interval) that
+# is meaningless upstream, and a denylist would forward whatever fields a future
+# firmware adds.
+#
+# Multi-channel temp/humidity (temp1f..temp7f) are intentionally absent - the WU
+# protocol has no equivalent, and mapping them onto its soil fields would send wrong
+# data.
+REMAP_ECOWITT_TO_WU: Final[dict[str, str]] = {
+    # same name on both sides, listed so the allowlist is complete
+    "tempf": "tempf",
+    "humidity": "humidity",
+    "windspeedmph": "windspeedmph",
+    "windgustmph": "windgustmph",
+    "winddir": "winddir",
+    "dailyrainin": "dailyrainin",
+    "solarradiation": "solarradiation",
+    "dateutc": "dateutc",
+    # renamed between the two protocols
+    "dewpointf": "dewptf",
+    "baromrelin": "baromin",
+    "tempinf": "indoortempf",
+    "humidityin": "indoorhumidity",
+    "uv": "UV",
+    "hourlyrainin": "rainin",  # WU `rainin` is the accumulation over the past hour
+}
 
 REMAP_ECOWITT_COMPAT: dict[str, str] = {
     "tempf": OUTSIDE_TEMP,

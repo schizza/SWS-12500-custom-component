@@ -32,6 +32,7 @@ from .const import (
     HEAT_INDEX,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
+    REMAP_ECOWITT_TO_WU,
     REMAP_ITEMS,
     REMAP_WSLINK_ITEMS,
     SENSORS_TO_LOAD,
@@ -113,7 +114,8 @@ def anonymize(
     - Keep all keys, but mask sensitive values.
     - Do not raise on unexpected/missing keys.
     """
-    secrets = {"ID", "PASSWORD", "wsid", "wspw", "passkey", "PASSKEY"}
+    # `PAS` is Pocasi Meteo's Ecowitt password parameter (not a typo for PASS).
+    secrets = {"ID", "PASSWORD", "PAS", "wsid", "wspw", "passkey", "PASSKEY"}
 
     return {k: ("***" if k in secrets else v) for k, v in data.items()}
 
@@ -447,3 +449,16 @@ def wslink_chill_index(data: dict[str, Any]) -> float | None:
         }
     )
     return None if value_f is None else round(fahrenheit_to_celsius(value_f), 2)
+
+
+def remap_ecowitt_to_wu(data: dict[str, Any]) -> dict[str, Any]:
+    """Translate an Ecowitt payload into WU/PWS field names.
+
+    Needed for services that do not speak the Ecowitt protocol - Windy, unlike Pocasi
+    Meteo, has no Ecowitt endpoint, so fields such as `baromrelin`, `dewpointf`,
+    `tempinf` or `uv` would simply not be understood.
+
+    Only fields listed in `REMAP_ECOWITT_TO_WU` are passed on; see the table there for
+    why that is an allowlist rather than a denylist.
+    """
+    return {wu_key: data[eco_key] for eco_key, wu_key in REMAP_ECOWITT_TO_WU.items() if eco_key in data}

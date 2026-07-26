@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from functools import partial
 import logging
 from typing import Any, Literal
 
@@ -18,6 +19,9 @@ from .const import (
     DEFAULT_URL,
     POCASI_CZ_API_ID,
     POCASI_CZ_API_KEY,
+    POCASI_CZ_ECOWITT_ID_PARAM,
+    POCASI_CZ_ECOWITT_PW_PARAM,
+    POCASI_CZ_ECOWITT_URL,
     POCASI_CZ_ENABLED,
     POCASI_CZ_LOGGER_ENABLED,
     POCASI_CZ_MAX_RETRIES,
@@ -34,6 +38,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Outcome of a single send, derived from the HTTP status (see `verify_response`).
 type PocasiResult = Literal["ok", "auth_error", "unexpected_response"]
+
+# Which upstream protocol a payload is forwarded in.
+type PocasiMode = Literal["WU", "WSLINK", "ECOWITT"]
 
 
 class PocasiPush:
@@ -90,8 +97,13 @@ class PocasiPush:
         if not await update_options(self.hass, self.config, POCASI_CZ_ENABLED, False):
             _LOGGER.debug("Failed to set Pocasi Meteo options to false.")
 
-    async def push_data_to_server(self, data: dict[str, Any], mode: Literal["WU", "WSLINK"]):
-        """Pushes weather data to server."""
+    async def push_data_to_server(self, data: dict[str, Any], mode: PocasiMode):
+        """Forward a station payload to Pocasi Meteo.
+
+        WU and WSLINK are GET requests carrying the readings as query parameters.
+        ECOWITT is a POST of the station's own payload with the credentials in the
+        query string - the server only accepts the Ecowitt protocol that way.
+        """
 
         _data = data.copy()
         self.last_attempt_at = dt_util.utcnow().isoformat()
@@ -130,26 +142,43 @@ class PocasiPush:
         # Reserve the next send window before the await to avoid concurrent double-sends.
         self.next_update = dt_util.utcnow() + timedelta(seconds=self._interval)
 
-        request_url: str = ""
-        if mode == "WSLINK":
-            _data["wsid"] = _api_id
-            _data["wspw"] = _api_key
-            request_url = f"{POCASI_CZ_URL}{WSLINK_URL}"
-
-        if mode == "WU":
-            _data["ID"] = _api_id
-            _data["PASSWORD"] = _api_key
-            request_url = f"{POCASI_CZ_URL}{DEFAULT_URL}"
-
         session = async_get_clientsession(self.hass)
+        request_url: str = ""
+        params: dict[str, Any] = {}
+
+        if mode == "ECOWITT":
+            # Pocasi Meteo takes Ecowitt only as a POST in the Ecowitt protocol itself,
+            # so the station payload is forwarded verbatim; only the credentials are
+            # ours, and they travel in the query string as ID / PAS.
+            request_url = f"{POCASI_CZ_URL}{POCASI_CZ_ECOWITT_URL}"
+            params = {
+                POCASI_CZ_ECOWITT_ID_PARAM: _api_id,
+                POCASI_CZ_ECOWITT_PW_PARAM: _api_key,
+            }
+            make_request = partial(session.post, request_url, params=params, data=_data)
+        else:
+            if mode == "WSLINK":
+                _data["wsid"] = _api_id
+                _data["wspw"] = _api_key
+                request_url = f"{POCASI_CZ_URL}{WSLINK_URL}"
+            else:
+                _data["ID"] = _api_id
+                _data["PASSWORD"] = _api_key
+                request_url = f"{POCASI_CZ_URL}{DEFAULT_URL}"
+
+            make_request = partial(session.get, request_url, params=_data)
+
         _LOGGER.debug(
-            "Payload for Pocasi Meteo server: [mode=%s] [request_url=%s] = %s",
+            "Payload for Pocasi Meteo server: [mode=%s] [request_url=%s] [params=%s] = %s",
             mode,
             request_url,
+            anonymize(params),
             anonymize(_data),
         )
         try:
-            async with session.get(request_url, params=_data) as resp:
+            # Built inside the try: a failure while creating the request must be handled
+            # like any other transport error, not escape into the webhook handler.
+            async with make_request() as resp:
                 result = self.verify_response(resp.status, await resp.text())
                 http_status = resp.status
 

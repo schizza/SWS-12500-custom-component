@@ -262,10 +262,11 @@ async def test_received_ecowitt_success_full_pipeline_with_health_autodiscovery_
     coordinator.windy.push_data_to_windy.assert_awaited_once()
     w_args, _ = coordinator.windy.push_data_to_windy.await_args
     assert isinstance(w_args[0], dict)
-    assert w_args[1] is False
+    assert w_args[1] == "ecowitt"
     coordinator.pocasi.push_data_to_server.assert_awaited_once()
     p_args, _ = coordinator.pocasi.push_data_to_server.await_args
-    assert p_args[1] == "WU"
+    # Pocasi Meteo has a dedicated Ecowitt endpoint; the payload is forwarded as-is.
+    assert p_args[1] == "ECOWITT"
 
     # Health branches.
     health.update_ingress_result.assert_called_once()
@@ -571,3 +572,39 @@ async def test_received_ecowitt_returns_503_when_runtime_data_missing(hass):
         _EcowittRequestStub(match_info={"webhook_id": "x"})
     )  # type: ignore[arg-type]
     assert resp.status == 503
+
+
+async def test_each_forwarder_is_told_which_protocol_the_payload_is(hass, monkeypatch):
+    """Routing contract: Windy converts to PWS itself, Pocasi wants Ecowitt verbatim.
+
+    Both forwarders get the untouched station payload; what differs is the protocol
+    they are told it arrived in. The conversion itself lives in `WindyPush._to_pws`
+    and is verified end to end in test_windy_push.py, not at this call site.
+    """
+    entry = _make_entry(
+        ecowitt_enabled=True,
+        ecowitt_webhook_id="hook",
+        windy_enabled=True,
+        pocasi_enabled=True,
+        health=_make_health_stub(),
+    )
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+
+    coordinator.ecowitt_bridge.process_payload = AsyncMock(return_value={"outside_temp": "68"})
+    monkeypatch.setattr("custom_components.sws12500.coordinator.check_disabled", lambda *_: None)
+    coordinator.async_set_updated_data = MagicMock()
+
+    coordinator.windy.push_data_to_windy = AsyncMock()
+    coordinator.pocasi.push_data_to_server = AsyncMock()
+
+    station_payload = {"PASSKEY": "ABC123", "model": "GW1000", "tempf": "68", "baromrelin": "29.9"}
+    request = _EcowittRequestStub(match_info={"webhook_id": "hook"}, post_data=dict(station_payload))
+    await coordinator.received_ecowitt_data(request)  # type: ignore[arg-type]
+
+    windy_payload, windy_source = coordinator.windy.push_data_to_windy.await_args[0]
+    assert windy_source == "ecowitt"
+    assert windy_payload == station_payload
+
+    pocasi_payload, pocasi_mode = coordinator.pocasi.push_data_to_server.await_args[0]
+    assert pocasi_mode == "ECOWITT"
+    assert pocasi_payload == station_payload

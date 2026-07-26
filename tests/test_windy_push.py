@@ -170,7 +170,7 @@ async def test_push_data_to_windy_purges_data_and_sets_auth(monkeypatch, hass):
 
     data = {k: "x" for k in PURGE_DATA}
     data.update({"keep": "1"})
-    ok = await wp.push_data_to_windy(data, wslink=False)
+    ok = await wp.push_data_to_windy(data, source="pws")
     assert ok is True
 
     assert len(session.calls) == 1
@@ -199,7 +199,7 @@ async def test_push_data_to_windy_wslink_conversion_applied(monkeypatch, hass):
         lambda _h: session,
     )
 
-    ok = await wp.push_data_to_windy({"t1ws": "1", "t1tem": "2"}, wslink=True)
+    ok = await wp.push_data_to_windy({"t1ws": "1", "t1tem": "2"}, source="wslink")
     assert ok is True
     params = session.calls[0]["params"]
     assert "wind" in params and params["wind"] == "1"
@@ -517,3 +517,76 @@ async def test_push_data_to_windy_client_error_disable_failure_logs_debug(
     assert ok is True
     update_options.assert_awaited_once_with(hass, entry, WINDY_ENABLED, False)
     dbg.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_windy_ecowitt_conversion_applied(monkeypatch, hass):
+    """End to end: an Ecowitt payload must reach Windy in PWS field names.
+
+    Windy has no Ecowitt endpoint, so `baromrelin`, `dewpointf`, `tempinf`,
+    `humidityin`, `uv` and `hourlyrainin` would not be understood there.
+    """
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.next_update = dt_util.utcnow() - timedelta(minutes=1)
+
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    ok = await wp.push_data_to_windy(
+        {
+            "PASSKEY": "ABC123",
+            "stationtype": "GW1000B_V1.6.8",
+            "model": "GW1000",
+            "tempf": "68",
+            "baromrelin": "29.9",
+            "dewpointf": "50.1",
+            "uv": "3",
+            "hourlyrainin": "0.04",
+        },
+        source="ecowitt",
+    )
+    assert ok is True
+
+    params = session.calls[0]["params"]
+    assert params["tempf"] == "68"
+    assert params["baromin"] == "29.9"
+    assert params["dewptf"] == "50.1"
+    assert params["UV"] == "3"
+    assert params["rainin"] == "0.04"
+
+    # Ecowitt spellings gone, station metadata never forwarded.
+    for gone in ("baromrelin", "dewpointf", "uv", "hourlyrainin", "PASSKEY", "stationtype", "model"):
+        assert gone not in params
+
+
+@pytest.mark.asyncio
+async def test_push_data_to_windy_purges_after_converting(monkeypatch, hass):
+    """PURGE_DATA lists PWS names, so it must be applied *after* the conversion.
+
+    Purging first would let a reading that only becomes a purge target once converted
+    (WSLink `t1solrad` -> `solarradiation`, Ecowitt `tempinf` -> `indoortempf`) reach
+    Windy anyway.
+    """
+    entry = _make_entry()
+    wp = WindyPush(hass, entry)
+    wp.next_update = dt_util.utcnow() - timedelta(minutes=1)
+
+    session = _FakeSession(response=_FakeResponse(status=200, text_value="OK"))
+    monkeypatch.setattr(
+        "custom_components.sws12500.windy_func.async_get_clientsession",
+        lambda _h: session,
+    )
+
+    await wp.push_data_to_windy({"t1tem": "6.2", "t1solrad": "7"}, source="wslink")
+    assert "solarradiation" not in session.calls[0]["params"]
+
+    session.calls.clear()
+    wp.next_update = dt_util.utcnow() - timedelta(minutes=1)
+    await wp.push_data_to_windy({"tempf": "68", "tempinf": "70.2", "humidityin": "55"}, source="ecowitt")
+    params = session.calls[0]["params"]
+    assert "indoortempf" not in params
+    assert "indoorhumidity" not in params

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import logging
+from typing import Literal
 
 from aiohttp.client import ClientResponse
 from aiohttp.client_exceptions import ClientError
@@ -28,9 +29,12 @@ from .const import (
     WINDY_UNEXPECTED,
     WINDY_URL,
 )
-from .utils import update_options
+from .utils import remap_ecowitt_to_wu, update_options
 
 _LOGGER = logging.getLogger(__name__)
+
+# Which protocol the payload arrived in; Windy itself always speaks PWS.
+type WindySource = Literal["pws", "wslink", "ecowitt"]
 
 
 class WindyNotInserted(Exception):
@@ -133,6 +137,21 @@ class WindyPush:
         if response.status == 429:
             raise WindyRateLimitExceeded
 
+    def _to_pws(self, data: dict[str, str], source: WindySource) -> dict[str, str]:
+        """Convert a station payload into the PWS field names Windy understands.
+
+        Windy speaks the PWS/WU vocabulary, so every other protocol has to be mapped
+        onto it first. All three sources are dispatched here so the conversions stay
+        in one place instead of being applied by whoever happens to call us.
+        """
+        if source == "wslink":
+            return self._covert_wslink_to_pws(data)
+        if source == "ecowitt":
+            # Windy has no Ecowitt endpoint; the shared table also drops the station
+            # metadata (PASSKEY, stationtype, model, ...) that means nothing upstream.
+            return remap_ecowitt_to_wu(data)
+        return data
+
     def _covert_wslink_to_pws(self, indata: dict[str, str]) -> dict[str, str]:
         """Convert WSLink API data to Windy API data protocol."""
         if "t1ws" in indata:
@@ -174,7 +193,7 @@ class WindyPush:
 
         persistent_notification.async_create(self.hass, reason, "Windy resending disabled.")
 
-    async def push_data_to_windy(self, data: dict[str, str], wslink: bool = False) -> bool:
+    async def push_data_to_windy(self, data: dict[str, str], source: WindySource = "pws") -> bool:
         """Pushes weather data do Windy stations.
 
         Interval is 5 minutes, otherwise Windy would not accepts data.
@@ -220,15 +239,12 @@ class WindyPush:
         # webhook does not also pass the rate-limit check and double-send.
         self.next_update = dt_util.utcnow() + timed(minutes=5)
 
-        purged_data = data.copy()
-
-        for purge in PURGE_DATA:
-            if purge in purged_data:
-                _ = purged_data.pop(purge)
-
-        if wslink:
-            # WSLink -> Windy params
-            purged_data = self._covert_wslink_to_pws(purged_data)
+        # Convert *before* purging. PURGE_DATA lists PWS field names, so a reading that
+        # only becomes a purge target after conversion - Ecowitt `tempinf` ->
+        # `indoortempf`, WSLink `t1solrad` -> `solarradiation` - would otherwise slip
+        # through to Windy unnoticed.
+        converted = self._to_pws(data.copy(), source)
+        purged_data = {key: value for key, value in converted.items() if key not in PURGE_DATA}
 
         request_url = f"{WINDY_URL}"
 

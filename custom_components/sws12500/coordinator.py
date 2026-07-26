@@ -228,12 +228,17 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         _windy_enabled = checked_or(self.config.options.get(WINDY_ENABLED), bool, False)
         _pocasi_enabled = checked_or(self.config.options.get(POCASI_CZ_ENABLED), bool, False)
-        if _windy_enabled:
-            await self.windy.push_data_to_windy(data, False)
 
-        # TODO: create ecowitt protocol to send full payload to Pocasi CZ
+        # The two services need the payload in different shapes. Windy has no Ecowitt
+        # endpoint and converts to PWS itself; Pocasi Meteo does, so it gets the station
+        # payload verbatim.
+        if _windy_enabled:
+            await self.windy.push_data_to_windy(data, "ecowitt")
+
+        # Pocasi Meteo does have an Ecowitt endpoint, so it gets the station payload
+        # verbatim instead.
         if _pocasi_enabled:
-            await self.pocasi.push_data_to_server(data, "WU")
+            await self.pocasi.push_data_to_server(data, "ECOWITT")
 
         if health:
             health.update_forwarding(self.windy, self.pocasi)
@@ -324,7 +329,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         _pocasi_enabled = checked_or(self.config.options.get(POCASI_CZ_ENABLED), bool, False)
 
         if _windy_enabled:
-            await self.windy.push_data_to_windy(data, _wslink)
+            await self.windy.push_data_to_windy(data, "wslink" if _wslink else "pws")
 
         if _pocasi_enabled:
             await self.pocasi.push_data_to_server(data, "WSLINK" if _wslink else "WU")
