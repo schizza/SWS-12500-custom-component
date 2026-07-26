@@ -29,8 +29,21 @@ from custom_components.sws12500.sensors_wslink import SENSOR_TYPES_WSLINK
 
 
 def _all_battery_constants() -> set[str]:
-    """Every `*_BATTERY` value defined in const.py."""
-    return {value for name, value in vars(const).items() if name.endswith("_BATTERY") and isinstance(value, str)}
+    """Every battery key defined in const.py.
+
+    A `*_BATTERY` constant is either a single key (``T9_BATTERY``) or a tuple of them
+    for a multi-channel family (``LEAK_CH_BATTERY``); both shapes count, otherwise a
+    whole family could be added without the classification tests noticing.
+    """
+    keys: set[str] = set()
+    for name, value in vars(const).items():
+        if not name.endswith("_BATTERY"):
+            continue
+        if isinstance(value, str):
+            keys.add(value)
+        elif isinstance(value, tuple):
+            keys.update(v for v in value if isinstance(v, str))
+    return keys
 
 
 def test_classifications_are_disjoint() -> None:

@@ -12,8 +12,8 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .battery_sensors import BatteryBinarySensor
-from .battery_sensors_def import BATTERY_BINARY_SENSORS
+from .battery_sensors import WSBinarySensor
+from .battery_sensors_def import WSLINK_BINARY_SENSORS
 from .const import SENSORS_TO_LOAD
 from .data import SWSConfigEntry
 
@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: SWSConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up battery binary sensors."""
+    """Set up the binary sensors (battery and water leak)."""
 
     del hass
 
@@ -32,16 +32,16 @@ async def async_setup_entry(
 
     # Persist platform callback + description map for dynamic entity creation.
     runtime.add_binary_entities = async_add_entities
-    runtime.binary_descriptions = {desc.key: desc for desc in BATTERY_BINARY_SENSORS}
+    runtime.binary_descriptions = {desc.key: desc for desc in WSLINK_BINARY_SENSORS}
     runtime.added_binary_keys = set()
 
     # Initial entities for battery keys that station already reports.
     # `SENSORS_TO_LOAD` accumulates all discovered keys across runs.
     loaded = set(entry.options.get(SENSORS_TO_LOAD, []))
-    entities: list[BatteryBinarySensor] = []
-    for desc in BATTERY_BINARY_SENSORS:
+    entities: list[WSBinarySensor] = []
+    for desc in WSLINK_BINARY_SENSORS:
         if desc.key in loaded:
-            entities.append(BatteryBinarySensor(coordinator, desc))
+            entities.append(WSBinarySensor(coordinator, desc))
             runtime.added_binary_keys.add(desc.key)
 
     if entities:
@@ -76,7 +76,7 @@ def add_new_binary_sensors(hass: HomeAssistant, entry: SWSConfigEntry, keys: lis
         if (desc := descriptions.get(key)) is None:
             continue
 
-        new_entities.append(BatteryBinarySensor(coordinator, desc))
+        new_entities.append(WSBinarySensor(coordinator, desc))
         added.add(key)
 
     if new_entities:

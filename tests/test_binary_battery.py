@@ -3,7 +3,7 @@
 Covers:
 - `binary_sensor.async_setup_entry` (with and without battery keys in SENSORS_TO_LOAD)
 - `binary_sensor.add_new_binary_sensors` (no-op / dedupe / unknown / new)
-- `battery_sensors.BatteryBinarySensor` (`is_on` value mapping + `device_info`)
+- `battery_sensors.WSBinarySensor` (`is_on` value mapping + `device_info`)
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from custom_components.sws12500.battery_sensors import BatteryBinarySensor
-from custom_components.sws12500.battery_sensors_def import BATTERY_BINARY_SENSORS
+from custom_components.sws12500.battery_sensors import WSBinarySensor
+from custom_components.sws12500.battery_sensors_def import BATTERY_BINARY_SENSORS, WSLINK_BINARY_SENSORS
 from custom_components.sws12500.binary_sensor import add_new_binary_sensors, async_setup_entry
 from custom_components.sws12500.const import CH2_BATTERY, DOMAIN, INDOOR_BATTERY, OUTSIDE_BATTERY, SENSORS_TO_LOAD
 from custom_components.sws12500.data import SWSRuntimeData
@@ -80,10 +80,10 @@ async def test_setup_creates_entities_for_battery_keys(hass):
 
     # Callback + description map persisted for dynamic entity creation.
     assert runtime.add_binary_entities is add_entities
-    assert set(runtime.binary_descriptions.keys()) == {d.key for d in BATTERY_BINARY_SENSORS}
+    assert set(runtime.binary_descriptions.keys()) == {d.key for d in WSLINK_BINARY_SENSORS}
 
     # Entities created for the requested battery keys only.
-    assert all(isinstance(e, BatteryBinarySensor) for e in captured)
+    assert all(isinstance(e, WSBinarySensor) for e in captured)
     created_keys = {e.entity_description.key for e in captured}
     assert created_keys == {OUTSIDE_BATTERY, INDOOR_BATTERY}
 
@@ -136,7 +136,7 @@ def test_add_new_ignores_already_added_keys(hass):
     entry, _coordinator, runtime = _make_entry()
     captured, add_entities = _capture_add_entities()
     runtime.add_binary_entities = add_entities
-    runtime.binary_descriptions = {d.key: d for d in BATTERY_BINARY_SENSORS}
+    runtime.binary_descriptions = {d.key: d for d in WSLINK_BINARY_SENSORS}
     runtime.added_binary_keys = {OUTSIDE_BATTERY}
 
     add_new_binary_sensors(hass, entry, [OUTSIDE_BATTERY])
@@ -150,7 +150,7 @@ def test_add_new_ignores_unknown_keys(hass):
     entry, _coordinator, runtime = _make_entry()
     captured, add_entities = _capture_add_entities()
     runtime.add_binary_entities = add_entities
-    runtime.binary_descriptions = {d.key: d for d in BATTERY_BINARY_SENSORS}
+    runtime.binary_descriptions = {d.key: d for d in WSLINK_BINARY_SENSORS}
 
     add_new_binary_sensors(hass, entry, ["totally_unknown_key"])
 
@@ -162,7 +162,7 @@ def test_add_new_adds_new_known_keys(hass):
     entry, coordinator, runtime = _make_entry()
     captured, add_entities = _capture_add_entities()
     runtime.add_binary_entities = add_entities
-    runtime.binary_descriptions = {d.key: d for d in BATTERY_BINARY_SENSORS}
+    runtime.binary_descriptions = {d.key: d for d in WSLINK_BINARY_SENSORS}
 
     # Mix of new known, unknown, and a key we'll mark already-added.
     runtime.added_binary_keys = {INDOOR_BATTERY}
@@ -172,12 +172,12 @@ def test_add_new_adds_new_known_keys(hass):
 
     created_keys = {e.entity_description.key for e in captured}
     assert created_keys == {OUTSIDE_BATTERY, CH2_BATTERY}
-    assert all(isinstance(e, BatteryBinarySensor) for e in captured)
+    assert all(isinstance(e, WSBinarySensor) for e in captured)
     assert all(e.coordinator is coordinator for e in captured)
     assert runtime.added_binary_keys == {INDOOR_BATTERY, OUTSIDE_BATTERY, CH2_BATTERY}
 
 
-# --- BatteryBinarySensor ---------------------------------------------------
+# --- WSBinarySensor ---------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -195,7 +195,7 @@ def test_add_new_adds_new_known_keys(hass):
 )
 def test_is_on_value_mapping(raw, expected):
     coordinator = _CoordinatorStub({OUTSIDE_BATTERY: raw})
-    sensor = BatteryBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
+    sensor = WSBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
 
     assert sensor.is_on is expected
     assert sensor.unique_id == f"{OUTSIDE_BATTERY}_binary"
@@ -203,14 +203,14 @@ def test_is_on_value_mapping(raw, expected):
 
 def test_is_on_key_absent_returns_none():
     coordinator = _CoordinatorStub({})  # key not present at all
-    sensor = BatteryBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
+    sensor = WSBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
 
     assert sensor.is_on is None
 
 
 def test_device_info():
     coordinator = _CoordinatorStub()
-    sensor = BatteryBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
+    sensor = WSBinarySensor(coordinator, _desc_for(OUTSIDE_BATTERY))
 
     info = sensor.device_info
     assert info["name"] == "Weather Station SWS 12500"

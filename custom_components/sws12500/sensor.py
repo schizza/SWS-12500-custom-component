@@ -45,6 +45,7 @@ from .data import SWSConfigEntry, build_device_info
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
+from .utils import channel_humidity_device_class
 
 if TYPE_CHECKING:
     from .coordinator import WeatherDataUpdateCoordinator
@@ -172,6 +173,14 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         self._attr_unique_id = description.key
         self.entity_description = description  # pyright: ignore[reportIncompatibleVariableOverride]  type: ignore[assignment]
         self._dev_log = checked_or(coordinator.config.options.get(DEV_DBG), bool, False)
+
+        # A multi-channel humidity reading is soil moisture when the probe says so.
+        # Resolved once here rather than in the (frozen, shared) description, because
+        # it depends on which probe the user actually plugged into that channel.
+        runtime = getattr(coordinator.config, "runtime_data", None)
+        channel_types = getattr(runtime, "channel_types", None) or {}
+        if (device_class := channel_humidity_device_class(channel_types, description.key)) is not None:
+            self._attr_device_class = device_class
 
     @property
     def native_value(self):  # pyright: ignore[reportIncompatibleVariableOverride]

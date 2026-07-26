@@ -20,12 +20,15 @@ from typing import Any, Final
 from py_typecheck.core import checked_or
 
 from homeassistant.components import persistent_notification
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     AZIMUT,
+    CH_HUMIDITY_TYPE_PARAM,
+    CH_TYPE_SOIL,
     CHILL_INDEX,
     CONNECTION_GATED_SENSORS,
     DEV_DBG,
@@ -138,7 +141,12 @@ def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
             items[REMAP_WSLINK_ITEMS[item]] = value
 
     for conn_key, gated in CONNECTION_GATED_SENSORS.items():
-        if str(entities.get(conn_key, "0")) != "1":
+        # Only an explicit "not connected" drops the readings. An absent flag means the
+        # firmware does not report one, which is not evidence of a disconnection -
+        # treating it as such would wipe out every reading of a probe whose firmware
+        # omits the flag, up to and including the main outdoor sensor gated by `t1cn`.
+        connection = entities.get(conn_key)
+        if connection is not None and str(connection) != "1":
             for key in gated:
                 items.pop(key, None)
 
@@ -468,3 +476,43 @@ def remap_ecowitt_to_windy(data: dict[str, Any]) -> dict[str, Any]:
     WU spelling.
     """
     return {out_key: data[eco_key] for eco_key, out_key in REMAP_ECOWITT_TO_WINDY.items() if eco_key in data}
+
+
+# The WSLink API documents `t5lst` only as "Last Lightning strike time" (integer) and
+# its own example uses 9999, which is not a plausible epoch. It is read as minutes
+# since the last strike, with 9999 meaning "nothing recorded".
+LIGHTNING_NO_STRIKE: Final = 9999
+
+
+def lightning_minutes(value: Any) -> int | None:
+    """Minutes since the last lightning strike, or None when nothing was recorded."""
+    minutes = to_int(value)
+    if minutes is None or minutes >= LIGHTNING_NO_STRIKE:
+        return None
+    return minutes
+
+
+def channel_humidity_device_class(raw_payload: dict[str, Any], key: str) -> SensorDeviceClass | None:
+    """Device class for a multi-channel humidity reading, from the probe type.
+
+    WSLink reports what kind of probe sits on each channel via `t234cXtp`. A soil
+    probe (type 4) measures soil moisture, not air humidity, so it needs
+    `SensorDeviceClass.MOISTURE` rather than `HUMIDITY`.
+
+    Returns None when the channel is not one of the multi-channel ones, or when the
+    station did not report a type - the description's own device class then applies.
+
+    This is resolved once, when the entity is created: Home Assistant records the
+    device class in the entity registry, and swapping it underneath a live entity
+    would rewrite its meaning. Replacing the physical probe therefore needs the
+    integration reinstalled, which is the intended trade-off.
+    """
+    param = CH_HUMIDITY_TYPE_PARAM.get(key)
+    if param is None:
+        return None
+
+    channel_type = to_int(raw_payload.get(param))
+    if channel_type is None:
+        return None
+
+    return SensorDeviceClass.MOISTURE if channel_type == CH_TYPE_SOIL else SensorDeviceClass.HUMIDITY

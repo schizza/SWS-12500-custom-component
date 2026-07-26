@@ -149,13 +149,27 @@ def test_remap_keeps_t9_group_when_connected() -> None:
     assert out[OUTSIDE_TEMP] == "11.3"
 
 
-@pytest.mark.parametrize("conn", [{"t9cn": "0"}, {}], ids=["disconnected", "absent"])
-def test_remap_drops_t9_group_when_disconnected_or_absent(conn) -> None:
-    out = remap_wslink_items({**conn, "t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
+def test_remap_drops_t9_group_when_disconnected() -> None:
+    """An explicit `t9cn=0` means the probe is gone, so its readings must not linger."""
+    out = remap_wslink_items({"t9cn": "0", "t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
     assert HCHO not in out
     assert VOC not in out
     assert T9_BATTERY not in out
     # unrelated sensors are untouched by the gating
+    assert out[OUTSIDE_TEMP] == "11.3"
+
+
+def test_remap_keeps_t9_group_when_the_flag_is_absent() -> None:
+    """A missing connection flag is no information, not a disconnection.
+
+    Treating absence as "disconnected" would blank the readings of any probe whose
+    firmware simply does not send the flag - and with `t1cn` now gating the outdoor
+    probe, that would have meant losing temperature, wind and rain outright.
+    """
+    out = remap_wslink_items({"t9hcho": "57", "t9voclv": "5", "t9bat": "5", "t1tem": "11.3"})
+    assert out[HCHO] == "57"
+    assert out[VOC] == "5"
+    assert out[T9_BATTERY] == "5"
     assert out[OUTSIDE_TEMP] == "11.3"
 
 

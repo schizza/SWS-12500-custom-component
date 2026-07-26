@@ -80,3 +80,31 @@ async def test_dispatch_resolves_via_canonical_resource(routes: Routes) -> None:
 
     resp = await routes.dispatch(request)  # type: ignore[arg-type]
     assert resp.status == 200
+
+
+async def test_deactivated_dispatcher_reports_unloaded() -> None:
+    """After unload the routes outlive the entry, so they must answer 503.
+
+    Without this they would call a handler bound to a coordinator whose config entry
+    is gone.
+    """
+    routes = Routes()
+    observer = MagicMock()
+    routes.set_ingress_observer(observer)
+    routes.add_route("/x", _RouteStub(method="GET"), _handler, enabled=True)
+
+    routes.deactivate()
+
+    response = await routes.dispatch(_RequestStub(method="GET", path="/x"))
+    assert response.status == 503
+    # The observer is cleared on deactivate, so nothing is recorded for a dead entry.
+    observer.assert_not_called()
+
+
+def test_show_enabled_reports_nothing_while_deactivated() -> None:
+    routes = Routes()
+    routes.add_route("/x", _RouteStub(method="GET"), _handler, enabled=True)
+    assert "Dispatcher enabled" in routes.show_enabled()
+
+    routes.deactivate()
+    assert routes.show_enabled() == "No routes are enabled."

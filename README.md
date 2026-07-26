@@ -105,30 +105,65 @@ Web server repo is reachable here: <https://github.com/schizza/test-station-serv
 
 The integration auto-creates sensors as soon as the station first sends data for them — new
 sensors trigger a notification in Home Assistant and are added to the entity list
-automatically.
+automatically. Only the fields your station actually sends are created, so an entry never
+shows entities for probes you do not own.
 
-Beyond the standard set (outdoor / indoor temperature and humidity, barometric pressure,
-wind speed / direction / gust, rain rate and daily / weekly / monthly / yearly totals, dew
-point, UV index, solar irradiance) the WSLink protocol also exposes:
+### WSLink — complete API coverage
 
-- additional channels **CH2** – **CH8** for temperature and humidity
-- **WBGT** index, **heat index**, **wind chill**
-- sensor battery state for the outdoor, indoor and **CH2** – **CH8** probes, exposed as
-  binary `battery` sensors (`normal` / `low`) — these used to be regular sensors, so on an
-  upgraded install the old entities are left behind; a `Repairs` issue lists them and
-  tells you how to remove them
-- **Formaldehyde (HCHO)** in ppb and **VOC level** from the WH46 / 7-in-1 air-quality
-  combo sensor, reported as a named air-quality level (`unhealthy`, `poor`, `moderate`,
-  `good`, `excellent` — the station's 1–5 index, where 1 is worst)
-- **HCHO/VOC sensor battery** reported as a percentage
+**Every measurement the WSLink data upload API (v0.6) defines is implemented**, across all
+of its sensor types. Readings are mapped to native Home Assistant device classes, so
+statistics, unit conversion and the energy/weather dashboards work without any template
+helpers.
 
-HCHO / VOC entities are only created when the station reports the air-quality module as
-connected (`t9cn = 1`), so they don't clutter the device when no such sensor is attached.
+| Sensor type | Readings |
+| --- | --- |
+| Console | indoor temperature and humidity, relative **and absolute** barometric pressure, console battery |
+| **Type1** outdoor | temperature, humidity, dew point, **feels-like**, heat index, wind chill, **WBGT**, wind direction / speed / **10-minute average** / gust, rain rate and hourly / daily / weekly / monthly / yearly totals, UV index, solar irradiance, battery |
+| **Type2/3/4** CH1–CH7 | temperature and humidity per channel, battery |
+| **Type5** lightning | distance, time since the last strike, strike counts over 5 min / 30 min / 1 h / 1 day, battery |
+| **Type6** water leak CH1–CH7 | leak state per channel, battery |
+| **Type8** particulate matter | PM2.5, PM10 and their AQI values, battery |
+| **Type9** air quality | formaldehyde (HCHO) in ppb, VOC level, battery |
+| **Type10** | CO₂ concentration, battery |
+| **Type11** | CO concentration, battery |
+
+A few details worth knowing:
+
+- **Batteries come in two kinds, and they are not interchangeable.** The outdoor, channel,
+  lightning and water-leak probes report a plain `normal` / `low` flag and become binary
+  `battery` sensors. The PM, air-quality, CO₂ and CO probes report a 0–5 level instead and
+  become percentage sensors (5 = full). The mapping follows the API document literally and
+  is enforced by tests, because a level battery read as a flag would silently report
+  "not low" for everything above empty.
+- **Probes are gated on their connection flag.** A probe the station reports as
+  disconnected has its readings dropped rather than left frozen at the last value. A
+  station that does not send a connection flag at all is never gated — absence of the flag
+  is not evidence of a disconnection.
+- **A soil probe is not a humidity sensor.** WSLink reports what kind of probe sits on each
+  channel, so a soil moisture & temperature probe gets Home Assistant's `moisture` device
+  class instead of `humidity`. This is decided when the entity is first created; swapping
+  the physical probe on a channel afterwards means reinstalling the integration.
+- **VOC level** is reported as a named air-quality level (`unhealthy`, `poor`, `moderate`,
+  `good`, `excellent`) from the station's 1–5 index, where 1 is worst.
+- **Heat index and wind chill** are taken from the station when it sends them, and computed
+  from temperature, humidity and wind speed when it does not.
+- Battery sensors used to be regular sensors. On an upgraded install the old entities are
+  left behind; a `Repairs` issue lists them and tells you how to remove them.
+
+Two parameters are exposed with a caveat, because the API document does not define them
+fully: the console battery (`inbat`) is the only battery whose scale is not documented and
+is treated as a `normal` / `low` flag, and the time since the last lightning strike
+(`t5lst`) is read as minutes, with the vendor's `9999` treated as "nothing recorded".
+
+### Ecowitt
 
 Ecowitt stations map onto the same standard set and additionally report whatever their own
 firmware sends — absolute pressure, event / hourly / weekly / monthly / yearly / total /
-24h rain, feels-like temperature, indoor dew point and CO₂ readings among them. Only the
-fields your station actually sends are created.
+24h rain, feels-like temperature, indoor dew point and CO₂ readings among them. Readings
+the integration has no mapping for still get an entity, so a newer firmware does not need
+an integration update to be usable.
+
+### Diagnostics
 
 The integration also creates diagnostic entities describing its own state — the active
 protocol, whether each endpoint is registered, details of the last received payload, the

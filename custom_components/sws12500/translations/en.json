@@ -175,6 +175,51 @@
       },
       "ch8_battery": {
         "name": "Channel 8 battery"
+      },
+      "lightning_battery": {
+        "name": "Lightning sensor battery"
+      },
+      "leak_ch1": {
+        "name": "Water leak CH1"
+      },
+      "leak_ch2": {
+        "name": "Water leak CH2"
+      },
+      "leak_ch3": {
+        "name": "Water leak CH3"
+      },
+      "leak_ch4": {
+        "name": "Water leak CH4"
+      },
+      "leak_ch5": {
+        "name": "Water leak CH5"
+      },
+      "leak_ch6": {
+        "name": "Water leak CH6"
+      },
+      "leak_ch7": {
+        "name": "Water leak CH7"
+      },
+      "leak_ch1_battery": {
+        "name": "Water leak CH1 battery"
+      },
+      "leak_ch2_battery": {
+        "name": "Water leak CH2 battery"
+      },
+      "leak_ch3_battery": {
+        "name": "Water leak CH3 battery"
+      },
+      "leak_ch4_battery": {
+        "name": "Water leak CH4 battery"
+      },
+      "leak_ch5_battery": {
+        "name": "Water leak CH5 battery"
+      },
+      "leak_ch6_battery": {
+        "name": "Water leak CH6 battery"
+      },
+      "leak_ch7_battery": {
+        "name": "Water leak CH7 battery"
       }
     },
     "sensor": {
@@ -531,6 +576,63 @@
           "low": "Low",
           "drained": "Unknown / drained out"
         }
+      },
+      "abs_pressure": {
+        "name": "Absolute pressure"
+      },
+      "feels_like": {
+        "name": "Feels like"
+      },
+      "wind_speed_avg10": {
+        "name": "Wind speed (10 min average)"
+      },
+      "lightning_last": {
+        "name": "Time since last lightning strike"
+      },
+      "lightning_distance": {
+        "name": "Lightning distance"
+      },
+      "lightning_strikes_1h": {
+        "name": "Lightning strikes (last hour)"
+      },
+      "lightning_count_5m": {
+        "name": "Lightning strikes (5 minutes)"
+      },
+      "lightning_count_30m": {
+        "name": "Lightning strikes (30 minutes)"
+      },
+      "lightning_count_1h": {
+        "name": "Lightning strikes (1 hour)"
+      },
+      "lightning_count_1d": {
+        "name": "Lightning strikes (1 day)"
+      },
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "pm25_aqi": {
+        "name": "PM2.5 AQI"
+      },
+      "pm10_aqi": {
+        "name": "PM10 AQI"
+      },
+      "t8_battery": {
+        "name": "PM sensor battery"
+      },
+      "co2": {
+        "name": "CO2"
+      },
+      "t10_battery": {
+        "name": "CO2 sensor battery"
+      },
+      "co": {
+        "name": "CO"
+      },
+      "t11_battery": {
+        "name": "CO sensor battery"
       }
     }
   },

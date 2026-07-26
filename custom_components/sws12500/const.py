@@ -87,6 +87,50 @@ VOC: Final = "voc"
 T9_BATTERY: Final = "t9_battery"  # T9 sensors are HCHO and VOC
 T9_CONN: Final = "t9_conn"
 
+# --- Base console (WSLink API v0.6, no sensor type) -------------------------
+ABS_PRESSURE: Final = "abs_pressure"  # abar
+
+# --- Type1 outdoor ----------------------------------------------------------
+FEELS_LIKE: Final = "feels_like"  # t1feels
+WIND_SPEED_AVG10: Final = "wind_speed_avg10"  # t1ws10mav
+
+# --- Type5 lightning --------------------------------------------------------
+# `t5lst` is an integer the API documents only as "Last Lightning strike time";
+# it is not an epoch (the vendor example shows 9999), so it is treated as minutes
+# elapsed, with 9999 as the "no strike recorded" sentinel - see `lightning_minutes`.
+LIGHTNING_LAST: Final = "lightning_last"  # t5lst
+LIGHTNING_DISTANCE: Final = "lightning_distance"  # t5lskm
+# The API lists both `t5lsf` ("strike count last 1 Hours") and `t5ls1htc` ("count
+# total of during 1 Hour"). They overlap; both are exposed rather than guessing
+# which one a given firmware populates.
+LIGHTNING_STRIKES_1H: Final = "lightning_strikes_1h"  # t5lsf
+LIGHTNING_COUNT_5M: Final = "lightning_count_5m"  # t5ls5mtc
+LIGHTNING_COUNT_30M: Final = "lightning_count_30m"  # t5ls30mtc
+LIGHTNING_COUNT_1H: Final = "lightning_count_1h"  # t5ls1htc
+LIGHTNING_COUNT_1D: Final = "lightning_count_1d"  # t5ls1dtc
+LIGHTNING_BATTERY: Final = "lightning_battery"  # t5lsbat (0/1)
+
+# --- Type6 water leak, CH1-7 ------------------------------------------------
+# Numbered as the API does (CH1-7). The temp/humidity channels use a legacy
+# off-by-one (integration CH2 == WSLink CH1); that quirk is not repeated here.
+LEAK_CH: Final[tuple[str, ...]] = tuple(f"leak_ch{ch}" for ch in range(1, 8))
+LEAK_CH_BATTERY: Final[tuple[str, ...]] = tuple(f"leak_ch{ch}_battery" for ch in range(1, 8))
+
+# --- Type8 particulate matter ----------------------------------------------
+PM25: Final = "pm25"  # t8pm25
+PM10: Final = "pm10"  # t8pm10
+PM25_AQI: Final = "pm25_aqi"  # t8pm25ai
+PM10_AQI: Final = "pm10_aqi"  # t8pm10ai
+T8_BATTERY: Final = "t8_battery"  # t8bat (0-5)
+
+# --- Type10 CO2 -------------------------------------------------------------
+CO2: Final = "co2"  # t10co2
+T10_BATTERY: Final = "t10_battery"  # t10bat (0-5)
+
+# --- Type11 CO --------------------------------------------------------------
+CO: Final = "co"  # t11co
+T11_BATTERY: Final = "t11_battery"  # t11bat (0-5)
+
 
 # Health specific constants
 HEALTH_URL = "/station/health"
@@ -357,6 +401,35 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t9hcho": HCHO,
     "t9voclv": VOC,
     "t9bat": T9_BATTERY,  # T9 battery is 0-5, where 5 is full
+    # --- base console -----------------------------------------------------
+    "abar": ABS_PRESSURE,
+    # --- Type1 outdoor ----------------------------------------------------
+    "t1feels": FEELS_LIKE,
+    "t1ws10mav": WIND_SPEED_AVG10,
+    # --- Type5 lightning --------------------------------------------------
+    "t5lst": LIGHTNING_LAST,
+    "t5lskm": LIGHTNING_DISTANCE,
+    "t5lsf": LIGHTNING_STRIKES_1H,
+    "t5ls5mtc": LIGHTNING_COUNT_5M,
+    "t5ls30mtc": LIGHTNING_COUNT_30M,
+    "t5ls1htc": LIGHTNING_COUNT_1H,
+    "t5ls1dtc": LIGHTNING_COUNT_1D,
+    "t5lsbat": LIGHTNING_BATTERY,
+    # --- Type6 water leak CH1-7 -------------------------------------------
+    **{f"t6c{ch}wls": LEAK_CH[ch - 1] for ch in range(1, 8)},
+    **{f"t6c{ch}bat": LEAK_CH_BATTERY[ch - 1] for ch in range(1, 8)},
+    # --- Type8 particulate matter -----------------------------------------
+    "t8pm25": PM25,
+    "t8pm10": PM10,
+    "t8pm25ai": PM25_AQI,
+    "t8pm10ai": PM10_AQI,
+    "t8bat": T8_BATTERY,
+    # --- Type10 CO2 -------------------------------------------------------
+    "t10co2": CO2,
+    "t10bat": T10_BATTERY,
+    # --- Type11 CO --------------------------------------------------------
+    "t11co": CO,
+    "t11bat": T11_BATTERY,
 }
 
 # NOTE: Add more sensors
@@ -369,54 +442,21 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 # We need to compare them to PWS API to make sure, we have the same internal
 # representation of same sensors.
 
-### TODO: These are sensors, that should be supported in WSLink API according to their API documentation:
-# &t5lst= Last Lightning strike time integer
-# &t5lskm= Lightning distance integer km
-# &t5lsf= Lightning strike count last 1 Hours integer
-# &t5ls5mtc= Lightning count total of during 5 minutes integer
-# &t5ls30mtc= Lightning count total of during 30 minutes integer
-# &t5ls1htc= Lightning count total of during 1 Hour integer
-# &t5ls1dtc= Lightning count total of during 1 day integer
-# &t5lsbat= Lightning Sensor battery (Normal=1, Low battery=0) integer
-# &t5lscn= Lightning Sensor connection (Connected=1, No connect=0) integer
-# &t6c1wls= Water leak sensor CH1 (Leak=1, No leak=0) integer
-# &t6c1bat= Water leak sensor CH1 battery (Normal=1, Low battery=0) integer
-# &t6c1cn= Water leak sensor CH1 connection (Connected=1, No connect=0) integer
-# &t6c2wls= Water leak sensor CH2 (Leak=1, No leak=0) integer
-# &t6c2bat= Water leak sensor CH2 battery (Normal=1, Low battery=0) integer
-# &t6c2cn= Water leak sensor CH2 connection (Connected=1, No connect=0) integer
-# &t6c3wls= Water leak sensor CH3 (Leak=1, No leak=0) integer
-# &t6c3bat= Water leak sensor CH3 battery (Normal=1, Low battery=0) integer
-# &t6c3cn= Water leak sensor CH3 connection (Connected=1, No connect=0) integer
-# &t6c4wls= Water leak sensor CH4 (Leak=1, No leak=0) integer
-# &t6c4bat= Water leak sensor CH4 battery (Normal=1, Low battery=0) integer
-# &t6c4cn= Water leak sensor CH4 connection (Connected=1, No connect=0) integer
-# &t6c5wls= Water leak sensor CH5 (Leak=1, No leak=0) integer
-# &t6c5bat= Water leak sensor CH5 battery (Normal=1, Low battery=0) integer
-# &t6c5cn= Water leak sensor CH5 connection (Connected=1, No connect=0) integer
-# &t6c6wls= Water leak sensor CH6 (Leak=1, No leak=0) integer
-# &t6c6bat= Water leak sensor CH6 battery (Normal=1, Low battery=0) integer
-# &t6c6cn= Water leak sensor CH6 connection (Connected=1, No connect=0) integer
-# &t6c7wls= Water leak sensor CH7 (Leak=1, No leak=0) integer
-# &t6c7bat= Water leak sensor CH7 battery (Normal=1, Low battery=0) integer
-# &t6c7cn= Water leak sensor CH7 connection (Connected=1, No connect=0) integer
-# &t8pm25= PM2.5 concentration integer ug/m3
-# &t8pm10= PM10 concentration integer ug/m3
-# &t8pm25ai= PM2.5 AQI integer
-# &t8pm10ai = PM10 AQI integer
-# &t8bat= PM sensor battery level (0~5) remark: 5 is full integer
-# &t8cn= PM sensor connection (Connected=1, No connect=0) integer
-# &t9hcho= HCHO concentration integer ppb
-# &t9voclv= VOC level (1~5) 1 is the highest level, 5 is the lowest VOC level integer
-# &t9bat= HCHO / VOC sensor battery level (0~5) remark: 5 is full integer
-# &t9cn= HCHO / VOC sensor connection (Connected=1, No connect=0) integer
-# &t10co2= CO2 concentration integer ppm
-# &t10bat= CO2 sensor battery level (0~5) remark: 5 is full integer
-# &t10cn= CO2 sensor connection (Connected=1, No connect=0) integer
-# &t11co= CO concentration integer ppm
-# &t11bat= CO sensor battery level (0~5) remark: 5 is full integer
-# &t11cn= CO sensor connection (Connected=1, No connect=0) integer
+### WSLink API v0.6 coverage
 #
+# Every upload parameter the API document defines is now handled: base console,
+# Type1 outdoor, Type2/3/4 channels, Type5 lightning, Type6 water leak, Type8
+# particulate matter, Type9 HCHO/VOC, Type10 CO2 and Type11 CO.
+#
+# `tests/test_wslink_api_coverage.py` pins that list, so a parameter cannot be
+# dropped by a refactor and a future API revision fails the suite until its new
+# parameters are mapped here.
+#
+# Two are handled with a documented caveat, because the API does not define them:
+#   - `inbat` is the only battery with no stated scale; it is read as 0/1 like the
+#     other wireless probes (see BATTERY_LIST).
+#   - `t5lst` has no unit and the vendor example uses 9999; it is read as minutes
+#     elapsed with 9999 meaning "nothing recorded" (see `lightning_minutes`).
 
 
 # How the station reports each battery decides which entity it becomes. The two tuples
@@ -424,9 +464,12 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
 # both entity description sets from them, so a key cannot end up with two entities.
 #
 # They must stay disjoint, and every `*_BATTERY` constant must appear in exactly one of
-# them; `tests/test_battery_classification.py` enforces both. That matters because the
-# WSLink API has more of each kind still to be implemented (see the TODO block above):
-# `t5lsbat` / `t6c1-7bat` are 0/1, while `t8bat` / `t10bat` / `t11bat` are 0-5.
+# them; `tests/test_battery_classification.py` enforces both, and
+# `tests/test_wslink_api_coverage.py` additionally pins each battery to the wording of
+# the API document. That matters because getting it wrong is silent: a 0-5 battery read
+# as a 0/1 flag reports "not low" for every level above empty, discarding most of the
+# reading. The API annotates the difference explicitly - "(Normal=1, Low battery=0)"
+# versus "(0~5) remark: 5 is full" - so a new battery only has to be read carefully.
 
 # Reported as 0/1 (low/normal) -> BinarySensorDeviceClass.BATTERY.
 BATTERY_LIST: Final[tuple[str, ...]] = (
@@ -439,13 +482,58 @@ BATTERY_LIST: Final[tuple[str, ...]] = (
     CH6_BATTERY,
     CH7_BATTERY,
     CH8_BATTERY,
+    LIGHTNING_BATTERY,
+    *LEAK_CH_BATTERY,
 )
 
 # Reported as a 0-5 level, 5 being full -> percentage SensorDeviceClass.BATTERY.
-BATTERY_NON_BINARY: Final[tuple[str, ...]] = (T9_BATTERY,)
+BATTERY_NON_BINARY: Final[tuple[str, ...]] = (T8_BATTERY, T9_BATTERY, T10_BATTERY, T11_BATTERY)
+
+
+# Which raw `t234cXtp` parameter describes the probe behind each channel humidity
+# reading. The API's compatible-sensor list maps the value to a probe kind:
+#   2 = thermo-hygrometer, 3 = pool sensor, 4 = soil moisture & temperature
+# A soil probe reports soil moisture, not air humidity, which is a different Home
+# Assistant device class - see `channel_humidity_device_class`.
+CH_HUMIDITY_TYPE_PARAM: Final[dict[str, str]] = {
+    CH2_HUMIDITY: "t234c1tp",
+    CH3_HUMIDITY: "t234c2tp",
+    CH4_HUMIDITY: "t234c3tp",
+    CH5_HUMIDITY: "t234c4tp",
+    CH6_HUMIDITY: "t234c5tp",
+    CH7_HUMIDITY: "t234c6tp",
+    CH8_HUMIDITY: "t234c7tp",
+}
+
+# `t234cXtp` value for a soil moisture & temperature probe.
+CH_TYPE_SOIL: Final = 4
 
 
 CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {
+    # Main outdoor probe (Type1). A payload that omits `t1cn` is not gated at all -
+    # see `remap_wslink_items` - so this cannot blank a station that never reports it.
+    "t1cn": [
+        OUTSIDE_TEMP,
+        OUTSIDE_HUMIDITY,
+        FEELS_LIKE,
+        CHILL_INDEX,
+        HEAT_INDEX,
+        DEW_POINT,
+        WIND_DIR,
+        WIND_SPEED,
+        WIND_SPEED_AVG10,
+        WIND_GUST,
+        RAIN,
+        HOURLY_RAIN,
+        DAILY_RAIN,
+        WEEKLY_RAIN,
+        MONTHLY_RAIN,
+        YEARLY_RAIN,
+        UV,
+        SOLAR_RADIATION,
+        WBGT_TEMP,
+        OUTSIDE_BATTERY,
+    ],
     # Multi-channel temp/humidity probes (CH2 - CH8)
     "t234c1cn": [CH2_TEMP, CH2_HUMIDITY, CH2_BATTERY],
     "t234c2cn": [CH3_TEMP, CH3_HUMIDITY, CH3_BATTERY],
@@ -456,6 +544,25 @@ CONNECTION_GATED_SENSORS: Final[dict[str, list[str]]] = {
     "t234c7cn": [CH8_TEMP, CH8_HUMIDITY, CH8_BATTERY],
     # T9 HCHO/VOC probe
     "t9cn": [HCHO, VOC, T9_BATTERY],
+    # Lightning probe
+    "t5lscn": [
+        LIGHTNING_LAST,
+        LIGHTNING_DISTANCE,
+        LIGHTNING_STRIKES_1H,
+        LIGHTNING_COUNT_5M,
+        LIGHTNING_COUNT_30M,
+        LIGHTNING_COUNT_1H,
+        LIGHTNING_COUNT_1D,
+        LIGHTNING_BATTERY,
+    ],
+    # Water leak probes CH1-7
+    **{f"t6c{ch}cn": [LEAK_CH[ch - 1], LEAK_CH_BATTERY[ch - 1]] for ch in range(1, 8)},
+    # Particulate matter probe
+    "t8cn": [PM25, PM10, PM25_AQI, PM10_AQI, T8_BATTERY],
+    # CO2 probe
+    "t10cn": [CO2, T10_BATTERY],
+    # CO probe
+    "t11cn": [CO, T11_BATTERY],
 }
 
 

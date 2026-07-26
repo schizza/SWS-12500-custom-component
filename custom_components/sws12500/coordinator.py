@@ -32,6 +32,7 @@ from .binary_sensor import add_new_binary_sensors
 from .const import (
     API_ID,
     API_KEY,
+    CH_HUMIDITY_TYPE_PARAM,
     DEV_DBG,
     DOMAIN,
     ECOWITT_ENABLED,
@@ -276,6 +277,13 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         self._validate_credentials(data, webdata, wslink=_wslink, health=health)
 
         remaped_items: dict[str, str] = remap_wslink_items(data) if _wslink else remap_items(data)
+
+        # The probe type per channel is not a reading, so it is not remapped - but a
+        # sensor created later needs it to tell soil moisture from air humidity.
+        if _wslink:
+            self.config.runtime_data.channel_types = {
+                param: data[param] for param in CH_HUMIDITY_TYPE_PARAM.values() if param in data
+            }
 
         if sensors := check_disabled(remaped_items, self.config):
             # Resolve each sensor's display name once (the previous comprehension

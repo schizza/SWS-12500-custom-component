@@ -1,6 +1,8 @@
-"""Battery binary sensor entities for SWS 12500.
+"""Binary sensor entity for SWS 12500.
 
-Expose low-batter warnings as binary sensors.
+One class serves every binary family (battery, water leak). Which raw value means
+`on` comes from the description's `on_value`, because the station's convention
+differs per family - see `WSBinarySensorEntityDescription`.
 """
 
 from __future__ import annotations
@@ -10,22 +12,27 @@ from typing import Any
 
 from py_typecheck import checked_or
 
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .data import build_device_info
+from .sensors_common import WSBinarySensorEntityDescription
 
 
-class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]
+class WSBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]
     CoordinatorEntity, BinarySensorEntity
 ):
-    """Represent a low-battery binary sensor.
+    """Represent a WSLink binary reading.
 
-    Station payload uses:
-    - ``0`` => low battery (binary sensor is ``on``)
-    - ``1`` => battery OK (binary sensor is ``off``)
+    Battery: the station sends ``0`` for low, and ``BinarySensorDeviceClass.BATTERY``
+    means ``on`` = low, so ``on_value`` is 0.
+
+    Water leak: the station sends ``1`` for a leak, and
+    ``BinarySensorDeviceClass.MOISTURE`` means ``on`` = wet, so ``on_value`` is 1.
     """
+
+    entity_description: WSBinarySensorEntityDescription  # pyright: ignore[reportIncompatibleVariableOverride]
 
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -33,19 +40,16 @@ class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride
     def __init__(
         self,
         coordinator: Any,
-        description: BinarySensorEntityDescription,
+        description: WSBinarySensorEntityDescription,
     ) -> None:
-        """Initialize the battery binary sensor."""
+        """Initialize the binary sensor."""
         super().__init__(coordinator)
-        self.entity_description = description
+        self.entity_description = description  # pyright: ignore[reportIncompatibleVariableOverride]
         self._attr_unique_id = f"{description.key}_binary"
 
     @property
     def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
-        """Return low-battery state.
-
-        ``True`` means low battery for ``BinarySensorDeviceClass.BATTERY``.
-        """
+        """Return whether the reading matches this sensor's `on` value."""
         data = checked_or(self.coordinator.data, dict[str, Any], {})
         raw: Any = data.get(self.entity_description.key)
 
@@ -57,7 +61,7 @@ class BatteryBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride
         except (TypeError, ValueError):
             return None
 
-        return value == 0
+        return value == self.entity_description.on_value
 
     @cached_property
     def device_info(self) -> DeviceInfo:

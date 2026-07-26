@@ -218,3 +218,52 @@ def test_add_new_sensors_noop_when_runtime_data_missing():
     """add_new_sensors is a safe no-op when the entry is unloaded (no runtime_data)."""
     entry = SimpleNamespace(entry_id="x", options={}, runtime_data=None)
     add_new_sensors(None, entry, keys=["anything"])  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Probe type decides the humidity device class, once, at entity creation
+# ---------------------------------------------------------------------------
+
+
+def _wslink_desc(key: str):
+    from custom_components.sws12500.sensors_wslink import SENSOR_TYPES_WSLINK
+
+    return next(d for d in SENSOR_TYPES_WSLINK if d.key == key)
+
+
+@pytest.mark.parametrize(
+    ("channel_type", "expected"),
+    [("4", "moisture"), ("2", "humidity")],
+    ids=["soil-probe", "thermo-hygrometer"],
+)
+def test_channel_humidity_entity_takes_its_class_from_the_probe(channel_type, expected) -> None:
+    """A soil probe reports soil moisture, so the entity must not claim humidity."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from custom_components.sws12500.const import CH2_HUMIDITY
+    from custom_components.sws12500.sensor import WeatherSensor
+
+    coordinator = MagicMock()
+    coordinator.config = SimpleNamespace(
+        options={},
+        runtime_data=SimpleNamespace(channel_types={"t234c1tp": channel_type}),
+    )
+
+    sensor = WeatherSensor(_wslink_desc(CH2_HUMIDITY), coordinator)
+    assert sensor.device_class == expected
+
+
+def test_channel_humidity_entity_falls_back_to_the_description() -> None:
+    """No reported probe type leaves the description's own device class in place."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from custom_components.sws12500.const import CH2_HUMIDITY
+    from custom_components.sws12500.sensor import WeatherSensor
+
+    coordinator = MagicMock()
+    coordinator.config = SimpleNamespace(options={}, runtime_data=SimpleNamespace(channel_types={}))
+
+    sensor = WeatherSensor(_wslink_desc(CH2_HUMIDITY), coordinator)
+    assert sensor.device_class == "humidity"

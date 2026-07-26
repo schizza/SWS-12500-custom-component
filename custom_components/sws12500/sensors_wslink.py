@@ -4,20 +4,25 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
+    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     CONCENTRATION_PARTS_PER_BILLION,
+    CONCENTRATION_PARTS_PER_MILLION,
     DEGREE,
     PERCENTAGE,
     UV_INDEX,
     UnitOfIrradiance,
+    UnitOfLength,
     UnitOfPrecipitationDepth,
     UnitOfPressure,
     UnitOfSpeed,
     UnitOfTemperature,
+    UnitOfTime,
     UnitOfVolumetricFlux,
 )
 
 from .battery_sensors_def import BATTERY_LEVEL_SENSORS
 from .const import (
+    ABS_PRESSURE,
     BARO_PRESSURE,
     CH2_BATTERY,
     CH2_HUMIDITY,
@@ -41,18 +46,32 @@ from .const import (
     CH8_HUMIDITY,
     CH8_TEMP,
     CHILL_INDEX,
+    CO,
+    CO2,
     DAILY_RAIN,
     DEW_POINT,
+    FEELS_LIKE,
     HCHO,
     HEAT_INDEX,
     HOURLY_RAIN,
     INDOOR_BATTERY,
     INDOOR_HUMIDITY,
     INDOOR_TEMP,
+    LIGHTNING_COUNT_1D,
+    LIGHTNING_COUNT_1H,
+    LIGHTNING_COUNT_5M,
+    LIGHTNING_COUNT_30M,
+    LIGHTNING_DISTANCE,
+    LIGHTNING_LAST,
+    LIGHTNING_STRIKES_1H,
     MONTHLY_RAIN,
     OUTSIDE_BATTERY,
     OUTSIDE_HUMIDITY,
     OUTSIDE_TEMP,
+    PM10,
+    PM10_AQI,
+    PM25,
+    PM25_AQI,
     RAIN,
     SOLAR_RADIATION,
     UV,
@@ -63,6 +82,7 @@ from .const import (
     WIND_DIR,
     WIND_GUST,
     WIND_SPEED,
+    WIND_SPEED_AVG10,
     YEARLY_RAIN,
     UnitOfBat,
     UnitOfDir,
@@ -71,6 +91,7 @@ from .const import (
 from .sensors_common import WeatherSensorEntityDescription
 from .utils import (
     battery_level,
+    lightning_minutes,
     to_float,
     to_int,
     voc_level_to_text,
@@ -553,7 +574,151 @@ SENSOR_TYPES_WSLINK: tuple[WeatherSensorEntityDescription, ...] = (
         icon="mdi:air-filter",
         value_fn=voc_level_to_text,
     ),
-    # 0-5 level batteries are generated from BATTERY_NON_BINARY so the classification
-    # lives in exactly one place (see battery_sensors_def).
+    # --- Base console -------------------------------------------------------
+    WeatherSensorEntityDescription(
+        key=ABS_PRESSURE,
+        native_unit_of_measurement=UnitOfPressure.HPA,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.ATMOSPHERIC_PRESSURE,
+        icon="mdi:gauge",
+        translation_key=ABS_PRESSURE,
+        value_fn=to_float,
+    ),
+    # --- Type1 outdoor ------------------------------------------------------
+    WeatherSensorEntityDescription(
+        key=FEELS_LIKE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        suggested_display_precision=2,
+        icon="mdi:thermometer",
+        translation_key=FEELS_LIKE,
+        value_fn=to_float,
+    ),
+    WeatherSensorEntityDescription(
+        key=WIND_SPEED_AVG10,
+        native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.WIND_SPEED,
+        suggested_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
+        icon="mdi:weather-windy",
+        translation_key=WIND_SPEED_AVG10,
+        value_fn=to_float,
+    ),
+    # --- Type5 lightning ----------------------------------------------------
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_LAST,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        icon="mdi:flash-alert",
+        translation_key=LIGHTNING_LAST,
+        # No device class: the API does not define an epoch, so this cannot be a
+        # TIMESTAMP (which HA requires to be a tz-aware datetime).
+        value_fn=lightning_minutes,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.DISTANCE,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_DISTANCE,
+        value_fn=to_float,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_STRIKES_1H,
+        # Rolling windows, not monotonic totals, so MEASUREMENT rather than
+        # TOTAL_INCREASING - the latter would make long-term statistics meaningless.
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_STRIKES_1H,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_COUNT_5M,
+        # Rolling windows, not monotonic totals, so MEASUREMENT rather than
+        # TOTAL_INCREASING - the latter would make long-term statistics meaningless.
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_COUNT_5M,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_COUNT_30M,
+        # Rolling windows, not monotonic totals, so MEASUREMENT rather than
+        # TOTAL_INCREASING - the latter would make long-term statistics meaningless.
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_COUNT_30M,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_COUNT_1H,
+        # Rolling windows, not monotonic totals, so MEASUREMENT rather than
+        # TOTAL_INCREASING - the latter would make long-term statistics meaningless.
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_COUNT_1H,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=LIGHTNING_COUNT_1D,
+        # Rolling windows, not monotonic totals, so MEASUREMENT rather than
+        # TOTAL_INCREASING - the latter would make long-term statistics meaningless.
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:flash",
+        translation_key=LIGHTNING_COUNT_1D,
+        value_fn=to_int,
+    ),
+    # --- Type8 particulate matter -------------------------------------------
+    WeatherSensorEntityDescription(
+        key=PM25,
+        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.PM25,
+        translation_key=PM25,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=PM10,
+        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.PM10,
+        translation_key=PM10,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=PM25_AQI,
+        # SensorDeviceClass.AQI takes no unit of measurement.
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.AQI,
+        translation_key=PM25_AQI,
+        value_fn=to_int,
+    ),
+    WeatherSensorEntityDescription(
+        key=PM10_AQI,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.AQI,
+        translation_key=PM10_AQI,
+        value_fn=to_int,
+    ),
+    # --- Type10 CO2 ---------------------------------------------------------
+    WeatherSensorEntityDescription(
+        key=CO2,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.CO2,
+        translation_key=CO2,
+        value_fn=to_int,
+    ),
+    # --- Type11 CO ----------------------------------------------------------
+    WeatherSensorEntityDescription(
+        key=CO,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.CO,
+        translation_key=CO,
+        value_fn=to_int,
+    ),
+    # 0-5 level batteries (t8/t9/t10/t11) are generated from BATTERY_NON_BINARY.
     *BATTERY_LEVEL_SENSORS,
 )
