@@ -7,6 +7,16 @@ domain change therefore costs nothing *provided the registry entries are carried
 rather than recreated*. A recreated entity gets a fresh `entity_id` (or the same one
 with an `_2` suffix, if the old entry still holds it) and its history is orphaned.
 
+The registry does hand a deleted entity back on recreation, but only within one
+integration: deleted entries are held under `(domain, platform, unique_id)`, where
+`platform` is the owning integration's domain, and `async_get_or_create` restores the old
+`entity_id` only when that whole key matches again and the id is still free. Deleting and
+re-adding the *same* integration therefore keeps its history on its own, which is why the
+README can tell PWS users to reinstall in place. A domain change never matches the key, so
+that path is not even consulted, and this module is what makes the move deterministic
+instead. The restore is time limited as well: `ORPHANED_ENTITY_KEEP_SECONDS` drops the
+deleted records 30 days after the config entry goes away.
+
 `entity_registry.async_update_entity_platform` is the supported way to carry them over.
 It rewrites `platform` and `config_entry_id` and leaves `entity_id` alone. Everything
 the user set by hand rides along for free, because the registry entry itself survives:

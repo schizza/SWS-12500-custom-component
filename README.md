@@ -40,6 +40,11 @@ historical data.
 > That action removes the entity registry records, and your history and long-term statistics have nothing left to attach to once they are gone.
 > They cannot be relinked afterwards, not even by the new integration.
 >
+> This applies to the rename specifically, not to deleting the integration in general.
+> Home Assistant remembers a deleted entity together with the integration it belonged to, and it only ever hands it back to that same integration.
+> The new integration is a different one, so nothing of the old entry is handed to it, and there is no way back to the history that was attached to those records.
+> Deleting and re-adding *this* integration is the other case, and there it is safe: see [Upgrading from PWS to WSLink](#upgrading-from-pws-to-wslink).
+>
 > Removing the *repository* in HACS is safe and is exactly what the migration expects.
 > The config entry stays where it is, showing up as `Integration not found`, which looks broken but is the state the new integration needs in order to take your entities over with their history intact.
 > Do it before you install the new integration: as long as the old version is still on disk it holds the webhook routes, and the new one refuses to start with `Webhook routes are already registered by another instance of this integration`.
@@ -292,6 +297,13 @@ deleting and reinstalling the integration makes sure the sensors are aware of th
 measurement scale.
 
 - because sensor unique IDs stay the same, you will not lose any of your historical data
+
+Home Assistant remembers deleted entities together with the integration they belonged to.
+Removing and re-adding this one is the same integration both times, so every sensor gets its original entity ID back, and the recorded history, the long-term statistics, the area, the aliases and the categories come back with it.
+The records are kept for 30 days after the removal, so reinstall within that window.
+
+That guarantee is tied to it being the same integration, which is why the planned rename to a new integration cannot rely on it and needs a real migration instead.
+See [Integration rename is planned for the next major release](#integration-rename-is-planned-for-the-next-major-release) for what not to do when that day comes.
 
 ## Resending data to Windy API
 
