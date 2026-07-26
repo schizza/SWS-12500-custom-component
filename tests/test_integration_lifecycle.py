@@ -115,8 +115,20 @@ async def test_register_path_registers_routes_and_stores_dispatcher(hass_with_ht
 
 
 @pytest.mark.asyncio
-async def test_register_path_raises_config_entry_not_ready_on_router_runtime_error(
+@pytest.mark.parametrize(
+    "router_error",
+    [
+        RuntimeError("router broken"),
+        # aiohttp's own wording when a route *name* is taken. The names here are fixed
+        # rather than domain-scoped, so a previous version of this integration that is
+        # still installed holds them - the state a half-finished migration leaves behind.
+        ValueError("Duplicate '_default_route', already handled by <ResourceRoute>"),
+    ],
+    ids=["runtime_error", "duplicate_route_name"],
+)
+async def test_register_path_raises_config_entry_not_ready_on_router_error(
     hass_with_http,
+    router_error: Exception,
 ):
     from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -131,10 +143,14 @@ async def test_register_path_raises_config_entry_not_ready_on_router_runtime_err
     coordinator_health = HealthCoordinator(hass_with_http, entry)
 
     router: _RouterStub = hass_with_http.http.app.router
-    router.raise_on_add = RuntimeError("router broken")
+    router.raise_on_add = router_error
 
-    with pytest.raises(ConfigEntryNotReady):
+    with pytest.raises(ConfigEntryNotReady) as excinfo:
         register_path(hass_with_http, coordinator, coordinator_health, entry)
+
+    # The message is the only thing the user sees on the integrations page, so it has to
+    # name the fix rather than repeat the aiohttp internals.
+    assert "HACS" in str(excinfo.value)
 
 
 @pytest.mark.asyncio

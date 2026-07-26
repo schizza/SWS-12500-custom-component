@@ -45,7 +45,7 @@ from .data import SWSConfigEntry, build_device_info
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
-from .utils import channel_humidity_device_class, channel_types
+from .utils import channel_humidity_device_class, channel_types, loaded_sensors
 
 if TYPE_CHECKING:
     from .coordinator import WeatherDataUpdateCoordinator
@@ -127,6 +127,10 @@ def add_new_sensors(hass: HomeAssistant, config_entry: SWSConfigEntry, keys: lis
     - This function is intentionally a safe no-op if the sensor platform hasn't
       finished setting up yet (e.g. callback/description map missing).
     - Unknown payload keys are ignored (only keys with an entity description are added).
+    - Derived sensors are expanded here exactly as in `async_setup_entry`. They are
+      computed, never sent, so discovery can only ever offer their *inputs* - and
+      without this the azimut a newly discovered wind direction unlocks would sit
+      missing until the next restart, when platform setup finally applies the expansion.
     """
 
     del hass  # kept for backwards-compatible call signature; not used after runtime_data migration
@@ -141,8 +145,18 @@ def add_new_sensors(hass: HomeAssistant, config_entry: SWSConfigEntry, keys: lis
     descriptions = runtime.sensor_descriptions
     coordinator = runtime.coordinator
 
+    # Only the derived sensors *this batch* unlocks, which is what keeps the expansion
+    # from re-adding one that platform setup or an earlier payload already created:
+    # anything derivable from the previous set was created back then. The caller has
+    # already written `keys` into `SENSORS_TO_LOAD`, so subtracting them recovers it.
+    loaded = set(loaded_sensors(config_entry))
+    previously = loaded - set(keys)
+    unlocked = _auto_enable_derived_sensors(loaded) - _auto_enable_derived_sensors(previously)
+
     new_entities: list[SensorEntity] = [
-        WeatherSensor(desc, coordinator) for key in keys if (desc := descriptions.get(key)) is not None
+        WeatherSensor(desc, coordinator)
+        for key in sorted(set(keys) | unlocked)
+        if (desc := descriptions.get(key)) is not None
     ]
 
     if new_entities:

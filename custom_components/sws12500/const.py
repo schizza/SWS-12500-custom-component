@@ -7,6 +7,13 @@ from typing import Final
 
 # Integration specific constants.
 DOMAIN = "sws12500"
+
+# Domain this integration was published under before the rename. Entities registered by
+# it are adopted on setup so their recorder history survives the move - see
+# `predecessor.py`. While the two are equal there is nothing to adopt and the whole pass
+# short-circuits, so this stays correct until the day the domain above changes.
+PREDECESSOR_DOMAIN: Final = "sws12500"
+
 DEV_DBG: Final = "dev_debug_checkbox"
 
 

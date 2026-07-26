@@ -56,6 +56,7 @@ from .coordinator import WeatherDataUpdateCoordinator
 from .data import SWSConfigEntry, SWSRuntimeData
 from .health_coordinator import HealthCoordinator
 from .legacy import update_legacy_battery_issue
+from .predecessor import async_adopt_predecessor, inherit_predecessor_options
 from .routes import Routes
 from .staleness import update_stale_sensors_issue
 
@@ -143,9 +144,17 @@ def register_path(
             # Save initialised routes
             hass_data["routes"] = routes
 
-        except RuntimeError as Ex:
+        # ValueError as well as RuntimeError: aiohttp rejects a duplicate route *name*
+        # with ValueError, and the names here are fixed rather than domain-scoped. That
+        # is what a half-finished migration looks like - the previous version is still
+        # installed and holding the same routes - so it deserves a message the user can
+        # act on rather than an unhandled traceback.
+        except (RuntimeError, ValueError) as Ex:
             _LOGGER.critical("Routes cannot be added. Integration will not work as expected. %s", Ex)
-            raise ConfigEntryNotReady from Ex
+            raise ConfigEntryNotReady(
+                "Webhook routes are already registered by another instance of this "
+                "integration. Remove the previous version in HACS and restart Home Assistant."
+            ) from Ex
 
         # Finally create internal route dispatcher with provided urls, while we have webhooks registered.
         routes.add_route(DEFAULT_URL, _default_route, coordinator.received_data, enabled=_legacy and not _wslink)
@@ -184,6 +193,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
     """
 
     hass.data.setdefault(DOMAIN, {})
+
+    # First, because everything below reads the options: the protocol flags decide which
+    # coordinator and which webhook routes get wired up, and inheriting `WSLINK` after
+    # that point would leave the entry listening on the wrong endpoint until a reload.
+    inherit_predecessor_options(hass, entry)
 
     coordinator = WeatherDataUpdateCoordinator(hass, entry)
     coordinator_health = HealthCoordinator(hass, entry)
@@ -224,6 +238,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: SWSConfigEntry) -> bool:
 
     await coordinator_health.async_config_entry_first_refresh()
     coordinator_health.update_forwarding(coordinator.windy, coordinator.pocasi)
+
+    # Late enough that the routes are proven, early enough that no entity exists yet.
+    #
+    # Late: adoption is the one destructive step - it removes the predecessor's config
+    # entry. Running it before the routes are up means a station that still has the old
+    # version installed gets its entry deleted and then a failed setup, with nothing to
+    # fall back to. Everything above this line can raise ConfigEntryNotReady and leave
+    # the user exactly where they started.
+    #
+    # Early: adoption rewrites the predecessor's registry entries in place and our
+    # platforms then bind to those same entries by unique id, keeping their entity_id
+    # and with it their recorder history. After `async_forward_entry_setups` the
+    # entity_ids would already have been handed out to freshly created entities.
+    await async_adopt_predecessor(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

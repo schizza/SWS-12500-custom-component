@@ -214,6 +214,68 @@ def test_add_new_sensors_adds_known_keys(hass):
     assert entities_arg[0].entity_description.key == known_desc.key
 
 
+def _descriptions_for(*keys: str) -> dict[str, Any]:
+    by_key = {desc.key: desc for desc in SENSOR_TYPES_WEATHER_API}
+    return {key: by_key[key] for key in keys}
+
+
+def test_discovering_wind_dir_also_adds_the_azimut(hass):
+    """Derived sensors are computed, never sent, so discovery can only offer their inputs.
+
+    Without expanding here they would appear only after the next restart, when platform
+    setup applies `_auto_enable_derived_sensors` for the first time. That is exactly what
+    left Azimut and Heat index sitting as "no longer provided" after a domain migration.
+    """
+    # The caller writes the discovered keys into SENSORS_TO_LOAD before calling us.
+    entry, _coordinator, runtime = _make_entry(options={SENSORS_TO_LOAD: [WIND_DIR]})
+    add_entities = MagicMock()
+    runtime.add_sensor_entities = add_entities
+    runtime.sensor_descriptions = _descriptions_for(WIND_DIR, WIND_AZIMUT)
+
+    add_new_sensors(hass, entry, keys=[WIND_DIR])
+
+    (entities_arg,) = add_entities.call_args.args
+    assert {e.entity_description.key for e in entities_arg} == {WIND_DIR, WIND_AZIMUT}
+
+
+def test_heat_index_appears_only_once_both_inputs_are_known(hass):
+    """It needs temperature *and* humidity, so the first of the two must not trigger it."""
+    entry, _coordinator, runtime = _make_entry(options={SENSORS_TO_LOAD: [OUTSIDE_TEMP]})
+    add_entities = MagicMock()
+    runtime.add_sensor_entities = add_entities
+    runtime.sensor_descriptions = _descriptions_for(OUTSIDE_TEMP, OUTSIDE_HUMIDITY, HEAT_INDEX)
+
+    add_new_sensors(hass, entry, keys=[OUTSIDE_TEMP])
+    (first,) = add_entities.call_args.args
+    assert {e.entity_description.key for e in first} == {OUTSIDE_TEMP}
+
+    entry.options = {SENSORS_TO_LOAD: [OUTSIDE_TEMP, OUTSIDE_HUMIDITY]}
+    add_new_sensors(hass, entry, keys=[OUTSIDE_HUMIDITY])
+    (second,) = add_entities.call_args.args
+    assert {e.entity_description.key for e in second} == {OUTSIDE_HUMIDITY, HEAT_INDEX}
+
+
+def test_a_derived_sensor_is_never_added_twice(hass):
+    """A second entity with the same unique id would be rejected and logged as an error.
+
+    Once the azimut exists, later discoveries must not offer it again - the wind
+    direction that unlocked it is still in SENSORS_TO_LOAD forever after.
+    """
+    entry, _coordinator, runtime = _make_entry(options={SENSORS_TO_LOAD: [WIND_DIR]})
+    add_entities = MagicMock()
+    runtime.add_sensor_entities = add_entities
+    runtime.sensor_descriptions = _descriptions_for(WIND_DIR, WIND_AZIMUT, OUTSIDE_TEMP)
+
+    add_new_sensors(hass, entry, keys=[WIND_DIR])
+
+    # A later payload brings something unrelated; the azimut already exists.
+    entry.options = {SENSORS_TO_LOAD: [WIND_DIR, OUTSIDE_TEMP]}
+    add_new_sensors(hass, entry, keys=[OUTSIDE_TEMP])
+
+    (second,) = add_entities.call_args.args
+    assert {e.entity_description.key for e in second} == {OUTSIDE_TEMP}
+
+
 def test_add_new_sensors_noop_when_runtime_data_missing():
     """add_new_sensors is a safe no-op when the entry is unloaded (no runtime_data)."""
     entry = SimpleNamespace(entry_id="x", options={}, runtime_data=None)
