@@ -220,6 +220,36 @@ def test_outdoor_readings_survive_a_firmware_that_omits_t1cn() -> None:
     assert out[WIND_SPEED] == "4.2"
 
 
+@pytest.mark.parametrize("blank", ["", "   ", "n/a"])
+def test_a_flag_that_carries_no_value_is_not_a_disconnection(blank) -> None:
+    """A key present but empty says nothing; treating it as 0 blanks the whole probe."""
+    from custom_components.sws12500.const import OUTSIDE_TEMP, WIND_SPEED
+    from custom_components.sws12500.utils import remap_wslink_items
+
+    out = remap_wslink_items({**OUTDOOR_PAYLOAD, "t1cn": blank})
+    assert out[OUTSIDE_TEMP] == "11.3"
+    assert out[WIND_SPEED] == "4.2"
+
+
+@pytest.mark.parametrize("connected", ["1", "1.0", 1, 1.0])
+def test_a_decimal_formatted_connection_flag_still_means_connected(connected) -> None:
+    """The station sometimes spells integer fields as decimals - see `to_int`."""
+    from custom_components.sws12500.const import OUTSIDE_TEMP
+    from custom_components.sws12500.utils import remap_wslink_items
+
+    out = remap_wslink_items({**OUTDOOR_PAYLOAD, "t1cn": connected})
+    assert out[OUTSIDE_TEMP] == "11.3"
+
+
+@pytest.mark.parametrize("disconnected", ["0", "0.0", 0])
+def test_a_decimal_formatted_zero_still_means_disconnected(disconnected) -> None:
+    from custom_components.sws12500.const import OUTSIDE_TEMP
+    from custom_components.sws12500.utils import remap_wslink_items
+
+    out = remap_wslink_items({**OUTDOOR_PAYLOAD, "t1cn": disconnected})
+    assert OUTSIDE_TEMP not in out
+
+
 # ---------------------------------------------------------------------------
 # Probe type decides the humidity device class
 # ---------------------------------------------------------------------------

@@ -185,8 +185,10 @@ def test_add_new_adds_new_known_keys(hass):
     [
         ("0", True),  # low battery -> on
         (0, True),
+        ("0.0", True),  # the station also spells integers as decimals
         ("1", False),  # battery OK -> off
         (1, False),
+        ("1.0", False),
         (None, None),  # missing
         ("", None),  # empty string
         ("x", None),  # non-int
@@ -199,6 +201,19 @@ def test_is_on_value_mapping(raw, expected):
 
     assert sensor.is_on is expected
     assert sensor.unique_id == f"{OUTSIDE_BATTERY}_binary"
+
+
+@pytest.mark.parametrize("raw", ["1", "1.0", 1])
+def test_a_decimal_formatted_leak_still_reads_as_wet(raw):
+    """A missed alarm, not a cosmetic gap: `1.0` must not render as `unknown`."""
+    from custom_components.sws12500.battery_sensors_def import LEAK_BINARY_SENSORS
+    from custom_components.sws12500.const import LEAK_CH
+
+    desc = next(d for d in LEAK_BINARY_SENSORS if d.key == LEAK_CH[0])
+    coordinator = _CoordinatorStub({LEAK_CH[0]: raw})
+    sensor = WSBinarySensor(coordinator, desc)
+
+    assert sensor.is_on is True
 
 
 def test_is_on_key_absent_returns_none():

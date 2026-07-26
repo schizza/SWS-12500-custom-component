@@ -45,7 +45,7 @@ from .data import SWSConfigEntry, build_device_info
 from .sensors_common import WeatherSensorEntityDescription
 from .sensors_weather import SENSOR_TYPES_WEATHER_API
 from .sensors_wslink import SENSOR_TYPES_WSLINK
-from .utils import channel_humidity_device_class
+from .utils import channel_humidity_device_class, channel_types
 
 if TYPE_CHECKING:
     from .coordinator import WeatherDataUpdateCoordinator
@@ -176,10 +176,11 @@ class WeatherSensor(  # pyright: ignore[reportIncompatibleVariableOverride]
 
         # A multi-channel humidity reading is soil moisture when the probe says so.
         # Resolved once here rather than in the (frozen, shared) description, because
-        # it depends on which probe the user actually plugged into that channel.
-        runtime = getattr(coordinator.config, "runtime_data", None)
-        channel_types = getattr(runtime, "channel_types", None) or {}
-        if (device_class := channel_humidity_device_class(channel_types, description.key)) is not None:
+        # it depends on which probe the user actually plugged into that channel. The
+        # probe types come from options, so the class survives a restart - entities are
+        # created during entry setup, before the first payload arrives.
+        probe_types = channel_types(coordinator.config)
+        if (device_class := channel_humidity_device_class(probe_types, description.key)) is not None:
             self._attr_device_class = device_class
 
     @property

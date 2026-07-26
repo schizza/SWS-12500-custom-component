@@ -699,3 +699,44 @@ async def test_options_flow_does_not_roll_back_concurrent_autodiscovery(
 
     assert done["type"] == "create_entry"
     assert done["data"][SENSORS_TO_LOAD] == ["outside_temp", "wind_gust"]
+
+
+@pytest.mark.asyncio
+async def test_options_flow_keeps_the_learned_probe_types(
+    hass,
+    enable_custom_integrations,
+) -> None:
+    """Probe types are written from the hot path, like SENSORS_TO_LOAD.
+
+    Dropping them on submit would silently turn every soil channel back into an
+    air-humidity entity on the next restart.
+    """
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={
+            API_ID: "station",
+            API_KEY: "secret",
+            LEGACY_ENABLED: True,
+            CHANNEL_TYPES: {"t234c1tp": "4"},
+        },
+    )
+    entry.add_to_hass(hass)
+
+    init = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(init["flow_id"], user_input={"next_step_id": "basic"})
+
+    done = await hass.config_entries.options.async_configure(
+        init["flow_id"],
+        user_input={
+            API_ID: "station",
+            API_KEY: "secret",
+            WSLINK: True,
+            LEGACY_ENABLED: True,
+        },
+    )
+
+    assert done["type"] == "create_entry"
+    assert done["data"][CHANNEL_TYPES] == {"t234c1tp": "4"}

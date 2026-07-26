@@ -17,6 +17,7 @@ from .conflicts import ERROR_MUTUALLY_EXCLUSIVE
 from .const import (
     API_ID,
     API_KEY,
+    CHANNEL_TYPES,
     DEV_DBG,
     DOMAIN,
     ECOWITT_ENABLED,
@@ -344,15 +345,17 @@ class ConfigOptionsFlowHandler(OptionsFlow):
     def retain_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Merge the submitted step over every other section's current values.
 
-        `SENSORS_TO_LOAD` is re-read here rather than taken from the `_get_entry_data`
-        snapshot: auto-discovery appends to it from the webhook handler, so a dialog
-        left open while the station reports a new field would otherwise roll that
-        discovery back on submit.
+        `SENSORS_TO_LOAD` and `CHANNEL_TYPES` are re-read here rather than taken from
+        the `_get_entry_data` snapshot: the webhook handler writes both, so a dialog
+        left open while the station reports a new field - or a new probe type - would
+        otherwise roll that back on submit. Losing the probe types would silently turn
+        every soil channel back into an air-humidity entity.
         """
 
         discovered = self.config_entry.options.get(SENSORS_TO_LOAD)
+        probe_types = self.config_entry.options.get(CHANNEL_TYPES)
 
-        return {
+        retained: dict[str, Any] = {
             **self.user_data,
             **self.windy_data,
             **self.pocasi_cz,
@@ -361,6 +364,11 @@ class ConfigOptionsFlowHandler(OptionsFlow):
             **dict(data),
             SENSORS_TO_LOAD: discovered if isinstance(discovered, list) else [],
         }
+
+        if isinstance(probe_types, dict) and probe_types:
+            retained[CHANNEL_TYPES] = probe_types
+
+        return retained
 
 
 class ConfigFlowHandler(ConfigFlow, domain=DOMAIN):

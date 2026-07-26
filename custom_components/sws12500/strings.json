@@ -593,7 +593,7 @@
         "name": "Lightning distance"
       },
       "lightning_strikes_1h": {
-        "name": "Lightning strikes (last hour)"
+        "name": "Lightning strikes, last hour (t5lsf)"
       },
       "lightning_count_5m": {
         "name": "Lightning strikes (5 minutes)"
@@ -602,7 +602,7 @@
         "name": "Lightning strikes (30 minutes)"
       },
       "lightning_count_1h": {
-        "name": "Lightning strikes (1 hour)"
+        "name": "Lightning strike total, 1 hour (t5ls1htc)"
       },
       "lightning_count_1d": {
         "name": "Lightning strikes (1 day)"

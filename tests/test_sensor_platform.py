@@ -241,14 +241,11 @@ def test_channel_humidity_entity_takes_its_class_from_the_probe(channel_type, ex
     from types import SimpleNamespace
     from unittest.mock import MagicMock
 
-    from custom_components.sws12500.const import CH2_HUMIDITY
+    from custom_components.sws12500.const import CH2_HUMIDITY, CHANNEL_TYPES
     from custom_components.sws12500.sensor import WeatherSensor
 
     coordinator = MagicMock()
-    coordinator.config = SimpleNamespace(
-        options={},
-        runtime_data=SimpleNamespace(channel_types={"t234c1tp": channel_type}),
-    )
+    coordinator.config = SimpleNamespace(options={CHANNEL_TYPES: {"t234c1tp": channel_type}})
 
     sensor = WeatherSensor(_wslink_desc(CH2_HUMIDITY), coordinator)
     assert sensor.device_class == expected
@@ -263,7 +260,30 @@ def test_channel_humidity_entity_falls_back_to_the_description() -> None:
     from custom_components.sws12500.sensor import WeatherSensor
 
     coordinator = MagicMock()
-    coordinator.config = SimpleNamespace(options={}, runtime_data=SimpleNamespace(channel_types={}))
+    coordinator.config = SimpleNamespace(options={})
 
     sensor = WeatherSensor(_wslink_desc(CH2_HUMIDITY), coordinator)
     assert sensor.device_class == "humidity"
+
+
+def test_soil_channel_class_survives_a_restart() -> None:
+    """The restart case: entities are built from options before any payload arrives.
+
+    Runtime state is empty at this point, so the probe type must come from the
+    persisted options or the soil channel silently reverts to air humidity.
+    """
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from custom_components.sws12500.const import CH2_HUMIDITY, CHANNEL_TYPES
+    from custom_components.sws12500.sensor import WeatherSensor
+
+    coordinator = MagicMock()
+    coordinator.data = {}
+    coordinator.config = SimpleNamespace(
+        options={CHANNEL_TYPES: {"t234c1tp": "4"}},
+        runtime_data=SimpleNamespace(),
+    )
+
+    sensor = WeatherSensor(_wslink_desc(CH2_HUMIDITY), coordinator)
+    assert sensor.device_class == "moisture"

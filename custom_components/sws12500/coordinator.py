@@ -33,6 +33,7 @@ from .const import (
     API_ID,
     API_KEY,
     CH_HUMIDITY_TYPE_PARAM,
+    CHANNEL_TYPES,
     DEV_DBG,
     DOMAIN,
     ECOWITT_ENABLED,
@@ -49,6 +50,7 @@ from .pocasti_cz import PocasiPush
 from .sensor import add_new_sensors
 from .utils import (
     anonymize,
+    channel_types,
     check_disabled,
     loaded_sensors,
     remap_items,
@@ -249,6 +251,27 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
 
         return aiohttp.web.Response(body="OK", status=200)
 
+    async def _persist_channel_types(self, data: dict[str, Any]) -> None:
+        """Store the reported `t234cXtp` probe types in the config entry options.
+
+        Entities are created during entry setup, before the first payload arrives, so
+        the probe type that decides a channel's humidity device class has to outlive
+        the current session - runtime state resets on every reload.
+
+        Merged rather than replaced: a payload that omits some `tp` parameters says
+        nothing about the channels it left out. Written only when something actually
+        changed, and `update_listener` skips the reload for this key.
+        """
+
+        reported = {param: str(data[param]) for param in CH_HUMIDITY_TYPE_PARAM.values() if param in data}
+        if not reported:
+            return
+
+        stored = channel_types(self.config)
+        merged = {**stored, **reported}
+        if merged != stored:
+            await update_options(self.hass, self.config, CHANNEL_TYPES, merged)
+
     async def received_data(self, webdata: aiohttp.web.Request) -> aiohttp.web.Response:
         """Handle incoming webhook payload from the station.
 
@@ -281,9 +304,7 @@ class WeatherDataUpdateCoordinator(DataUpdateCoordinator):
         # The probe type per channel is not a reading, so it is not remapped - but a
         # sensor created later needs it to tell soil moisture from air humidity.
         if _wslink:
-            self.config.runtime_data.channel_types = {
-                param: data[param] for param in CH_HUMIDITY_TYPE_PARAM.values() if param in data
-            }
+            await self._persist_channel_types(data)
 
         if sensors := check_disabled(remaped_items, self.config):
             # Resolve each sensor's display name once (the previous comprehension

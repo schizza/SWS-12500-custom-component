@@ -310,6 +310,33 @@ async def test_update_listener_skips_reload_when_only_sensors_to_load_changes(
 
 
 @pytest.mark.asyncio
+async def test_update_listener_skips_reload_when_only_probe_types_change(
+    hass_with_http,
+):
+    """The webhook handler writes these on every new probe type it is told about.
+
+    Reloading a push-based integration there would drop coordinator listeners.
+    """
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = _entry_with_runtime(
+        hass_with_http,
+        options={API_ID: "id", API_KEY: "key", CHANNEL_TYPES: {"t234c1tp": "2"}},
+    )
+
+    hass_with_http.config_entries.async_reload = AsyncMock()
+
+    hass_with_http.config_entries.async_update_entry(
+        entry, options={**dict(entry.options), CHANNEL_TYPES: {"t234c1tp": "4"}}
+    )
+
+    await update_listener(hass_with_http, entry)
+
+    hass_with_http.config_entries.async_reload.assert_not_awaited()
+    assert entry.runtime_data.last_options == dict(entry.options)
+
+
+@pytest.mark.asyncio
 async def test_update_listener_triggers_reload_when_other_option_changes(
     hass_with_http,
     monkeypatch,

@@ -29,6 +29,7 @@ from .const import (
     AZIMUT,
     CH_HUMIDITY_TYPE_PARAM,
     CH_TYPE_SOIL,
+    CHANNEL_TYPES,
     CHILL_INDEX,
     CONNECTION_GATED_SENSORS,
     DEV_DBG,
@@ -145,8 +146,10 @@ def remap_wslink_items(entities: dict[str, str]) -> dict[str, str]:
         # firmware does not report one, which is not evidence of a disconnection -
         # treating it as such would wipe out every reading of a probe whose firmware
         # omits the flag, up to and including the main outdoor sensor gated by `t1cn`.
-        connection = entities.get(conn_key)
-        if connection is not None and str(connection) != "1":
+        # A blank value carries no information either, and `to_int` accepts the
+        # decimal spelling the station sometimes uses for integer fields.
+        connection = to_int(entities.get(conn_key))
+        if connection is not None and connection != 1:
             for key in gated:
                 items.pop(key, None)
 
@@ -160,6 +163,19 @@ def loaded_sensors(config_entry: ConfigEntry) -> list[str]:
     platform uses this list to decide which entities to create.
     """
     return config_entry.options.get(SENSORS_TO_LOAD) or []
+
+
+def channel_types(config_entry: ConfigEntry) -> dict[str, str]:
+    """Return the persisted `t234cXtp` probe types for this config entry.
+
+    The types decide whether a channel's humidity reading is air humidity or soil
+    moisture. They live in options rather than runtime state because entities are
+    created during entry setup, long before the first payload arrives.
+    """
+    stored = config_entry.options.get(CHANNEL_TYPES)
+    if not isinstance(stored, dict):
+        return {}
+    return {str(param): str(value) for param, value in stored.items()}
 
 
 def check_disabled(items: dict[str, str], config_entry: ConfigEntry) -> list[str] | None:
@@ -492,26 +508,28 @@ def lightning_minutes(value: Any) -> int | None:
     return minutes
 
 
-def channel_humidity_device_class(raw_payload: dict[str, Any], key: str) -> SensorDeviceClass | None:
+def channel_humidity_device_class(probe_types: dict[str, Any], key: str) -> SensorDeviceClass | None:
     """Device class for a multi-channel humidity reading, from the probe type.
 
     WSLink reports what kind of probe sits on each channel via `t234cXtp`. A soil
     probe (type 4) measures soil moisture, not air humidity, so it needs
     `SensorDeviceClass.MOISTURE` rather than `HUMIDITY`.
 
-    Returns None when the channel is not one of the multi-channel ones, or when the
-    station did not report a type - the description's own device class then applies.
+    `probe_types` are the persisted types from `channel_types`, not a live payload:
+    the entity is created during entry setup, before any payload arrives, so the
+    types have to survive a restart for the class to stay stable.
 
-    This is resolved once, when the entity is created: Home Assistant records the
-    device class in the entity registry, and swapping it underneath a live entity
-    would rewrite its meaning. Replacing the physical probe therefore needs the
-    integration reinstalled, which is the intended trade-off.
+    Returns None when the channel is not one of the multi-channel ones, or when the
+    station has never reported a type - the description's own device class then applies.
+
+    This is resolved once, when the entity is created; swapping the physical probe on
+    a channel takes effect on the next restart, once the station reports the new type.
     """
     param = CH_HUMIDITY_TYPE_PARAM.get(key)
     if param is None:
         return None
 
-    channel_type = to_int(raw_payload.get(param))
+    channel_type = to_int(probe_types.get(param))
     if channel_type is None:
         return None
 

@@ -97,8 +97,12 @@ async def test_deactivated_dispatcher_reports_unloaded() -> None:
 
     response = await routes.dispatch(_RequestStub(method="GET", path="/x"))
     assert response.status == 503
-    # The observer is cleared on deactivate, so nothing is recorded for a dead entry.
-    observer.assert_not_called()
+    # The observer survives deactivate: an ingress arriving while the entry is
+    # unloaded is exactly what diagnostics needs to report.
+    observer.assert_called_once()
+    _request, route_enabled, reason = observer.call_args.args
+    assert route_enabled is False
+    assert reason == "integration_unloaded"
 
 
 def test_show_enabled_reports_nothing_while_deactivated() -> None:

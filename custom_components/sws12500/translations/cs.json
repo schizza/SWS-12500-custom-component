@@ -593,7 +593,7 @@
         "name": "Vzdálenost blesku"
       },
       "lightning_strikes_1h": {
-        "name": "Blesky (poslední hodina)"
+        "name": "Blesky, poslední hodina (t5lsf)"
       },
       "lightning_count_5m": {
         "name": "Blesky (5 minut)"
@@ -602,7 +602,7 @@
         "name": "Blesky (30 minut)"
       },
       "lightning_count_1h": {
-        "name": "Blesky (1 hodina)"
+        "name": "Blesky celkem, 1 hodina (t5ls1htc)"
       },
       "lightning_count_1d": {
         "name": "Blesky (1 den)"

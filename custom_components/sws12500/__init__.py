@@ -40,6 +40,7 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .conflicts import effective_protocols, update_protocol_conflict_issue
 from .const import (
+    CHANNEL_TYPES,
     DEFAULT_URL,
     DOMAIN,
     ECOWITT_URL_PREFIX,
@@ -235,7 +236,9 @@ async def update_listener(hass: HomeAssistant, entry: SWSConfigEntry):
     """Handle config entry option updates.
 
     We skip reloading when only live-read options change:
-    - `SENSORS_TO_LOAD` (auto-discovery updates it as new payload fields appear), and
+    - `SENSORS_TO_LOAD` (auto-discovery updates it as new payload fields appear),
+    - `CHANNEL_TYPES` (the webhook handler persists the probe types it is told about,
+      and they are only read when an entity is created), and
     - the forwarding enable flags (`WINDY_ENABLED`/`POCASI_CZ_ENABLED`), which the
       forwarders read on every push - so a forwarder that auto-disables itself from the
       hot path no longer triggers a disruptive reload.
@@ -254,7 +257,7 @@ async def update_listener(hass: HomeAssistant, entry: SWSConfigEntry):
 
         runtime.last_options = new_options
 
-        if changed_keys and changed_keys <= {SENSORS_TO_LOAD, WINDY_ENABLED, POCASI_CZ_ENABLED}:
+        if changed_keys and changed_keys <= {SENSORS_TO_LOAD, CHANNEL_TYPES, WINDY_ENABLED, POCASI_CZ_ENABLED}:
             _LOGGER.debug("Options updated (%s); skipping reload.", ", ".join(sorted(changed_keys)))
             return
 

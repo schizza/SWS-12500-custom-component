@@ -61,11 +61,6 @@ class SWSRuntimeData:
     # Ecowitt station model (e.g. "GW1000"), learned from the first Ecowitt payload.
     ecowitt_model: str | None = None
 
-    # Raw `t234cXtp` values from the last WSLink payload. They decide whether a
-    # channel's humidity reading is air humidity or soil moisture, and are read when
-    # the entity is created (see `utils.channel_humidity_device_class`).
-    channel_types: dict[str, str] = field(default_factory=dict)
-
 
 # Type alias for typed ConfigEntry
 type SWSConfigEntry = ConfigEntry[SWSRuntimeData]

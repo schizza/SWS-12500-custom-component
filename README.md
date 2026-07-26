@@ -119,9 +119,9 @@ helpers.
 | --- | --- |
 | Console | indoor temperature and humidity, relative **and absolute** barometric pressure, console battery |
 | **Type1** outdoor | temperature, humidity, dew point, **feels-like**, heat index, wind chill, **WBGT**, wind direction / speed / **10-minute average** / gust, rain rate and hourly / daily / weekly / monthly / yearly totals, UV index, solar irradiance, battery |
-| **Type2/3/4** CH1–CH7 | temperature and humidity per channel, battery |
+| **Type2/3/4** CH2–CH8 (API CH1–CH7) | temperature and humidity per channel, battery |
 | **Type5** lightning | distance, time since the last strike, strike counts over 5 min / 30 min / 1 h / 1 day, battery |
-| **Type6** water leak CH1–CH7 | leak state per channel, battery |
+| **Type6** water leak CH1–CH7 | leak state per channel (entities `leak_ch1` – `leak_ch7`), battery |
 | **Type8** particulate matter | PM2.5, PM10 and their AQI values, battery |
 | **Type9** air quality | formaldehyde (HCHO) in ppb, VOC level, battery |
 | **Type10** | CO₂ concentration, battery |
@@ -129,6 +129,10 @@ helpers.
 
 A few details worth knowing:
 
+- **Channel numbering differs between the two multi-channel families.** For historical
+  reasons the temperature/humidity channels are numbered one higher than the API numbers
+  them, so WSLink `CH1` is the `ch2_*` entity ("Channel 2 temperature") and WSLink `CH7`
+  is `ch8_*`. The water leak channels are not shifted: WSLink `CH1` is `leak_ch1`.
 - **Batteries come in two kinds, and they are not interchangeable.** The outdoor, channel,
   lightning and water-leak probes report a plain `normal` / `low` flag and become binary
   `battery` sensors. The PM, air-quality, CO₂ and CO probes report a 0–5 level instead and
@@ -137,12 +141,14 @@ A few details worth knowing:
   "not low" for everything above empty.
 - **Probes are gated on their connection flag.** A probe the station reports as
   disconnected has its readings dropped rather than left frozen at the last value. A
-  station that does not send a connection flag at all is never gated — absence of the flag
-  is not evidence of a disconnection.
+  station that does not send a connection flag, or sends it empty, is never gated — only an
+  explicit "not connected" drops readings, because a missing flag is not evidence of a
+  disconnection.
 - **A soil probe is not a humidity sensor.** WSLink reports what kind of probe sits on each
   channel, so a soil moisture & temperature probe gets Home Assistant's `moisture` device
-  class instead of `humidity`. This is decided when the entity is first created; swapping
-  the physical probe on a channel afterwards means reinstalling the integration.
+  class instead of `humidity`. The reported probe types are remembered across restarts, and
+  the class is resolved when the entity is created; swapping the physical probe on a channel
+  therefore takes effect on the next restart, once the station has reported the new type.
 - **VOC level** is reported as a named air-quality level (`unhealthy`, `poor`, `moderate`,
   `good`, `excellent`) from the station's 1–5 index, where 1 is worst.
 - **Heat index and wind chill** are taken from the station when it sends them, and computed

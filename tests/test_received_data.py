@@ -531,3 +531,86 @@ async def test_received_data_empty_incoming_credentials_raises_unauthorized(hass
     with pytest.raises(HTTPUnauthorized):
         await coordinator.received_data(_RequestStub(query={"ID": "", "PASSWORD": ""}))  # type: ignore[arg-type]
     entry.runtime_data.health_coordinator.update_ingress_result.assert_called_once()
+
+
+# --- probe types are persisted, not held in runtime state -------------------
+
+
+def _wslink_coordinator(hass, monkeypatch, entry):
+    """Coordinator wired for a WSLink push, with option writes captured in `entry.options`."""
+    coordinator = WeatherDataUpdateCoordinator(hass, entry)
+    coordinator.async_set_updated_data = MagicMock()
+
+    monkeypatch.setattr(
+        "custom_components.sws12500.coordinator.check_disabled",
+        lambda _remaped_items, _config: [],
+    )
+
+    writes: list[tuple[str, Any]] = []
+
+    async def _update_options(_hass, config_entry, update_key, update_value):
+        writes.append((update_key, update_value))
+        config_entry.options = {**config_entry.options, update_key: update_value}
+        return True
+
+    monkeypatch.setattr("custom_components.sws12500.coordinator.update_options", _update_options)
+    return coordinator, writes
+
+
+@pytest.mark.asyncio
+async def test_wslink_payload_persists_the_reported_probe_types(hass, monkeypatch):
+    """Entities are created before the first payload, so runtime state cannot carry these."""
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = _make_entry(wslink=True)
+    coordinator, writes = _wslink_coordinator(hass, monkeypatch, entry)
+
+    request = _RequestStub(query={"wsid": "id", "wspw": "key", "t234c1tp": "4", "t234c1hum": "31"})
+    await coordinator.received_data(request)  # type: ignore[arg-type]
+
+    assert writes == [(CHANNEL_TYPES, {"t234c1tp": "4"})]
+    assert entry.options[CHANNEL_TYPES] == {"t234c1tp": "4"}
+
+
+@pytest.mark.asyncio
+async def test_probe_types_are_merged_not_replaced(hass, monkeypatch):
+    """A payload that omits a `tp` parameter says nothing about that channel."""
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = _make_entry(wslink=True)
+    entry.options[CHANNEL_TYPES] = {"t234c1tp": "4"}
+    coordinator, _writes = _wslink_coordinator(hass, monkeypatch, entry)
+
+    request = _RequestStub(query={"wsid": "id", "wspw": "key", "t234c2tp": "2"})
+    await coordinator.received_data(request)  # type: ignore[arg-type]
+
+    assert entry.options[CHANNEL_TYPES] == {"t234c1tp": "4", "t234c2tp": "2"}
+
+
+@pytest.mark.asyncio
+async def test_unchanged_probe_types_are_not_rewritten(hass, monkeypatch):
+    """Rewriting options on every push would churn the config entry for nothing."""
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = _make_entry(wslink=True)
+    entry.options[CHANNEL_TYPES] = {"t234c1tp": "4"}
+    coordinator, writes = _wslink_coordinator(hass, monkeypatch, entry)
+
+    request = _RequestStub(query={"wsid": "id", "wspw": "key", "t234c1tp": "4"})
+    await coordinator.received_data(request)  # type: ignore[arg-type]
+
+    assert writes == []
+
+
+@pytest.mark.asyncio
+async def test_a_legacy_payload_never_touches_probe_types(hass, monkeypatch):
+    from custom_components.sws12500.const import CHANNEL_TYPES
+
+    entry = _make_entry(wslink=False)
+    coordinator, writes = _wslink_coordinator(hass, monkeypatch, entry)
+
+    request = _RequestStub(query={"ID": "id", "PASSWORD": "key", "t234c1tp": "4"})
+    await coordinator.received_data(request)  # type: ignore[arg-type]
+
+    assert writes == []
+    assert CHANNEL_TYPES not in entry.options

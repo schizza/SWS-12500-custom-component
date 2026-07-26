@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .data import build_device_info
 from .sensors_common import WSBinarySensorEntityDescription
+from .utils import to_int
 
 
 class WSBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -53,12 +54,10 @@ class WSBinarySensor(  # pyright: ignore[reportIncompatibleVariableOverride]
         data = checked_or(self.coordinator.data, dict[str, Any], {})
         raw: Any = data.get(self.entity_description.key)
 
-        if raw is None or raw == "":
-            return None
-
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
+        # `to_int` rather than a bare `int`: the station sometimes sends integer
+        # fields as decimals, and a leak reported as "1.0" must still read as wet.
+        value = to_int(raw)
+        if value is None:
             return None
 
         return value == self.entity_description.on_value

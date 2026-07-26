@@ -16,6 +16,11 @@ API_ID = "API_ID"
 
 SENSORS_TO_LOAD: Final = "sensors_to_load"
 
+# Option key holding the raw `t234cXtp` probe types last reported by the station.
+# Persisted rather than kept in runtime state because the channel humidity entities
+# are created during entry setup, before any payload arrives.
+CHANNEL_TYPES: Final = "channel_types"
+
 INVALID_CREDENTIALS: Final = [
     "API",
     "API_ID",

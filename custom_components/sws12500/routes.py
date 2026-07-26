@@ -70,9 +70,15 @@ class Routes:
         self.active = True
 
     def deactivate(self) -> None:
-        """Stop registered routes from dispatching to config-entry handlers."""
+        """Stop registered routes from dispatching to config-entry handlers.
+
+        The ingress observer is deliberately kept: a payload that arrives while the
+        entry is unloaded is exactly the kind of thing diagnostics needs to record,
+        and `HealthCoordinator.record_dispatch` is safe to call then - it only
+        publishes a snapshot to (no) listeners and tolerates missing runtime data.
+        The next setup repoints it at the new coordinator.
+        """
         self.active = False
-        self._ingress_observer = None
 
     def _resolve_route(self, request: Request) -> RouteInfo | None:
         """Find the matching RouteInfo for a request.
