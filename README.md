@@ -133,6 +133,10 @@ A few details worth knowing:
   reasons the temperature/humidity channels are numbered one higher than the API numbers
   them, so WSLink `CH1` is the `ch2_*` entity ("Channel 2 temperature") and WSLink `CH7`
   is `ch8_*`. The water leak channels are not shifted: WSLink `CH1` is `leak_ch1`.
+- **There are two 1-hour lightning counters.** The API defines both `t5lsf` ("strike
+  count last 1 hours") and `t5ls1htc` ("count total of during 1 hour") without saying how
+  they differ, so both get an entity and both carry the parameter name, rather than the
+  integration guessing which one your firmware fills in.
 - **Batteries come in two kinds, and they are not interchangeable.** The outdoor, channel,
   lightning and water-leak probes report a plain `normal` / `low` flag and become binary
   `battery` sensors. The PM, air-quality, CO₂ and CO probes report a 0–5 level instead and

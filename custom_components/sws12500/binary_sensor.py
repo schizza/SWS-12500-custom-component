@@ -1,6 +1,7 @@
 """Binary sensor platform for SWS12500.
 
-Exposes low-battery warnings as binary sensors.
+Exposes low-battery warnings and water-leak state as binary sensors; the raw value
+that means `on` differs per family and comes from the entity description.
 Auto-discovery adds entities without reloading the entry, using callbacks stored on `runtime_data`.
 """
 

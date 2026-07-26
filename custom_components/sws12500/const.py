@@ -438,16 +438,6 @@ REMAP_WSLINK_ITEMS: dict[str, str] = {
     "t11bat": T11_BATTERY,
 }
 
-# NOTE: Add more sensors
-#
-# 'inbat'  indoor battery level (1 normal, 0 low)
-# 't1bat': outdoor battery level (1 normal, 0 low)
-# 't234c1bat': CH2 battery level (1 normal, 0 low)  CH2 in integration is CH1 in WSLink
-#
-# In the following there are sensors that should be available by WSLink.
-# We need to compare them to PWS API to make sure, we have the same internal
-# representation of same sensors.
-
 ### WSLink API v0.6 coverage
 #
 # Every upload parameter the API document defines is now handled: base console,
