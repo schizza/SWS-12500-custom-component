@@ -42,6 +42,7 @@ historical data.
 >
 > Removing the *repository* in HACS is safe and is exactly what the migration expects.
 > The config entry stays where it is, showing up as `Integration not found`, which looks broken but is the state the new integration needs in order to take your entities over with their history intact.
+> Do it before you install the new integration: as long as the old version is still on disk it holds the webhook routes, and the new one refuses to start with `Webhook routes are already registered by another instance of this integration`.
 >
 > Both actions are called "remove" in the UI and look interchangeable, so this is worth saying out loud.
 > The full step-by-step procedure, with the new repository's name and URL, will be published together with the new integration.
